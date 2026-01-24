@@ -1,8 +1,7 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { signIn, getCsrfToken } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,38 +9,33 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-function LoginForm() {
-  const searchParams = useSearchParams();
-  const error = searchParams.get("error");
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState(error ? "Invalid email or password" : "");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [csrfToken, setCsrfToken] = useState("");
-
-  useEffect(() => {
-    getCsrfToken().then((token) => {
-      if (token) setCsrfToken(token);
-    });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError("");
+    setError("");
     setIsLoading(true);
 
     try {
-      // Use signIn with redirect: true to let NextAuth handle the redirect
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
-        callbackUrl,
+        callbackUrl: "/",
         redirect: true,
       });
+
+      // If we get here with redirect: true, it means there was an error
+      if (result?.error) {
+        setError("Invalid email or password");
+        setIsLoading(false);
+      }
     } catch (err) {
       console.error("Login error:", err);
-      setLoginError("An error occurred. Please try again.");
+      setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
@@ -58,11 +52,10 @@ function LoginForm() {
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <input type="hidden" name="csrfToken" value={csrfToken} />
         <CardContent className="space-y-4">
-          {loginError && (
+          {error && (
             <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-400">
-              {loginError}
+              {error}
             </div>
           )}
           <div className="space-y-2">
@@ -76,6 +69,7 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              autoComplete="email"
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
@@ -90,6 +84,7 @@ function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              autoComplete="current-password"
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
@@ -125,19 +120,5 @@ function LoginForm() {
         </CardFooter>
       </form>
     </Card>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={
-      <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-        </CardContent>
-      </Card>
-    }>
-      <LoginForm />
-    </Suspense>
   );
 }
