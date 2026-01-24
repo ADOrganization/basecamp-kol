@@ -108,7 +108,7 @@ export function TwitterIntegrationCard() {
           Twitter / X API
         </CardTitle>
         <CardDescription>
-          Configure your RapidAPI key for tweet scraping
+          Configure your API key for tweet scraping
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -134,15 +134,15 @@ export function TwitterIntegrationCard() {
 
         {/* API Key Input */}
         <div className="space-y-2">
-          <Label htmlFor="rapidapi-key">
-            {hasExistingKey ? "Update RapidAPI Key" : "RapidAPI Key"}
+          <Label htmlFor="twitter-api-key">
+            {hasExistingKey ? "Update API Key" : "API Key"}
           </Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
-                id="rapidapi-key"
+                id="twitter-api-key"
                 type={showKey ? "text" : "password"}
-                placeholder="Enter your RapidAPI key..."
+                placeholder="Enter your Twitter API key..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="pr-10 font-mono"
@@ -167,16 +167,7 @@ export function TwitterIntegrationCard() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Get your API key from{" "}
-            <a
-              href="https://rapidapi.com/davethebeast/api/twitter154"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              rapidapi.com/twitter154
-            </a>
-            {" "}(recommended) or similar Twitter API providers.
+            Supports twexapi.io, twitterapi.io, and RapidAPI keys.
           </p>
         </div>
 
