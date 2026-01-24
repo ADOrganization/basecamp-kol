@@ -156,7 +156,6 @@ interface APIEndpoint {
 
 const API_ENDPOINTS: APIEndpoint[] = [
   // twexapi.io - Primary (user's API) - uses Bearer token auth
-  // Try advanced_search to find user's tweets
   {
     name: 'twexapi-search',
     method: 'POST',
@@ -166,9 +165,8 @@ const API_ENDPOINTS: APIEndpoint[] = [
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     }),
-    getBody: (handle: string, count: number) => JSON.stringify({
-      query: `from:${handle}`,
-      count: count,
+    getBody: (handle: string) => JSON.stringify({
+      searchTerms: [`from:${handle}`],
     }),
     parser: 'twexapi',
   },
@@ -304,42 +302,45 @@ function parseAPIResponse(data: unknown, handle: string, source: string): Scrape
   const tweets: ScrapedTweet[] = [];
 
   try {
-    // Handle twexapi.io / twitterapi.io format
+    // Handle twexapi.io format (advanced_search response)
     if (source === 'twexapi') {
       const dataObj = data as Record<string, unknown>;
-      const tweetArray = dataObj?.tweets || dataObj?.data || dataObj?.results || [];
+      // Response format: { code: 200, msg: "success", data: [...tweets] }
+      const tweetArray = dataObj?.data || dataObj?.tweets || dataObj?.results || [];
 
       if (!Array.isArray(tweetArray)) {
-        console.log('[Parser] twexapi: tweets is not an array:', typeof tweetArray);
+        console.log('[Parser] twexapi: data is not an array:', typeof tweetArray);
         return tweets;
       }
 
       for (const item of tweetArray as Array<Record<string, unknown>>) {
         try {
-          const tweetId = String(item.id || item.tweet_id || item.tweetId || '');
+          // twexapi uses tweet_id, not id
+          const tweetId = String(item.tweet_id || item.id || '');
           if (!tweetId || tweetId === 'undefined') continue;
 
-          const author = item.author as Record<string, unknown> || {};
-          const authorHandle = String(author.userName || author.username || author.screen_name || item.authorHandle || handle);
-          const authorName = String(author.name || author.displayName || item.authorName || authorHandle);
+          // User info is nested in user object
+          const user = item.user as Record<string, unknown> || {};
+          const authorHandle = String(user.screen_name || item.in_reply_to_screen_name || handle);
+          const authorName = String(user.name || authorHandle);
 
           tweets.push({
             id: tweetId,
-            url: String(item.url || `https://x.com/${authorHandle}/status/${tweetId}`),
-            content: String(item.text || item.full_text || item.content || ''),
+            url: `https://x.com/${authorHandle}/status/${tweetId}`,
+            content: String(item.full_text || item.text || ''),
             authorHandle,
             authorName,
-            postedAt: new Date(String(item.createdAt || item.created_at || item.timestamp || Date.now())),
+            postedAt: new Date(String(item.created_at_datetime || item.created_at || Date.now())),
             metrics: {
-              likes: Number(item.likeCount || item.likes || item.favorite_count || 0),
-              retweets: Number(item.retweetCount || item.retweets || item.retweet_count || 0),
-              replies: Number(item.replyCount || item.replies || item.reply_count || 0),
-              quotes: Number(item.quoteCount || item.quotes || item.quote_count || 0),
-              views: Number(item.viewCount || item.views || item.view_count || item.impressions || 0),
+              likes: Number(item.favorite_count || 0),
+              retweets: Number(item.retweet_count || 0),
+              replies: Number(item.reply_count || 0),
+              quotes: Number(item.quote_count || 0),
+              views: Number(item.view_count || item.views || 0),
             },
             mediaUrls: [],
-            isRetweet: String(item.text || '').startsWith('RT @') || !!item.isRetweet,
-            isQuote: !!item.isQuote || !!item.quotedTweet,
+            isRetweet: !!item.retweeted_tweet || String(item.full_text || item.text || '').startsWith('RT @'),
+            isQuote: !!item.is_quote_status || !!item.quote,
           });
         } catch (e) {
           console.log('[Parser] twexapi: Error parsing tweet:', e);
