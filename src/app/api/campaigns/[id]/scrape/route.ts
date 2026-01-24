@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scrapeTweets, scrapeMultipleKOLs, scrapeSingleTweet, setTwitterAuth, clearTwitterAuth, setTwitterApiKey, clearTwitterApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
+import { scrapeMultipleKOLs, scrapeSingleTweet, setTwitterAuth, clearTwitterAuth, setTwitterApiKey, clearTwitterApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -90,8 +90,8 @@ export async function POST(
         })
     );
 
-    let scrapedTweets: ScrapedTweet[] = [];
-    let scrapeResults: { kol: string; success: boolean; count: number; error?: string }[] = [];
+    const scrapedTweets: ScrapedTweet[] = [];
+    const scrapeResults: { kol: string; success: boolean; count: number; error?: string }[] = [];
 
     if (mode === "single" && tweetUrls && tweetUrls.length > 0) {
       // Scrape specific tweet URLs

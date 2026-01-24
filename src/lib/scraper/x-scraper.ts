@@ -24,7 +24,8 @@ let twitterApiKey: string | null = null;
 
 // Cookie storage (fallback)
 let twitterCookies: string | null = null;
-let twitterAuthToken: string | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let _twitterAuthToken: string | null = null; // Reserved for future auth token usage
 let twitterCsrfToken: string | null = null;
 
 export function setTwitterApiKey(apiKey: string | null) {
@@ -47,13 +48,13 @@ export function getDefaultApiKey(): string {
 
 export function setTwitterAuth(cookies: string, authToken?: string, csrfToken?: string) {
   twitterCookies = cookies;
-  twitterAuthToken = authToken || null;
+  _twitterAuthToken = authToken || null;
   twitterCsrfToken = csrfToken || null;
 }
 
 export function clearTwitterAuth() {
   twitterCookies = null;
-  twitterAuthToken = null;
+  _twitterAuthToken = null;
   twitterCsrfToken = null;
 }
 
@@ -606,7 +607,8 @@ async function scrapeFromNitter(options: ScrapeOptions): Promise<ScrapeResult> {
 }
 
 // Parse Nitter HTML response - updated for various Nitter versions
-function parseNitterHTML(html: string, handle: string, instance: string): ScrapedTweet[] {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function parseNitterHTML(html: string, handle: string, _instance: string): ScrapedTweet[] {
   const tweets: ScrapedTweet[] = [];
 
   // Try multiple patterns for different Nitter versions

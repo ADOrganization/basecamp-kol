@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, User, Users, Bell, Shield, FileText } from "lucide-react";
+import { ProfileForm } from "@/components/settings/profile-form";
+import { PasswordForm } from "@/components/settings/password-form";
+import { OrganizationForm } from "@/components/settings/organization-form";
 
 export default async function ClientSettingsPage() {
   const session = await auth();
@@ -67,130 +68,13 @@ export default async function ClientSettingsPage() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal details and contact information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20">
-                  <AvatarFallback className="bg-teal-100 text-teal-600 text-2xl">
-                    {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <Button variant="outline" size="sm">Change Photo</Button>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    JPG, PNG or GIF. Max 2MB.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue={user.name || ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue={user.email} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" placeholder="+1 (555) 000-0000" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input id="role" placeholder="Marketing Manager" />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button className="bg-teal-600 hover:bg-teal-700">Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Password</CardTitle>
-              <CardDescription>
-                Change your password to keep your account secure
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
-                </div>
-                <div></div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline">Update Password</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ProfileForm user={user} variant="client" />
+          <PasswordForm />
         </TabsContent>
 
         {/* Organization Tab */}
         <TabsContent value="organization" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization Details</CardTitle>
-              <CardDescription>
-                View your organization&apos;s information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <div className="h-20 w-20 rounded-xl bg-teal-100 flex items-center justify-center">
-                  <Building2 className="h-10 w-10 text-teal-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">{organization.name}</h3>
-                  <p className="text-sm text-muted-foreground">Client Organization</p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="org-name">Organization Name</Label>
-                  <Input id="org-name" defaultValue={organization.name} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="org-slug">Identifier</Label>
-                  <Input id="org-slug" defaultValue={organization.slug} disabled />
-                  <p className="text-xs text-muted-foreground">
-                    Used internally for identification
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input id="website" placeholder="https://yourcompany.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="industry">Industry</Label>
-                  <Input id="industry" placeholder="Cryptocurrency, DeFi, etc." />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button className="bg-teal-600 hover:bg-teal-700">Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <OrganizationForm organization={organization} variant="client" />
 
           <Card>
             <CardHeader>

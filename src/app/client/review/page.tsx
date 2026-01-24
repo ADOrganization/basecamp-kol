@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -105,7 +105,6 @@ export default function ClientReviewPage() {
   };
 
   const pendingPosts = posts.filter(p => p.status === "PENDING_APPROVAL");
-  const reviewedPosts = posts.filter(p => p.status !== "PENDING_APPROVAL");
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -115,8 +114,8 @@ export default function ClientReviewPage() {
         return <Badge className="bg-teal-100 text-teal-700"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
       case "REJECTED":
         return <Badge className="bg-rose-100 text-rose-700"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
-      case "PUBLISHED":
-        return <Badge className="bg-blue-100 text-blue-700"><ExternalLink className="h-3 w-3 mr-1" />Published</Badge>;
+      case "POSTED":
+        return <Badge className="bg-blue-100 text-blue-700"><ExternalLink className="h-3 w-3 mr-1" />Posted</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -159,7 +158,7 @@ export default function ClientReviewPage() {
           )}
         </div>
 
-        {post.status === "PUBLISHED" && (
+        {post.status === "POSTED" && (
           <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 rounded-lg mb-4">
             <div className="text-center">
               <Eye className="h-4 w-4 mx-auto text-slate-500 mb-1" />
@@ -256,7 +255,7 @@ export default function ClientReviewPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {posts.filter(p => p.status === "APPROVED" || p.status === "PUBLISHED").length}
+                  {posts.filter(p => p.status === "APPROVED" || p.status === "POSTED").length}
                 </p>
                 <p className="text-sm text-muted-foreground">Approved</p>
               </div>

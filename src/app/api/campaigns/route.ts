@@ -34,7 +34,16 @@ export async function GET(request: NextRequest) {
           },
         },
         posts: {
-          select: { id: true, status: true },
+          select: {
+            id: true,
+            status: true,
+            kolId: true,
+            impressions: true,
+            likes: true,
+            retweets: true,
+            replies: true,
+            postedAt: true,
+          },
         },
         _count: {
           select: {

@@ -36,8 +36,6 @@ import {
   RefreshCw,
   Settings,
   ChevronDown,
-  Cookie,
-  Filter,
   X,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";

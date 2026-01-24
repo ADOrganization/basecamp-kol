@@ -101,8 +101,6 @@ interface CampaignDetails {
   }[];
 }
 
-const COLORS = ["#0d9488", "#6366f1", "#f59e0b", "#ef4444"];
-
 export default function ClientCampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -110,24 +108,24 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchCampaign();
-  }, [id]);
-
-  const fetchCampaign = async () => {
-    try {
-      const response = await fetch(`/api/campaigns/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setCampaign(data);
-      } else if (response.status === 404) {
-        router.push("/client/campaigns");
+    const fetchCampaign = async () => {
+      try {
+        const response = await fetch(`/api/campaigns/${id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCampaign(data);
+        } else if (response.status === 404) {
+          router.push("/client/campaigns");
+        }
+      } catch (error) {
+        console.error("Failed to fetch campaign:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch campaign:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+
+    fetchCampaign();
+  }, [id, router]);
 
   // Calculate time-series data from actual posts
   const engagementTrend = useMemo(() => {
@@ -209,7 +207,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
 
   // Calculate deliverable progress for each KOL
   const getKolDeliverables = (kolId: string, ck: CampaignDetails["campaignKols"][0]) => {
-    const kolPosts = campaign.posts.filter(p => p.kol.id === kolId && ["POSTED", "VERIFIED"].includes(p.status));
+    const kolPosts = campaign.posts.filter(p => p.kol?.id === kolId && ["POSTED", "VERIFIED"].includes(p.status));
     const counts = {
       POST: kolPosts.filter(p => p.type === "POST").length,
       THREAD: kolPosts.filter(p => p.type === "THREAD").length,
@@ -560,7 +558,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
               </Card>
             ) : (
               campaign.campaignKols.map((ck) => {
-                const kolPosts = campaign.posts.filter(p => p.kol.id === ck.kol.id);
+                const kolPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id);
                 const kolImpressions = kolPosts.reduce((sum, p) => sum + p.impressions, 0);
                 const kolEngagement = kolPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0);
                 const kolKeywordMatches = kolPosts.filter(p => p.hasKeywordMatch).length;
@@ -573,7 +571,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                         <div className="flex items-center gap-4">
                           <Avatar className="h-14 w-14">
                             <AvatarFallback className="bg-teal-100 text-teal-700 text-lg">
-                              {ck.kol.name.charAt(0)}
+                              {ck.kol.name?.charAt(0) || "K"}
                             </AvatarFallback>
                           </Avatar>
                           <div>
@@ -684,12 +682,12 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
                                 <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
-                                  {post.kol.name.charAt(0)}
+                                  {post.kol?.name?.charAt(0) || "K"}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <p className="font-medium text-sm">{post.kol.name}</p>
-                                <p className="text-xs text-muted-foreground">@{post.kol.twitterHandle}</p>
+                                <p className="font-medium text-sm">{post.kol?.name || "Unknown"}</p>
+                                <p className="text-xs text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</p>
                               </div>
                             </div>
                           </td>

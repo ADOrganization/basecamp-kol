@@ -87,24 +87,35 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
     notes: kol?.notes || "",
   });
 
+  // Reset selected tags when dialog opens with new KOL data
   useEffect(() => {
     if (open) {
-      fetchTags();
-      setSelectedTags(kol?.tags || []);
+      const tagsToSet = kol?.tags || [];
+      // Use requestAnimationFrame to defer setState
+      requestAnimationFrame(() => {
+        setSelectedTags(tagsToSet);
+      });
     }
   }, [open, kol?.tags]);
 
-  const fetchTags = async () => {
-    try {
-      const response = await fetch("/api/tags");
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableTags(data);
+  // Load available tags when dialog opens
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const response = await fetch("/api/tags");
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableTags(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch tags:", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch tags:", error);
+    };
+
+    if (open) {
+      loadTags();
     }
-  };
+  }, [open]);
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;

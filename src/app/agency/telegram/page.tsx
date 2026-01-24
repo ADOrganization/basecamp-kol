@@ -2,11 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { MessageSquare, Send, Search, Circle } from "lucide-react";
+import { TelegramConversations } from "@/components/agency/telegram-conversations";
 
 export default async function TelegramPage() {
   const session = await auth();
@@ -24,7 +20,7 @@ export default async function TelegramPage() {
     include: {
       messages: {
         orderBy: { timestamp: "desc" },
-        take: 1,
+        take: 50,
       },
     },
     orderBy: { name: "asc" },
@@ -46,6 +42,20 @@ export default async function TelegramPage() {
 
   const unreadCount = messages.filter((m) => !m.isRead && m.direction === "INBOUND").length;
 
+  // Transform kols to serializable format
+  const serializedKols = kols.map(kol => ({
+    id: kol.id,
+    name: kol.name,
+    telegramUsername: kol.telegramUsername,
+    messages: kol.messages.map(m => ({
+      id: m.id,
+      content: m.content,
+      direction: m.direction,
+      isRead: m.isRead,
+      timestamp: m.timestamp,
+    })),
+  }));
+
   return (
     <div className="space-y-8">
       <div>
@@ -55,95 +65,7 @@ export default async function TelegramPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Conversations List */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Conversations</CardTitle>
-              {unreadCount > 0 && (
-                <Badge variant="default">{unreadCount} unread</Badge>
-              )}
-            </div>
-            <div className="relative mt-2">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search conversations..." className="pl-9" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {kols.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 px-4">
-                <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-sm text-muted-foreground text-center">
-                  No KOLs with Telegram connected yet
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {kols.map((kol) => {
-                  const lastMessage = kol.messages[0];
-                  const hasUnread = lastMessage && !lastMessage.isRead && lastMessage.direction === "INBOUND";
-
-                  return (
-                    <button
-                      key={kol.id}
-                      className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left"
-                    >
-                      <div className="relative">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-indigo-100 text-indigo-600">
-                            {kol.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        {hasUnread && (
-                          <Circle className="absolute -top-0.5 -right-0.5 h-3 w-3 fill-indigo-500 text-indigo-500" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={`font-medium truncate ${hasUnread ? "text-foreground" : ""}`}>
-                            {kol.name}
-                          </p>
-                          {lastMessage && (
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(lastMessage.timestamp).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          @{kol.telegramUsername}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Message Area */}
-        <Card className="lg:col-span-2">
-          <CardContent className="flex flex-col items-center justify-center h-[600px]">
-            <div className="text-center space-y-4">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                <MessageSquare className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium">Select a conversation</h3>
-                <p className="text-muted-foreground mt-1">
-                  Choose a KOL from the list to view messages
-                </p>
-              </div>
-              <div className="pt-4">
-                <p className="text-sm text-muted-foreground">
-                  To connect Telegram, add your Telegram Bot token in Settings
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <TelegramConversations kols={serializedKols} unreadCount={unreadCount} />
 
       {/* Setup Instructions */}
       <Card>

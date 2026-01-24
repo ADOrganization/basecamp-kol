@@ -69,10 +69,12 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
   const [currentStatus, setCurrentStatus] = useState(post.status);
+  const [error, setError] = useState<string | null>(null);
 
   const handleApprove = async () => {
     setIsLoading(true);
     setActionType("approve");
+    setError(null);
     try {
       const response = await fetch(`/api/posts/${post.id}`, {
         method: "PUT",
@@ -82,9 +84,13 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
       if (response.ok) {
         setCurrentStatus("APPROVED");
         onStatusChange?.(post.id, "APPROVED");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Failed to approve post");
       }
-    } catch (error) {
-      console.error("Failed to approve post:", error);
+    } catch (err) {
+      console.error("Failed to approve post:", err);
+      setError("Failed to approve post. Please try again.");
     } finally {
       setIsLoading(false);
       setActionType(null);
@@ -94,6 +100,7 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
   const handleReject = async () => {
     setIsLoading(true);
     setActionType("reject");
+    setError(null);
     try {
       const response = await fetch(`/api/posts/${post.id}`, {
         method: "PUT",
@@ -108,9 +115,13 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
         setShowRejectDialog(false);
         setRejectNotes("");
         onStatusChange?.(post.id, "REJECTED");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Failed to reject post");
       }
-    } catch (error) {
-      console.error("Failed to reject post:", error);
+    } catch (err) {
+      console.error("Failed to reject post:", err);
+      setError("Failed to reject post. Please try again.");
     } finally {
       setIsLoading(false);
       setActionType(null);
@@ -119,6 +130,7 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
 
   const handleMarkPosted = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await fetch(`/api/posts/${post.id}`, {
         method: "PUT",
@@ -131,9 +143,13 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
       if (response.ok) {
         setCurrentStatus("POSTED");
         onStatusChange?.(post.id, "POSTED");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Failed to mark as posted");
       }
-    } catch (error) {
-      console.error("Failed to mark as posted:", error);
+    } catch (err) {
+      console.error("Failed to mark as posted:", err);
+      setError("Failed to mark as posted. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -141,7 +157,6 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
 
   const isPending = currentStatus === "PENDING_APPROVAL";
   const isApproved = currentStatus === "APPROVED";
-  const isRejected = currentStatus === "REJECTED";
 
   return (
     <>
@@ -178,20 +193,25 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                   <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Eye className="h-4 w-4" />
-                      {post.impressions.toLocaleString()}
+                      {(post.impressions ?? 0).toLocaleString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Heart className="h-4 w-4" />
-                      {post.likes.toLocaleString()}
+                      {(post.likes ?? 0).toLocaleString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Repeat2 className="h-4 w-4" />
-                      {post.retweets.toLocaleString()}
+                      {(post.retweets ?? 0).toLocaleString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <MessageSquare className="h-4 w-4" />
-                      {post.replies.toLocaleString()}
+                      {(post.replies ?? 0).toLocaleString()}
                     </span>
+                  </div>
+                )}
+                {error && (
+                  <div className="mt-2 p-2 rounded bg-red-50 text-red-600 text-sm">
+                    {error}
                   </div>
                 )}
               </div>

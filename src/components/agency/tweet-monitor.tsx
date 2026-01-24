@@ -186,7 +186,6 @@ export function TweetMonitor({
 
       // Merge with existing, keeping new ones at top
       setMonitoredTweets(prev => {
-        const existingIds = new Set(prev.map(t => t.id));
         const merged = [
           ...newTweets,
           ...prev.map(t => ({ ...t, isNew: false })),

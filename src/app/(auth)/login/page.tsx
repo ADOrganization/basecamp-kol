@@ -19,8 +19,13 @@ export default function LoginPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("error")) {
-        setError("Invalid email or password");
+      const errorParam = params.get("error");
+      if (errorParam) {
+        // Use setTimeout to avoid synchronous setState in effect
+        const timer = setTimeout(() => {
+          setError("Invalid email or password");
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, []);

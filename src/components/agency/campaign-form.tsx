@@ -335,14 +335,14 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
               <div className="space-y-2">
                 <Label htmlFor="client">Client</Label>
                 <Select
-                  value={formData.clientId}
-                  onValueChange={(value) => setFormData({ ...formData, clientId: value })}
+                  value={formData.clientId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, clientId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger id="client">
                     <SelectValue placeholder="Select client (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No client</SelectItem>
+                    <SelectItem value="none">No client</SelectItem>
                     {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name}

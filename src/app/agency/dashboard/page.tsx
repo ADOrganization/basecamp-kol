@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { Users, Megaphone, TrendingUp, Eye, Heart, MessageSquare, Repeat2, ArrowUpRight, ArrowDownRight, Sparkles } from "lucide-react";
+import { Users, Megaphone, TrendingUp, Eye, Heart, MessageSquare, Repeat2, ArrowUpRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DashboardCharts } from "./dashboard-charts";
 

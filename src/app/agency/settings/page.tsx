@@ -8,7 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Key, Users, Bell, Shield, Twitter, MessageSquare } from "lucide-react";
+import { Building2, User, Key, Users, Bell, Twitter, MessageSquare } from "lucide-react";
+import { ProfileForm } from "@/components/settings/profile-form";
+import { PasswordForm } from "@/components/settings/password-form";
+import { OrganizationForm } from "@/components/settings/organization-form";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -67,124 +70,13 @@ export default async function SettingsPage() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal details and contact information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20">
-                  <AvatarFallback className="bg-indigo-100 text-indigo-600 text-2xl">
-                    {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <Button variant="outline" size="sm">Change Photo</Button>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    JPG, PNG or GIF. Max 2MB.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue={user.name || ""} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue={user.email} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="twitter">Twitter Username</Label>
-                  <Input id="twitter" defaultValue={user.twitterUsername || ""} placeholder="@username" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telegram">Telegram Username</Label>
-                  <Input id="telegram" defaultValue={user.telegramUsername || ""} placeholder="@username" />
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button>Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Password</CardTitle>
-              <CardDescription>
-                Change your password to keep your account secure
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
-                </div>
-                <div></div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline">Update Password</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ProfileForm user={user} variant="agency" />
+          <PasswordForm />
         </TabsContent>
 
         {/* Organization Tab */}
         <TabsContent value="organization" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization Details</CardTitle>
-              <CardDescription>
-                Manage your agency&apos;s information
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <div className="h-20 w-20 rounded-xl bg-indigo-100 flex items-center justify-center">
-                  <Building2 className="h-10 w-10 text-indigo-600" />
-                </div>
-                <div>
-                  <Button variant="outline" size="sm">Upload Logo</Button>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Recommended: 256x256px
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="org-name">Organization Name</Label>
-                  <Input id="org-name" defaultValue={organization.name} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="org-slug">Slug</Label>
-                  <Input id="org-slug" defaultValue={organization.slug} disabled />
-                  <p className="text-xs text-muted-foreground">
-                    Used in URLs and cannot be changed
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button>Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <OrganizationForm organization={organization} variant="agency" />
         </TabsContent>
 
         {/* Team Tab */}

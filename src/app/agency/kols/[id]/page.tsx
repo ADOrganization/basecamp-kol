@@ -82,10 +82,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
-  useEffect(() => {
-    fetchKol();
-  }, [id]);
-
   const fetchKol = async () => {
     try {
       const response = await fetch(`/api/kols/${id}`);
@@ -101,6 +97,11 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchKol();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   if (isLoading) {
     return (

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import {
   Eye,
   ThumbsUp,
@@ -12,9 +10,8 @@ import {
   TrendingUp,
   Users,
   FileText,
-  BarChart3
 } from "lucide-react";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import {
   AreaChart,
   Area,
@@ -42,6 +39,7 @@ interface Campaign {
   posts: {
     id: string;
     status: string;
+    kolId: string;
     impressions: number;
     likes: number;
     retweets: number;
@@ -49,8 +47,6 @@ interface Campaign {
     postedAt: string | null;
   }[];
 }
-
-const COLORS = ["#0d9488", "#6366f1", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export default function ClientAnalyticsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -135,7 +131,7 @@ export default function ClientAnalyticsPage() {
 
   // Post status distribution
   const statusData = [
-    { name: "Published", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "PUBLISHED").length, color: "#0d9488" },
+    { name: "Posted", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "POSTED").length, color: "#0d9488" },
     { name: "Approved", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "APPROVED").length, color: "#6366f1" },
     { name: "Pending", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "PENDING_APPROVAL").length, color: "#f59e0b" },
     { name: "Rejected", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "REJECTED").length, color: "#ef4444" },
@@ -144,13 +140,11 @@ export default function ClientAnalyticsPage() {
   // Top performing KOLs
   const kolPerformance = filteredCampaigns.flatMap(c =>
     (c.campaignKols || []).filter(ck => ck.kol).map(ck => {
-      const kolPosts = (c.posts || []).filter(p =>
-        (c.campaignKols || []).some(k => k.kol?.id === ck.kol.id)
-      );
+      const kolPosts = (c.posts || []).filter(post => post.kolId === ck.kol.id);
       return {
         ...ck.kol,
-        impressions: kolPosts.reduce((sum, p) => sum + (p.impressions || 0), 0),
-        engagement: kolPosts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0), 0),
+        impressions: kolPosts.reduce((sum, post) => sum + (post.impressions || 0), 0),
+        engagement: kolPosts.reduce((sum, post) => sum + (post.likes || 0) + (post.retweets || 0) + (post.replies || 0), 0),
       };
     })
   ).sort((a, b) => b.engagement - a.engagement).slice(0, 5);

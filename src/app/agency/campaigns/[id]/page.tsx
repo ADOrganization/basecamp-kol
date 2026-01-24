@@ -24,9 +24,7 @@ import {
   Trash2,
   ExternalLink,
   Hash,
-  Filter,
   X,
-  Bell,
 } from "lucide-react";
 import {
   Dialog,
@@ -154,10 +152,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     if (savedCsrf) setTwitterCsrfToken(savedCsrf);
   }, []);
 
-  useEffect(() => {
-    fetchCampaign();
-  }, [id]);
-
   const fetchCampaign = async () => {
     try {
       const response = await fetch(`/api/campaigns/${id}`);
@@ -173,6 +167,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCampaign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const fetchAvailableKols = async () => {
     try {
