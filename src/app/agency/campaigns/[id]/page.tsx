@@ -300,11 +300,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 </span>
               )}
             </div>
-            {campaign.keywords.length > 0 && (
+            {(campaign.keywords || []).length > 0 && (
               <div className="flex items-center gap-2 mt-2">
                 <Hash className="h-4 w-4 text-muted-foreground" />
                 <div className="flex flex-wrap gap-1">
-                  {campaign.keywords.map((kw) => (
+                  {(campaign.keywords || []).map((kw) => (
                     <Badge key={kw} variant="outline" className="text-xs">
                       {kw}
                     </Badge>
@@ -342,7 +342,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         <div className="rounded-lg border bg-card p-4">
           <p className="text-sm text-muted-foreground">Total Posts</p>
           <p className="text-2xl font-bold">{campaign.posts.length}</p>
-          {campaign.keywords.length > 0 && (
+          {(campaign.keywords || []).length > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
               {campaign.posts.filter(p => p.hasKeywordMatch).length} with keywords
             </p>
@@ -355,7 +355,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Keyword Monitor */}
-      {campaign.keywords.length > 0 && (
+      {(campaign.keywords || []).length > 0 && (
         <TweetMonitor
           campaignId={id}
           campaignName={campaign.name}
@@ -364,7 +364,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             name: ck.kol.name,
             handle: ck.kol.twitterHandle,
           }))}
-          keywords={campaign.keywords}
+          keywords={campaign.keywords || []}
           twitterApiKey={twitterApiKey}
           twitterCookies={twitterCookies}
           twitterCsrfToken={twitterCsrfToken}
@@ -497,7 +497,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
               {/* Filters */}
               <div className="flex items-center gap-2">
-                {campaign.keywords.length > 0 && (
+                {(campaign.keywords || []).length > 0 && (
                   <Button
                     variant={showKeywordMatchesOnly ? "default" : "outline"}
                     size="sm"
@@ -558,7 +558,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <th className="text-left p-4 font-medium text-muted-foreground">KOL</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                    {campaign.keywords.length > 0 && (
+                    {(campaign.keywords || []).length > 0 && (
                       <th className="text-left p-4 font-medium text-muted-foreground">Keywords</th>
                     )}
                     <th className="text-right p-4 font-medium text-muted-foreground">Impressions</th>
@@ -579,7 +579,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           {(post.status || "POSTED").replace("_", " ")}
                         </Badge>
                       </td>
-                      {campaign.keywords.length > 0 && (
+                      {(campaign.keywords || []).length > 0 && (
                         <td className="p-4">
                           {post.matchedKeywords && post.matchedKeywords.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
@@ -635,7 +635,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   <span className="text-muted-foreground">Posts</span>
                   <span className="font-medium">{campaign.posts.length}</span>
                 </div>
-                {campaign.keywords.length > 0 && (
+                {(campaign.keywords || []).length > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Posts with Keywords</span>
                     <span className="font-medium">{campaign.posts.filter(p => p.hasKeywordMatch).length}</span>
@@ -783,7 +783,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       {/* Add Post Dialog */}
       <PostForm
         campaignId={id}
-        campaignKeywords={campaign.keywords}
+        campaignKeywords={campaign.keywords || []}
         kols={campaign.campaignKols.map((ck) => ({
           id: ck.kol.id,
           name: ck.kol.name,
@@ -804,7 +804,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           name: ck.kol.name,
           handle: ck.kol.twitterHandle,
         }))}
-        keywords={campaign.keywords}
+        keywords={campaign.keywords || []}
         open={showScraper}
         onClose={() => setShowScraper(false)}
         onImportComplete={() => {
