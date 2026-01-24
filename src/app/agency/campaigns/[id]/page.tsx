@@ -132,7 +132,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   // Filtering state
   const [showKeywordMatchesOnly, setShowKeywordMatchesOnly] = useState(false);
-  const [filterByKol, setFilterByKol] = useState("");
+  const [filterByKol, setFilterByKol] = useState("all");
 
   // Scraper state
   const [showScraper, setShowScraper] = useState(false);
@@ -272,7 +272,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   // Filter posts
   const filteredPosts = campaign.posts.filter((post) => {
     if (showKeywordMatchesOnly && !post.hasKeywordMatch) return false;
-    if (filterByKol && post.kol?.id !== filterByKol) return false;
+    if (filterByKol && filterByKol !== "all" && post.kol?.id !== filterByKol) return false;
     return true;
   });
 
@@ -512,7 +512,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <SelectValue placeholder="All KOLs" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All KOLs</SelectItem>
+                      <SelectItem value="all">All KOLs</SelectItem>
                       {campaign.campaignKols.map((ck) => (
                         <SelectItem key={ck.kol.id} value={ck.kol.id}>
                           @{ck.kol.twitterHandle}
@@ -521,13 +521,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     </SelectContent>
                   </Select>
                 )}
-                {(showKeywordMatchesOnly || filterByKol) && (
+                {(showKeywordMatchesOnly || filterByKol !== "all") && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => {
                       setShowKeywordMatchesOnly(false);
-                      setFilterByKol("");
+                      setFilterByKol("all");
                     }}
                   >
                     <X className="h-4 w-4 mr-1" />
