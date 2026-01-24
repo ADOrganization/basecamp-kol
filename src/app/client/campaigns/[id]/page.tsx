@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   formatNumber,
-  formatCurrency,
   getStatusColor,
   getTierColor,
 } from "@/lib/utils";
@@ -437,30 +436,6 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
             </Card>
           )}
 
-          {/* Budget Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Budget Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Campaign Budget</p>
-                  <p className="text-3xl font-bold">{formatCurrency(campaign.totalBudget)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Spent</p>
-                  <p className="text-2xl font-semibold">{formatCurrency(campaign.spentBudget)}</p>
-                </div>
-              </div>
-              <div className="mt-4 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-teal-500 rounded-full"
-                  style={{ width: `${campaign.totalBudget > 0 ? (campaign.spentBudget / campaign.totalBudget) * 100 : 0}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="kols" className="mt-6">

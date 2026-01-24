@@ -542,37 +542,6 @@ async function main() {
     });
   }
 
-  // Create payments
-  const paymentsData = [
-    { kolIndex: 0, campaignId: "campaign-token-launch", amount: 500000, status: "COMPLETED" as const, method: "CRYPTO" as const, daysAgo: 5 },
-    { kolIndex: 1, campaignId: "campaign-token-launch", amount: 250000, status: "COMPLETED" as const, method: "CRYPTO" as const, daysAgo: 3 },
-    { kolIndex: 2, campaignId: "campaign-token-launch", amount: 120000, status: "PENDING" as const, method: "CRYPTO" as const, daysAgo: 1 },
-    { kolIndex: 5, campaignId: "campaign-token-launch", amount: 180000, status: "PROCESSING" as const, method: "BANK_TRANSFER" as const, daysAgo: 2 },
-    { kolIndex: 0, campaignId: "campaign-defi-protocol", amount: 500000, status: "COMPLETED" as const, method: "CRYPTO" as const, daysAgo: 20 },
-    { kolIndex: 1, campaignId: "campaign-defi-protocol", amount: 250000, status: "COMPLETED" as const, method: "CRYPTO" as const, daysAgo: 18 },
-    { kolIndex: 7, campaignId: "campaign-defi-protocol", amount: 220000, status: "COMPLETED" as const, method: "PAYPAL" as const, daysAgo: 16 },
-    { kolIndex: 2, campaignId: "campaign-nft-collection", amount: 60000, status: "PENDING" as const, method: "CRYPTO" as const, daysAgo: 0 },
-  ];
-
-  for (const payment of paymentsData) {
-    const kol = createdKols[payment.kolIndex];
-    if (!kol) continue;
-
-    await prisma.payment.create({
-      data: {
-        kolId: kol.id,
-        campaignId: payment.campaignId,
-        amount: payment.amount,
-        status: payment.status,
-        method: payment.method,
-        walletAddress: payment.method === "CRYPTO" ? "0x742d35Cc6634C0532925a3b844Bc9e7595f12345" : null,
-        network: payment.method === "CRYPTO" ? "ETH" : null,
-        txHash: payment.status === "COMPLETED" && payment.method === "CRYPTO" ? `0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}` : null,
-        paidAt: payment.status === "COMPLETED" ? new Date(Date.now() - payment.daysAgo * 24 * 60 * 60 * 1000) : null,
-      },
-    });
-  }
-
   console.log("\n✅ Seed completed successfully!");
   console.log("\n=== Test Accounts ===");
   console.log("Agency: agency@demo.com / password123");
@@ -581,7 +550,6 @@ async function main() {
   console.log(`- ${createdKols.length} KOLs`);
   console.log(`- ${campaigns.length} Campaigns`);
   console.log(`- ${postsData.length} Posts`);
-  console.log(`- ${paymentsData.length} Payments`);
   console.log(`- ${tags.length} Tags`);
 }
 

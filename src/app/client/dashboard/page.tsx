@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { MetricCard } from "@/components/shared/metric-card";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { Megaphone, Eye, ThumbsUp, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -51,6 +52,11 @@ export default async function ClientDashboard() {
   if (!session?.user) return null;
 
   const stats = await getClientStats(session.user.organizationId);
+
+  // If client has exactly one campaign, redirect to that campaign's detail page
+  if (stats.campaigns.length === 1) {
+    redirect(`/client/campaigns/${stats.campaigns[0].id}`);
+  }
 
   return (
     <div className="space-y-8">
@@ -156,13 +162,7 @@ export default async function ClientDashboard() {
                   </div>
                 </div>
                 {/* Mini stats */}
-                <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Budget</p>
-                    <p className="font-medium">
-                      {formatCurrency(campaign.totalBudget)}
-                    </p>
-                  </div>
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
                   <div>
                     <p className="text-xs text-muted-foreground">Impressions</p>
                     <p className="font-medium">
