@@ -1,0 +1,371 @@
+// Basecamp - KOL Agency Management Platform
+// Database schema for PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ORGANIZATIONS & USERS
+// ============================================
+
+enum OrganizationType {
+  AGENCY
+  CLIENT
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Organization {
+  id        String           @id @default(cuid())
+  name      String
+  slug      String           @unique
+  type      OrganizationType
+  logoUrl   String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  members          OrganizationMember[]
+  agencyCampaigns  Campaign[]           @relation("AgencyCampaigns")
+  clientCampaigns  Campaign[]           @relation("ClientCampaigns")
+  kols             KOL[]
+
+  @@map("organizations")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String?
+  passwordHash     String
+  twitterUsername  String?
+  telegramUsername String?
+  avatarUrl        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  memberships OrganizationMember[]
+
+  @@map("users")
+}
+
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrganizationRole @default(MEMBER)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+// ============================================
+// KOL MANAGEMENT
+// ============================================
+
+enum KOLTier {
+  NANO       // < 10k followers
+  MICRO      // 10k - 100k
+  MID        // 100k - 500k
+  MACRO      // 500k - 1M
+  MEGA       // 1M+
+}
+
+enum KOLStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+  PENDING
+}
+
+model KOL {
+  id                String    @id @default(cuid())
+  organizationId    String
+  name              String
+  twitterHandle     String
+  twitterId         String?
+  telegramUsername  String?
+  email             String?
+  tier              KOLTier   @default(MICRO)
+  status            KOLStatus @default(ACTIVE)
+
+  // Rates (stored as cents/smallest unit)
+  ratePerPost       Int?
+  ratePerThread     Int?
+  ratePerRetweet    Int?
+  ratePerSpace      Int?
+
+  // Payment info
+  walletAddress     String?
+  paymentNotes      String?
+
+  // Metrics (cached from Twitter API)
+  followersCount    Int       @default(0)
+  followingCount    Int       @default(0)
+  avgEngagementRate Float     @default(0)
+  avgLikes          Int       @default(0)
+  avgRetweets       Int       @default(0)
+  avgReplies        Int       @default(0)
+  lastMetricsUpdate DateTime?
+
+  // Notes
+  notes             String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags          KOLTag[]       @relation("KOLTags")
+  campaignKols  CampaignKOL[]
+  posts         Post[]
+  payments      Payment[]
+  messages      TelegramMessage[]
+
+  @@unique([organizationId, twitterHandle])
+  @@map("kols")
+}
+
+model KOLTag {
+  id             String   @id @default(cuid())
+  name           String
+  color          String   @default("#6366f1") // indigo
+  organizationId String?
+  createdAt      DateTime @default(now())
+
+  kols KOL[] @relation("KOLTags")
+
+  @@map("kol_tags")
+}
+
+// ============================================
+// CAMPAIGNS
+// ============================================
+
+enum CampaignStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  agencyId    String
+  clientId    String?
+
+  name        String
+  description String?
+
+  // Budget (stored in cents)
+  totalBudget Int            @default(0)
+  spentBudget Int            @default(0)
+
+  status      CampaignStatus @default(DRAFT)
+
+  // Timeline
+  startDate   DateTime?
+  endDate     DateTime?
+
+  // KPIs stored as JSON
+  kpis        Json?          // { impressions: 1000000, engagement: 5 }
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  agency      Organization   @relation("AgencyCampaigns", fields: [agencyId], references: [id], onDelete: Cascade)
+  client      Organization?  @relation("ClientCampaigns", fields: [clientId], references: [id])
+  campaignKols CampaignKOL[]
+  posts       Post[]
+  payments    Payment[]
+
+  @@map("campaigns")
+}
+
+enum CampaignKOLStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  COMPLETED
+}
+
+model CampaignKOL {
+  id             String            @id @default(cuid())
+  campaignId     String
+  kolId          String
+
+  assignedBudget Int               @default(0) // cents
+  status         CampaignKOLStatus @default(PENDING)
+
+  // Deliverables stored as JSON
+  deliverables   Json?             // [{ type: "post", quantity: 2 }, { type: "thread", quantity: 1 }]
+
+  notes          String?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kol      KOL      @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, kolId])
+  @@map("campaign_kols")
+}
+
+// ============================================
+// CONTENT TRACKING
+// ============================================
+
+enum PostType {
+  POST
+  THREAD
+  RETWEET
+  QUOTE
+  SPACE
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+  VERIFIED
+}
+
+model Post {
+  id           String     @id @default(cuid())
+  campaignId   String
+  kolId        String
+
+  type         PostType   @default(POST)
+  content      String?    // Draft content or verified content
+  mediaUrls    String[]   // Array of media URLs
+
+  // Twitter tracking
+  tweetId      String?    @unique
+  tweetUrl     String?
+
+  status       PostStatus @default(DRAFT)
+
+  // Schedule
+  scheduledFor DateTime?
+  postedAt     DateTime?
+
+  // Metrics (cached from Twitter API)
+  impressions  Int        @default(0)
+  likes        Int        @default(0)
+  retweets     Int        @default(0)
+  replies      Int        @default(0)
+  quotes       Int        @default(0)
+  bookmarks    Int        @default(0)
+  clicks       Int        @default(0)
+  engagementRate Float    @default(0)
+  lastMetricsUpdate DateTime?
+
+  // Client feedback
+  clientNotes  String?
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kol      KOL      @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CRYPTO
+  BANK_TRANSFER
+  PAYPAL
+  OTHER
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  kolId        String
+  campaignId   String?
+
+  amount       Int           // cents
+  currency     String        @default("USD")
+  method       PaymentMethod @default(CRYPTO)
+
+  status       PaymentStatus @default(PENDING)
+
+  // Crypto payment details
+  txHash       String?
+  walletAddress String?
+  network      String?       // ETH, SOL, etc.
+
+  notes        String?
+  paidAt       DateTime?
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  kol      KOL       @relation(fields: [kolId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@map("payments")
+}
+
+// ============================================
+// TELEGRAM COMMUNICATION
+// ============================================
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model TelegramMessage {
+  id          String           @id @default(cuid())
+  kolId       String
+
+  telegramChatId String
+  telegramMessageId String?
+
+  content     String
+  direction   MessageDirection
+
+  // Metadata
+  senderName  String?
+  isRead      Boolean          @default(false)
+
+  timestamp   DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+
+  kol KOL @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_messages")
+}

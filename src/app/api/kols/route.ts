@@ -1,0 +1,129 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { kolSchema } from "@/lib/validations";
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || "";
+    const tier = searchParams.get("tier");
+    const status = searchParams.get("status");
+
+    const kols = await db.kOL.findMany({
+      where: {
+        organizationId: session.user.organizationId,
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { twitterHandle: { contains: search, mode: "insensitive" } },
+          ],
+        }),
+        ...(tier && { tier: tier as "NANO" | "MICRO" | "MID" | "MACRO" | "MEGA" }),
+        ...(status && { status: status as "ACTIVE" | "INACTIVE" | "BLACKLISTED" | "PENDING" }),
+      },
+      include: {
+        tags: true,
+        _count: {
+          select: {
+            campaignKols: true,
+            posts: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(kols);
+  } catch (error) {
+    console.error("Error fetching KOLs:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch KOLs" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.organizationType !== "AGENCY") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const validatedData = kolSchema.parse(body);
+
+    // Normalize twitter handle
+    const twitterHandle = validatedData.twitterHandle.replace("@", "");
+
+    // Check if KOL already exists
+    const existingKol = await db.kOL.findUnique({
+      where: {
+        organizationId_twitterHandle: {
+          organizationId: session.user.organizationId,
+          twitterHandle,
+        },
+      },
+    });
+
+    if (existingKol) {
+      return NextResponse.json(
+        { error: "A KOL with this Twitter handle already exists" },
+        { status: 400 }
+      );
+    }
+
+    const kol = await db.kOL.create({
+      data: {
+        organizationId: session.user.organizationId,
+        name: validatedData.name,
+        twitterHandle,
+        telegramUsername: validatedData.telegramUsername || null,
+        email: validatedData.email || null,
+        tier: validatedData.tier,
+        status: validatedData.status,
+        ratePerPost: validatedData.ratePerPost || null,
+        ratePerThread: validatedData.ratePerThread || null,
+        ratePerRetweet: validatedData.ratePerRetweet || null,
+        ratePerSpace: validatedData.ratePerSpace || null,
+        walletAddress: validatedData.walletAddress || null,
+        paymentNotes: validatedData.paymentNotes || null,
+        notes: validatedData.notes || null,
+        ...(validatedData.tagIds && validatedData.tagIds.length > 0 && {
+          tags: {
+            connect: validatedData.tagIds.map((id) => ({ id })),
+          },
+        }),
+      },
+      include: {
+        tags: true,
+      },
+    });
+
+    return NextResponse.json(kol, { status: 201 });
+  } catch (error) {
+    console.error("Error creating KOL:", error);
+
+    if (error instanceof Error && error.name === "ZodError") {
+      return NextResponse.json(
+        { error: "Invalid input data" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Failed to create KOL" },
+      { status: 500 }
+    );
+  }
+}
