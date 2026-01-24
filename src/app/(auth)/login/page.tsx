@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -15,24 +15,30 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Check for error in URL (NextAuth redirects here on failed login)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("error")) {
+        setError("Invalid email or password");
+      }
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      // With redirect: true, this will redirect on success
+      // If credentials are invalid, NextAuth will redirect to /login?error=CredentialsSignin
+      await signIn("credentials", {
         email,
         password,
         callbackUrl: "/",
         redirect: true,
       });
-
-      // If we get here with redirect: true, it means there was an error
-      if (result?.error) {
-        setError("Invalid email or password");
-        setIsLoading(false);
-      }
     } catch (err) {
       console.error("Login error:", err);
       setError("An error occurred. Please try again.");
