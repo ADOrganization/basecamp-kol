@@ -14,31 +14,34 @@ interface KeywordsInputProps {
 export function KeywordsInput({ value, onChange, placeholder = "Add keyword and press Enter" }: KeywordsInputProps) {
   const [inputValue, setInputValue] = useState("");
 
+  // Ensure value is always an array
+  const keywords = Array.isArray(value) ? value : [];
+
   const addKeyword = (keyword: string) => {
     const trimmed = keyword.trim();
-    if (trimmed && !value.includes(trimmed)) {
-      onChange([...value, trimmed]);
+    if (trimmed && !keywords.includes(trimmed)) {
+      onChange([...keywords, trimmed]);
     }
     setInputValue("");
   };
 
   const removeKeyword = (keywordToRemove: string) => {
-    onChange(value.filter((k) => k !== keywordToRemove));
+    onChange(keywords.filter((k) => k !== keywordToRemove));
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       addKeyword(inputValue);
-    } else if (e.key === "Backspace" && !inputValue && value.length > 0) {
-      removeKeyword(value[value.length - 1]);
+    } else if (e.key === "Backspace" && !inputValue && keywords.length > 0) {
+      removeKeyword(keywords[keywords.length - 1]);
     }
   };
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2 min-h-[32px]">
-        {value.map((keyword) => (
+        {keywords.map((keyword) => (
           <Badge
             key={keyword}
             variant="secondary"

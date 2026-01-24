@@ -87,23 +87,23 @@ interface CampaignDetails {
   }[];
   posts: {
     id: string;
-    type: string;
-    status: string;
+    type: string | null;
+    status: string | null;
     content: string | null;
     tweetUrl: string | null;
-    matchedKeywords: string[];
-    hasKeywordMatch: boolean;
-    impressions: number;
-    likes: number;
-    retweets: number;
-    replies: number;
+    matchedKeywords: string[] | null;
+    hasKeywordMatch: boolean | null;
+    impressions: number | null;
+    likes: number | null;
+    retweets: number | null;
+    replies: number | null;
     postedAt: string | null;
     createdAt: string;
     kol: {
       id: string;
       name: string;
       twitterHandle: string;
-    };
+    } | null;
   }[];
 }
 
@@ -674,6 +674,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         campaign={{
           ...campaign,
           clientId: campaign.client?.id || null,
+          keywords: Array.isArray(campaign.keywords) ? campaign.keywords : [],
+          kpis: campaign.kpis || null,
         }}
         open={showForm}
         onClose={() => {

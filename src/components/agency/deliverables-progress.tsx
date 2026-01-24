@@ -121,17 +121,17 @@ export function DeliverablesProgress({ deliverables, compact = false, className 
 
 // Helper to calculate deliverables from posts
 export function calculateDeliverables(
-  posts: { type: string; status: string }[],
+  posts: { type: string | null; status: string | null }[],
   required: { posts: number; threads: number; retweets: number; spaces: number }
 ): DeliverableItem[] {
   // Only count posts that are POSTED or VERIFIED
   const countedStatuses = ["POSTED", "VERIFIED"];
 
   const counts = {
-    POST: posts.filter(p => p.type === "POST" && countedStatuses.includes(p.status)).length,
-    THREAD: posts.filter(p => p.type === "THREAD" && countedStatuses.includes(p.status)).length,
-    RETWEET: posts.filter(p => p.type === "RETWEET" && countedStatuses.includes(p.status)).length,
-    SPACE: posts.filter(p => p.type === "SPACE" && countedStatuses.includes(p.status)).length,
+    POST: posts.filter(p => p.type === "POST" && p.status && countedStatuses.includes(p.status)).length,
+    THREAD: posts.filter(p => p.type === "THREAD" && p.status && countedStatuses.includes(p.status)).length,
+    RETWEET: posts.filter(p => p.type === "RETWEET" && p.status && countedStatuses.includes(p.status)).length,
+    SPACE: posts.filter(p => p.type === "SPACE" && p.status && countedStatuses.includes(p.status)).length,
   };
 
   return [
