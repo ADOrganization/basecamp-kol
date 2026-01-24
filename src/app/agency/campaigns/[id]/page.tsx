@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PostForm } from "@/components/agency/post-form";
+import { PostDetailModal } from "@/components/agency/post-detail-modal";
 import { TweetScraper } from "@/components/agency/tweet-scraper";
 import { TweetMonitor } from "@/components/agency/tweet-monitor";
 import { Input } from "@/components/ui/input";
@@ -95,6 +96,8 @@ interface CampaignDetails {
     likes: number | null;
     retweets: number | null;
     replies: number | null;
+    quotes: number | null;
+    bookmarks: number | null;
     postedAt: string | null;
     createdAt: string;
     kol: {
@@ -136,6 +139,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   // Scraper state
   const [showScraper, setShowScraper] = useState(false);
+
+  // Post detail modal state
+  const [selectedPost, setSelectedPost] = useState<CampaignDetails["posts"][0] | null>(null);
+  const [showPostDetail, setShowPostDetail] = useState(false);
 
   // API key and cookie state for scraper/monitor
   const [twitterApiKey, setTwitterApiKey] = useState("");
@@ -555,11 +562,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-medium text-muted-foreground">KOL</th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">Content</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
                     {(campaign.keywords || []).length > 0 && (
                       <th className="text-left p-4 font-medium text-muted-foreground">Keywords</th>
                     )}
+                    <th className="text-left p-4 font-medium text-muted-foreground">Posted</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Impressions</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Engagement</th>
                     <th className="w-[50px]"></th>
@@ -567,10 +576,26 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 </thead>
                 <tbody>
                   {filteredPosts.map((post) => (
-                    <tr key={post.id} className="border-t">
+                    <tr
+                      key={post.id}
+                      className="border-t hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setSelectedPost(post);
+                        setShowPostDetail(true);
+                      }}
+                    >
                       <td className="p-4">
                         <p className="font-medium">{post.kol?.name || "Unknown"}</p>
                         <p className="text-sm text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</p>
+                      </td>
+                      <td className="p-4 max-w-[200px]">
+                        {post.content ? (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {post.content}
+                          </p>
+                        ) : (
+                          <span className="text-muted-foreground text-sm italic">No content</span>
+                        )}
                       </td>
                       <td className="p-4">{post.type || "POST"}</td>
                       <td className="p-4">
@@ -593,6 +618,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           )}
                         </td>
                       )}
+                      <td className="p-4 text-sm text-muted-foreground">
+                        {post.postedAt ? new Date(post.postedAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        }) : "-"}
+                      </td>
                       <td className="p-4 text-right">{formatNumber(post.impressions || 0)}</td>
                       <td className="p-4 text-right">
                         {formatNumber((post.likes || 0) + (post.retweets || 0) + (post.replies || 0))}
@@ -604,6 +635,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
@@ -810,6 +842,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           setShowScraper(false);
           fetchCampaign();
         }}
+      />
+
+      {/* Post Detail Modal */}
+      <PostDetailModal
+        post={selectedPost}
+        open={showPostDetail}
+        onClose={() => setShowPostDetail(false)}
       />
     </div>
   );
