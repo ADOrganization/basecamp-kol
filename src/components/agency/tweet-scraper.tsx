@@ -318,26 +318,34 @@ export function TweetScraper({
               <Button variant="ghost" size="sm" className="w-full justify-between">
                 <span className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
-                  Twitter API {twitterApiKey ? "(Configured)" : "(Not Set)"}
+                  Twitter API {twitterApiKey ? "(Custom Key)" : "(Default Key)"}
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? "rotate-180" : ""}`} />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 p-3 border rounded-lg bg-muted/50">
               <div className="space-y-4">
-                {/* API Key - Primary method */}
+                {/* API Key status */}
+                <div className="flex items-center gap-2 p-2 rounded bg-green-500/10 border border-green-500/20">
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-green-700 dark:text-green-400">
+                    {twitterApiKey ? "Using custom API key" : "Using default API key"}
+                  </span>
+                </div>
+
+                {/* Custom API Key - Optional override */}
                 <div className="space-y-2">
-                  <Label htmlFor="apikey" className="text-sm font-medium">Twitter API Key (Recommended)</Label>
+                  <Label htmlFor="apikey" className="text-sm font-medium">Custom API Key (Optional)</Label>
                   <Input
                     id="apikey"
                     type="password"
-                    placeholder="twitterx_xxx..."
+                    placeholder="Leave empty to use default key..."
                     value={twitterApiKey}
                     onChange={(e) => setTwitterApiKey(e.target.value)}
                     className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Get an API key from RapidAPI Twitter endpoints for reliable scraping.
+                    Override the default API key with your own RapidAPI key if needed.
                   </p>
                 </div>
 
