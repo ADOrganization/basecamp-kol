@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Download,
   Search,
   Loader2,
@@ -29,6 +34,9 @@ import {
   MessageCircle,
   Import,
   RefreshCw,
+  Settings,
+  ChevronDown,
+  Cookie,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 
@@ -84,6 +92,33 @@ export function TweetScraper({
 }: TweetScraperProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("scrape");
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Twitter auth state - persist in localStorage
+  const [twitterCookies, setTwitterCookies] = useState("");
+  const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
+
+  // Load saved cookies on mount
+  useEffect(() => {
+    const savedCookies = localStorage.getItem("twitter_cookies");
+    const savedCsrf = localStorage.getItem("twitter_csrf");
+    if (savedCookies) setTwitterCookies(savedCookies);
+    if (savedCsrf) setTwitterCsrfToken(savedCsrf);
+  }, []);
+
+  // Save cookies when changed
+  const saveCookies = () => {
+    if (twitterCookies) {
+      localStorage.setItem("twitter_cookies", twitterCookies);
+    } else {
+      localStorage.removeItem("twitter_cookies");
+    }
+    if (twitterCsrfToken) {
+      localStorage.setItem("twitter_csrf", twitterCsrfToken);
+    } else {
+      localStorage.removeItem("twitter_csrf");
+    }
+  };
 
   // Scrape state
   const [selectedKols, setSelectedKols] = useState<string[]>(kols.map(k => k.id));
@@ -110,6 +145,8 @@ export function TweetScraper({
           mode: "all",
           kolIds: selectedKols.length === kols.length ? undefined : selectedKols,
           autoImport: false,
+          twitterCookies: twitterCookies || undefined,
+          twitterCsrfToken: twitterCsrfToken || undefined,
         }),
       });
 
@@ -265,6 +302,55 @@ export function TweetScraper({
               Manual Import
             </TabsTrigger>
           </TabsList>
+
+          {/* Twitter Auth Settings */}
+          <Collapsible open={showSettings} onOpenChange={setShowSettings} className="mt-3">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between">
+                <span className="flex items-center gap-2">
+                  <Cookie className="h-4 w-4" />
+                  Twitter Auth {twitterCookies ? "(Configured)" : "(Not Set)"}
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? "rotate-180" : ""}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 p-3 border rounded-lg bg-muted/50">
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  For reliable scraping, paste your Twitter cookies. Open X.com in browser, go to DevTools → Network →
+                  find any request → right-click → Copy as cURL. Extract the Cookie header value.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="cookies" className="text-xs">Cookie Header Value</Label>
+                  <Textarea
+                    id="cookies"
+                    placeholder='auth_token=xxx; ct0=xxx; ...'
+                    value={twitterCookies}
+                    onChange={(e) => setTwitterCookies(e.target.value)}
+                    className="h-16 text-xs font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="csrf" className="text-xs">CSRF Token (x-csrf-token / ct0)</Label>
+                  <Input
+                    id="csrf"
+                    placeholder="ct0 value from cookies"
+                    value={twitterCsrfToken}
+                    onChange={(e) => setTwitterCsrfToken(e.target.value)}
+                    className="text-xs font-mono"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={saveCookies}>
+                    Save to Browser
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setTwitterCookies(""); setTwitterCsrfToken(""); }}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <TabsContent value="scrape" className="flex-1 overflow-hidden flex flex-col mt-4">
             {kols.length === 0 ? (

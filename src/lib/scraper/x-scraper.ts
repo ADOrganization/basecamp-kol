@@ -1,10 +1,31 @@
 /**
  * Free X/Twitter Scraper
  * Uses multiple methods to scrape tweets without API limits:
- * 1. Nitter instances (open-source Twitter frontend)
- * 2. Twitter Syndication API (used for embeds)
- * 3. Alternative Twitter frontends
+ * 1. Direct Twitter with user-provided cookies (most reliable)
+ * 2. Nitter instances (open-source Twitter frontend)
+ * 3. Twitter Syndication API (used for embeds)
  */
+
+// Cookie storage - users can set this via the UI
+let twitterCookies: string | null = null;
+let twitterAuthToken: string | null = null;
+let twitterCsrfToken: string | null = null;
+
+export function setTwitterAuth(cookies: string, authToken?: string, csrfToken?: string) {
+  twitterCookies = cookies;
+  twitterAuthToken = authToken || null;
+  twitterCsrfToken = csrfToken || null;
+}
+
+export function clearTwitterAuth() {
+  twitterCookies = null;
+  twitterAuthToken = null;
+  twitterCsrfToken = null;
+}
+
+export function hasTwitterAuth(): boolean {
+  return !!twitterCookies;
+}
 
 export interface ScrapedTweet {
   id: string;
@@ -84,6 +105,192 @@ function matchesKeywords(content: string, keywords: string[]): boolean {
   if (!keywords || keywords.length === 0) return true;
   const lowerContent = content.toLowerCase();
   return keywords.some(kw => lowerContent.includes(kw.toLowerCase()));
+}
+
+/**
+ * Method 0: Direct Twitter API with user cookies (most reliable)
+ * Requires user to paste their cookies from browser dev tools
+ */
+async function scrapeFromTwitterDirect(options: ScrapeOptions): Promise<ScrapeResult> {
+  if (!twitterCookies) {
+    return { success: false, tweets: [], error: 'No Twitter cookies set', method: 'twitter-direct' };
+  }
+
+  const { handle, keywords, maxTweets = 50, includeReplies = false, includeRetweets = true, sinceDate } = options;
+  const cleanHandle = handle.replace('@', '');
+
+  try {
+    // First get user ID from handle
+    const userUrl = `https://api.twitter.com/graphql/G3KGOASz96M-Qu0nwmGXNg/UserByScreenName?variables=${encodeURIComponent(JSON.stringify({ screen_name: cleanHandle, withSafetyModeUserFields: true }))}`;
+
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Cookie': twitterCookies,
+      'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+      'x-twitter-active-user': 'yes',
+      'x-twitter-client-language': 'en',
+    };
+
+    if (twitterCsrfToken) {
+      headers['x-csrf-token'] = twitterCsrfToken;
+    }
+
+    const userResponse = await fetch(userUrl, { headers, signal: AbortSignal.timeout(15000) });
+
+    if (!userResponse.ok) {
+      return { success: false, tweets: [], error: `Twitter API error: ${userResponse.status}`, method: 'twitter-direct' };
+    }
+
+    const userData = await userResponse.json();
+    const userId = userData?.data?.user?.result?.rest_id;
+
+    if (!userId) {
+      return { success: false, tweets: [], error: 'Could not find user', method: 'twitter-direct' };
+    }
+
+    // Get user tweets
+    const tweetsVariables = {
+      userId,
+      count: maxTweets,
+      includePromotedContent: false,
+      withQuickPromoteEligibilityTweetFields: false,
+      withVoice: false,
+      withV2Timeline: true,
+    };
+
+    const tweetsUrl = `https://api.twitter.com/graphql/V7H0Ap3_Hh2FyS75OCDO3Q/UserTweets?variables=${encodeURIComponent(JSON.stringify(tweetsVariables))}&features=${encodeURIComponent(JSON.stringify({
+      rweb_tipjar_consumption_enabled: true,
+      responsive_web_graphql_exclude_directive_enabled: true,
+      verified_phone_label_enabled: false,
+      creator_subscriptions_tweet_preview_api_enabled: true,
+      responsive_web_graphql_timeline_navigation_enabled: true,
+      responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+      communities_web_enable_tweet_community_results_fetch: true,
+      c9s_tweet_anatomy_moderator_badge_enabled: true,
+      articles_preview_enabled: true,
+      tweetypie_unmention_optimization_enabled: true,
+      responsive_web_edit_tweet_api_enabled: true,
+      graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+      view_counts_everywhere_api_enabled: true,
+      longform_notetweets_consumption_enabled: true,
+      responsive_web_twitter_article_tweet_consumption_enabled: true,
+      tweet_awards_web_tipping_enabled: false,
+      creator_subscriptions_quote_tweet_preview_enabled: false,
+      freedom_of_speech_not_reach_fetch_enabled: true,
+      standardized_nudges_misinfo: true,
+      tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+      rweb_video_timestamps_enabled: true,
+      longform_notetweets_rich_text_read_enabled: true,
+      longform_notetweets_inline_media_enabled: true,
+      responsive_web_enhance_cards_enabled: false,
+    }))}`;
+
+    const tweetsResponse = await fetch(tweetsUrl, { headers, signal: AbortSignal.timeout(20000) });
+
+    if (!tweetsResponse.ok) {
+      return { success: false, tweets: [], error: `Twitter API error: ${tweetsResponse.status}`, method: 'twitter-direct' };
+    }
+
+    const tweetsData = await tweetsResponse.json();
+    const tweets = parseTwitterAPIResponse(tweetsData, cleanHandle);
+
+    // Filter tweets
+    let filtered = tweets;
+
+    if (!includeReplies) {
+      filtered = filtered.filter(t => !t.content.startsWith('@'));
+    }
+
+    if (!includeRetweets) {
+      filtered = filtered.filter(t => !t.isRetweet);
+    }
+
+    if (keywords && keywords.length > 0) {
+      filtered = filtered.filter(t => matchesKeywords(t.content, keywords));
+    }
+
+    if (sinceDate) {
+      filtered = filtered.filter(t => t.postedAt >= sinceDate);
+    }
+
+    return {
+      success: true,
+      tweets: filtered.slice(0, maxTweets),
+      method: 'twitter-direct',
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, tweets: [], error: errorMsg, method: 'twitter-direct' };
+  }
+}
+
+// Helper to safely get nested properties
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getNestedValue(obj: any, path: string): any {
+  return path.split('.').reduce((acc, key) => acc?.[key], obj);
+}
+
+// Parse Twitter GraphQL API response
+function parseTwitterAPIResponse(data: unknown, handle: string): ScrapedTweet[] {
+  const tweets: ScrapedTweet[] = [];
+
+  try {
+    // Navigate the complex Twitter API response structure
+    const instructions = getNestedValue(data, 'data.user.result.timeline_v2.timeline.instructions') || [];
+
+    for (const instruction of instructions) {
+      if (instruction?.type !== 'TimelineAddEntries') continue;
+
+      const entries = instruction?.entries || [];
+
+      for (const entry of entries) {
+        try {
+          const content = entry?.content;
+          if (content?.entryType !== 'TimelineTimelineItem') continue;
+
+          const tweetResult = getNestedValue(content, 'itemContent.tweet_results.result');
+          if (!tweetResult) continue;
+
+          const legacy = tweetResult?.legacy;
+          const core = tweetResult?.core;
+
+          if (!legacy) continue;
+
+          const tweetId = legacy.id_str as string;
+          const fullText = (legacy.full_text as string) || '';
+          const createdAt = legacy.created_at as string;
+          const userLegacy = getNestedValue(core, 'user_results.result.legacy');
+
+          tweets.push({
+            id: tweetId,
+            url: `https://x.com/${handle}/status/${tweetId}`,
+            content: fullText.replace(/https:\/\/t\.co\/\S+/g, '').trim(),
+            authorHandle: userLegacy?.screen_name || handle,
+            authorName: userLegacy?.name || handle,
+            postedAt: new Date(createdAt),
+            metrics: {
+              likes: legacy.favorite_count || 0,
+              retweets: legacy.retweet_count || 0,
+              replies: legacy.reply_count || 0,
+              quotes: legacy.quote_count || 0,
+              views: tweetResult.views?.count || 0,
+            },
+            mediaUrls: [],
+            isRetweet: !!legacy.retweeted_status_result,
+            isQuote: !!legacy.is_quote_status,
+          });
+        } catch {
+          continue;
+        }
+      }
+    }
+  } catch {
+    // Return empty if parsing fails
+  }
+
+  return tweets;
 }
 
 /**
@@ -486,7 +693,18 @@ function parseNitterRSS(xml: string, handle: string): ScrapedTweet[] {
 export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult> {
   console.log(`[Scraper] Starting scrape for @${options.handle}`);
 
-  // Try Nitter HTML first
+  // Try direct Twitter API first if cookies are set
+  if (twitterCookies) {
+    console.log(`[Scraper] Trying direct Twitter API with cookies...`);
+    const directResult = await scrapeFromTwitterDirect(options);
+    if (directResult.success && directResult.tweets.length > 0) {
+      console.log(`[Scraper] Direct Twitter API success: ${directResult.tweets.length} tweets`);
+      return directResult;
+    }
+    console.log(`[Scraper] Direct Twitter API failed: ${directResult.error}`);
+  }
+
+  // Fall back to Nitter
   let result = await scrapeFromNitter(options);
 
   if (result.success && result.tweets.length > 0) {
