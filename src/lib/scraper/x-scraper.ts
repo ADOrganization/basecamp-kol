@@ -143,8 +143,43 @@ function matchesKeywords(content: string, keywords: string[]): boolean {
 }
 
 /**
+ * RapidAPI endpoint configurations - try multiple providers
+ */
+const RAPIDAPI_ENDPOINTS = [
+  {
+    name: 'twitter154',
+    host: 'twitter154.p.rapidapi.com',
+    getUserTweets: (handle: string, count: number) =>
+      `https://twitter154.p.rapidapi.com/user/tweets?username=${handle}&limit=${count}&include_replies=false&include_pinned=false`,
+    parser: 'twitter154',
+  },
+  {
+    name: 'twitter-api45',
+    host: 'twitter-api45.p.rapidapi.com',
+    getUserTweets: (handle: string) =>
+      `https://twitter-api45.p.rapidapi.com/timeline.php?screenname=${handle}`,
+    parser: 'twitter-api45',
+  },
+  {
+    name: 'twttrapi',
+    host: 'twttrapi.p.rapidapi.com',
+    getUserTweets: (handle: string, count: number) =>
+      `https://twttrapi.p.rapidapi.com/user-tweets?username=${handle}&count=${count}`,
+    parser: 'twttrapi',
+  },
+  {
+    name: 'twitter241',
+    host: 'twitter241.p.rapidapi.com',
+    getUserTweets: (handle: string, count: number) =>
+      `https://twitter241.p.rapidapi.com/user-tweets?user=${handle}&count=${count}`,
+    parser: 'twitter241',
+  },
+];
+
+/**
  * Method 0: Twitter API via RapidAPI (most reliable)
  * Uses third-party API services for reliable access
+ * Tries multiple RapidAPI providers in sequence
  */
 async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult> {
   const apiKey = getTwitterApiKey();
@@ -155,49 +190,65 @@ async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult>
 
   const { handle, keywords, maxTweets = 50, includeReplies = false, includeRetweets = true, sinceDate } = options;
   const cleanHandle = handle.replace('@', '');
+  const errors: string[] = [];
 
-  try {
-    // Try Twitter API v2 via RapidAPI
-    const url = `https://twitter-api45.p.rapidapi.com/timeline.php?screenname=${cleanHandle}`;
+  // Try each RapidAPI endpoint in sequence
+  for (const endpoint of RAPIDAPI_ENDPOINTS) {
+    try {
+      const url = endpoint.getUserTweets(cleanHandle, maxTweets);
+      console.log(`[Scraper] Trying RapidAPI endpoint: ${endpoint.name}...`);
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'twitter-api45.p.rapidapi.com',
-      },
-      signal: AbortSignal.timeout(20000),
-    });
-
-    if (!response.ok) {
-      // Try alternative endpoint
-      const altUrl = `https://twitter241.p.rapidapi.com/user-tweets?user=${cleanHandle}&count=${maxTweets}`;
-      const altResponse = await fetch(altUrl, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'twitter241.p.rapidapi.com',
+          'x-rapidapi-host': endpoint.host,
         },
         signal: AbortSignal.timeout(20000),
       });
 
-      if (!altResponse.ok) {
-        return { success: false, tweets: [], error: `API error: ${response.status}`, method: 'rapidapi' };
+      if (!response.ok) {
+        const statusText = response.statusText || 'Unknown error';
+        errors.push(`${endpoint.name}: HTTP ${response.status} ${statusText}`);
+        console.log(`[Scraper] ${endpoint.name} failed: HTTP ${response.status}`);
+        continue;
       }
 
-      const altData = await altResponse.json();
-      const tweets = parseRapidAPIResponse(altData, cleanHandle, 'twitter241');
+      const data = await response.json();
+
+      // Check for API error responses
+      if (data.error || data.errors || data.message?.includes('error')) {
+        const errorMsg = data.error || data.errors?.[0]?.message || data.message || 'API returned error';
+        errors.push(`${endpoint.name}: ${errorMsg}`);
+        console.log(`[Scraper] ${endpoint.name} API error:`, errorMsg);
+        continue;
+      }
+
+      const tweets = parseRapidAPIResponse(data, cleanHandle, endpoint.parser);
+
+      if (tweets.length === 0) {
+        errors.push(`${endpoint.name}: No tweets parsed from response`);
+        console.log(`[Scraper] ${endpoint.name}: No tweets parsed`);
+        continue;
+      }
+
+      console.log(`[Scraper] ${endpoint.name} success: ${tweets.length} tweets parsed`);
       return filterTweets(tweets, { keywords, includeReplies, includeRetweets, sinceDate, maxTweets });
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      errors.push(`${endpoint.name}: ${errorMsg}`);
+      console.log(`[Scraper] ${endpoint.name} exception:`, errorMsg);
+      continue;
     }
-
-    const data = await response.json();
-    const tweets = parseRapidAPIResponse(data, cleanHandle, 'twitter-api45');
-    return filterTweets(tweets, { keywords, includeReplies, includeRetweets, sinceDate, maxTweets });
-
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, tweets: [], error: errorMsg, method: 'rapidapi' };
   }
+
+  // All endpoints failed
+  const combinedError = errors.length > 0
+    ? `All RapidAPI endpoints failed: ${errors.join('; ')}`
+    : 'All RapidAPI endpoints failed with unknown errors';
+
+  return { success: false, tweets: [], error: combinedError, method: 'rapidapi' };
 }
 
 // Parse RapidAPI response (handles multiple API formats)
@@ -205,6 +256,92 @@ function parseRapidAPIResponse(data: unknown, handle: string, source: string): S
   const tweets: ScrapedTweet[] = [];
 
   try {
+    // Handle twitter154 format (most common and reliable)
+    if (source === 'twitter154') {
+      const results = (data as Record<string, unknown>)?.results ||
+                     (data as Record<string, unknown>)?.tweets ||
+                     (data as Record<string, unknown>)?.data ||
+                     data;
+
+      const tweetArray = Array.isArray(results) ? results : [];
+
+      for (const item of tweetArray as Array<Record<string, unknown>>) {
+        try {
+          const tweetId = String(item.tweet_id || item.id || item.rest_id || '');
+          if (!tweetId || tweetId === 'undefined') continue;
+
+          const user = item.user as Record<string, unknown> || {};
+
+          tweets.push({
+            id: tweetId,
+            url: `https://x.com/${handle}/status/${tweetId}`,
+            content: String(item.text || item.full_text || ''),
+            authorHandle: String(user.username || user.screen_name || handle),
+            authorName: String(user.name || handle),
+            postedAt: new Date(String(item.creation_date || item.created_at || Date.now())),
+            metrics: {
+              likes: Number(item.favorite_count || item.likes || 0),
+              retweets: Number(item.retweet_count || item.retweets || 0),
+              replies: Number(item.reply_count || item.replies || 0),
+              quotes: Number(item.quote_count || item.quotes || 0),
+              views: Number(item.views || item.view_count || 0),
+            },
+            mediaUrls: [],
+            isRetweet: String(item.text || '').startsWith('RT @'),
+            isQuote: !!item.is_quote_status || !!item.quoted_tweet,
+          });
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    // Handle twttrapi format
+    if (source === 'twttrapi') {
+      const dataObj = data as Record<string, unknown>;
+      const dataData = dataObj?.data as Record<string, unknown> | undefined;
+      const results = dataData?.tweets ||
+                     dataObj?.tweets ||
+                     dataObj?.data ||
+                     [];
+
+      const tweetArray = Array.isArray(results) ? results : [];
+
+      for (const item of tweetArray as Array<Record<string, unknown>>) {
+        try {
+          const tweetRaw = item.tweet || item;
+          const tweet = tweetRaw as Record<string, unknown>;
+          const tweetId = String(tweet.id || tweet.rest_id || '');
+          if (!tweetId || tweetId === 'undefined') continue;
+
+          const user = (tweet.user as Record<string, unknown>) ||
+                       (tweet.author as Record<string, unknown>) || {};
+          const viewsObj = tweet.views as Record<string, unknown> | undefined;
+
+          tweets.push({
+            id: tweetId,
+            url: `https://x.com/${handle}/status/${tweetId}`,
+            content: String(tweet.text || tweet.full_text || ''),
+            authorHandle: String(user.username || user.screen_name || handle),
+            authorName: String(user.name || handle),
+            postedAt: new Date(String(tweet.created_at || Date.now())),
+            metrics: {
+              likes: Number(tweet.favorite_count || tweet.like_count || 0),
+              retweets: Number(tweet.retweet_count || 0),
+              replies: Number(tweet.reply_count || 0),
+              quotes: Number(tweet.quote_count || 0),
+              views: Number(tweet.view_count || viewsObj?.count || 0),
+            },
+            mediaUrls: [],
+            isRetweet: String(tweet.text || '').startsWith('RT @'),
+            isQuote: !!tweet.is_quote_status,
+          });
+        } catch {
+          continue;
+        }
+      }
+    }
+
     // Handle twitter-api45 format
     if (source === 'twitter-api45') {
       const timeline = (data as Record<string, unknown>)?.timeline || [];
@@ -212,7 +349,7 @@ function parseRapidAPIResponse(data: unknown, handle: string, source: string): S
         try {
           const tweet = item as Record<string, unknown>;
           const tweetId = String(tweet.tweet_id || tweet.id || '');
-          if (!tweetId) continue;
+          if (!tweetId || tweetId === 'undefined') continue;
 
           tweets.push({
             id: tweetId,
@@ -245,7 +382,7 @@ function parseRapidAPIResponse(data: unknown, handle: string, source: string): S
         try {
           const tweet = item?.tweet || item;
           const tweetId = String((tweet as Record<string, unknown>)?.rest_id || (tweet as Record<string, unknown>)?.id || '');
-          if (!tweetId) continue;
+          if (!tweetId || tweetId === 'undefined') continue;
 
           const legacy = (tweet as Record<string, unknown>)?.legacy as Record<string, unknown> || tweet;
           const core = (tweet as Record<string, unknown>)?.core as Record<string, unknown>;
@@ -916,6 +1053,8 @@ function parseNitterRSS(xml: string, handle: string): ScrapedTweet[] {
 export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult> {
   console.log(`[Scraper] Starting scrape for @${options.handle}`);
 
+  const errors: string[] = [];
+
   // Try RapidAPI first if API key is configured
   if (hasTwitterApiKey()) {
     console.log(`[Scraper] Trying RapidAPI...`);
@@ -925,6 +1064,9 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
       return apiResult;
     }
     console.log(`[Scraper] RapidAPI failed: ${apiResult.error}`);
+    if (apiResult.error) {
+      errors.push(`RapidAPI: ${apiResult.error}`);
+    }
   }
 
   // Try direct Twitter API if cookies are set
@@ -936,9 +1078,13 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
       return directResult;
     }
     console.log(`[Scraper] Direct Twitter API failed: ${directResult.error}`);
+    if (directResult.error) {
+      errors.push(`Direct API: ${directResult.error}`);
+    }
   }
 
   // Fall back to Nitter
+  console.log(`[Scraper] Trying Nitter...`);
   let result = await scrapeFromNitter(options);
 
   if (result.success && result.tweets.length > 0) {
@@ -971,6 +1117,10 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
     }
 
     return result;
+  }
+
+  if (result.error) {
+    errors.push(`Nitter: ${result.error}`);
   }
 
   // Fall back to RSS
@@ -1009,10 +1159,28 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
     return result;
   }
 
+  if (result.error) {
+    errors.push(`RSS: ${result.error}`);
+  }
+
+  // Build comprehensive error message
+  let finalError = 'All scraping methods failed.';
+
+  if (errors.length > 0) {
+    finalError = errors.join(' | ');
+  }
+
+  // Add helpful hints based on what was tried
+  if (!hasTwitterApiKey() && !twitterCookies) {
+    finalError += ' Configure a RapidAPI key or Twitter cookies in Settings for more reliable scraping.';
+  } else if (hasTwitterApiKey() && errors.some(e => e.includes('RapidAPI'))) {
+    finalError += ' Check that your RapidAPI key is valid and has an active subscription.';
+  }
+
   return {
     success: false,
     tweets: [],
-    error: result.error || 'All scraping methods failed. Twitter/X may be blocking requests.',
+    error: finalError,
     method: 'none',
   };
 }

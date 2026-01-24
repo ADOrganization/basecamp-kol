@@ -171,7 +171,7 @@ export function TweetMonitor({
 
       if (newTweets.length > 0) {
         // Play notification sound or show browser notification
-        if (Notification.permission === "granted") {
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
           new Notification(`${campaignName}: ${newTweets.length} new keyword matches!`, {
             body: newTweets.map(t => `@${t.authorHandle}: ${t.content.slice(0, 50)}...`).join("\n"),
             icon: "/favicon.ico",
@@ -212,7 +212,7 @@ export function TweetMonitor({
       setNextCheck(null);
     } else {
       // Request notification permission
-      if (Notification.permission === "default") {
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
         Notification.requestPermission();
       }
 
