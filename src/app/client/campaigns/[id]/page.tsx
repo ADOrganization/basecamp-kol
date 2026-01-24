@@ -731,9 +731,9 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                           <td className="p-4 text-right">{formatNumber(post.likes)}</td>
                           <td className="p-4 text-right">{formatNumber(post.retweets)}</td>
                           <td className="p-4 text-right">{formatNumber(post.replies)}</td>
-                          {campaign.keywords.length > 0 && (
+                          {campaign.keywords && campaign.keywords.length > 0 && (
                             <td className="p-4">
-                              {post.matchedKeywords.length > 0 ? (
+                              {post.matchedKeywords && post.matchedKeywords.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
                                   {post.matchedKeywords.slice(0, 2).map((kw) => (
                                     <Badge key={kw} variant="secondary" className="text-xs bg-green-100 text-green-700">

@@ -143,14 +143,14 @@ export default function ClientAnalyticsPage() {
 
   // Top performing KOLs
   const kolPerformance = filteredCampaigns.flatMap(c =>
-    c.campaignKols.map(ck => {
-      const kolPosts = c.posts.filter(p =>
-        c.campaignKols.some(k => k.kol.id === ck.kol.id)
+    (c.campaignKols || []).filter(ck => ck.kol).map(ck => {
+      const kolPosts = (c.posts || []).filter(p =>
+        (c.campaignKols || []).some(k => k.kol?.id === ck.kol.id)
       );
       return {
         ...ck.kol,
-        impressions: kolPosts.reduce((sum, p) => sum + p.impressions, 0),
-        engagement: kolPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0),
+        impressions: kolPosts.reduce((sum, p) => sum + (p.impressions || 0), 0),
+        engagement: kolPosts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0), 0),
       };
     })
   ).sort((a, b) => b.engagement - a.engagement).slice(0, 5);
