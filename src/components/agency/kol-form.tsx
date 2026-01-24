@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { X, Plus, Tag } from "lucide-react";
+
+interface KOLTag {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface KOLFormProps {
   kol?: {
@@ -36,15 +49,27 @@ interface KOLFormProps {
     walletAddress: string | null;
     paymentNotes: string | null;
     notes: string | null;
+    tags?: KOLTag[];
   };
   open: boolean;
   onClose: () => void;
 }
 
+const TAG_COLORS = [
+  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16",
+  "#22c55e", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
+  "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
+];
+
 export function KOLForm({ kol, open, onClose }: KOLFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [availableTags, setAvailableTags] = useState<KOLTag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<KOLTag[]>(kol?.tags || []);
+  const [showNewTag, setShowNewTag] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
 
   const [formData, setFormData] = useState({
     name: kol?.name || "",
@@ -62,6 +87,55 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
     notes: kol?.notes || "",
   });
 
+  useEffect(() => {
+    if (open) {
+      fetchTags();
+      setSelectedTags(kol?.tags || []);
+    }
+  }, [open, kol?.tags]);
+
+  const fetchTags = async () => {
+    try {
+      const response = await fetch("/api/tags");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableTags(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch tags:", error);
+    }
+  };
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+
+    try {
+      const response = await fetch("/api/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTagName, color: newTagColor }),
+      });
+
+      if (response.ok) {
+        const tag = await response.json();
+        setAvailableTags([...availableTags, tag]);
+        setSelectedTags([...selectedTags, tag]);
+        setNewTagName("");
+        setShowNewTag(false);
+      }
+    } catch (error) {
+      console.error("Failed to create tag:", error);
+    }
+  };
+
+  const toggleTag = (tag: KOLTag) => {
+    if (selectedTags.find((t) => t.id === tag.id)) {
+      setSelectedTags(selectedTags.filter((t) => t.id !== tag.id));
+    } else {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -74,6 +148,7 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
         ratePerThread: formData.ratePerThread ? Math.round(Number(formData.ratePerThread) * 100) : undefined,
         ratePerRetweet: formData.ratePerRetweet ? Math.round(Number(formData.ratePerRetweet) * 100) : undefined,
         ratePerSpace: formData.ratePerSpace ? Math.round(Number(formData.ratePerSpace) * 100) : undefined,
+        tagIds: selectedTags.map((t) => t.id),
       };
 
       const url = kol ? `/api/kols/${kol.id}` : "/api/kols";
@@ -194,6 +269,99 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
                 </Select>
               </div>
             </div>
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Tags</h3>
+              <Popover open={showNewTag} onOpenChange={setShowNewTag}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    New Tag
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Tag Name</Label>
+                      <Input
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        placeholder="e.g., DeFi Expert"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Color</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {TAG_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={`w-6 h-6 rounded-full transition-transform ${
+                              newTagColor === color ? "ring-2 ring-offset-2 ring-primary scale-110" : ""
+                            }`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => setNewTagColor(color)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleCreateTag}
+                      disabled={!newTagName.trim()}
+                    >
+                      Create Tag
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Selected Tags */}
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedTags.map((tag) => (
+                  <Badge
+                    key={tag.id}
+                    style={{ backgroundColor: tag.color }}
+                    className="text-white"
+                  >
+                    {tag.name}
+                    <button
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className="ml-1 hover:bg-white/20 rounded-full"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Available Tags */}
+            {availableTags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {availableTags
+                  .filter((tag) => !selectedTags.find((t) => t.id === tag.id))
+                  .map((tag) => (
+                    <Badge
+                      key={tag.id}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-muted"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      <Tag className="h-3 w-3 mr-1" style={{ color: tag.color }} />
+                      {tag.name}
+                    </Badge>
+                  ))}
+              </div>
+            )}
           </div>
 
           {/* Rates */}

@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  CreditCard,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ const navigation = [
   { name: "KOLs", href: "/agency/kols", icon: Users },
   { name: "Campaigns", href: "/agency/campaigns", icon: Megaphone },
   { name: "Content Review", href: "/agency/content/review", icon: FileText },
+  { name: "Payments", href: "/agency/payments", icon: CreditCard },
   { name: "Telegram", href: "/agency/telegram", icon: MessageSquare },
   { name: "Settings", href: "/agency/settings", icon: Settings },
 ];

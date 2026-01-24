@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PostForm } from "@/components/agency/post-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -107,6 +108,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showAddKol, setShowAddKol] = useState(false);
+  const [showAddPost, setShowAddPost] = useState(false);
   const [availableKols, setAvailableKols] = useState<AvailableKOL[]>([]);
   const [selectedKol, setSelectedKol] = useState("");
   const [assignedBudget, setAssignedBudget] = useState("");
@@ -183,6 +185,22 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       fetchCampaign();
     } catch (error) {
       console.error("Failed to remove KOL:", error);
+    }
+  };
+
+  const handleUpdateKolStatus = async (kolId: string, status: string) => {
+    try {
+      const response = await fetch(`/api/campaigns/${id}/kols/${kolId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (response.ok) {
+        fetchCampaign();
+      }
+    } catch (error) {
+      console.error("Failed to update KOL status:", error);
     }
   };
 
@@ -327,9 +345,20 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                         {formatCurrency(ck.assignedBudget)}
                       </td>
                       <td className="p-4">
-                        <Badge className={getStatusColor(ck.status)} variant="secondary">
-                          {ck.status}
-                        </Badge>
+                        <Select
+                          value={ck.status}
+                          onValueChange={(value) => handleUpdateKolStatus(ck.kol.id, value)}
+                        >
+                          <SelectTrigger className="w-[130px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PENDING">Pending</SelectItem>
+                            <SelectItem value="CONFIRMED">Confirmed</SelectItem>
+                            <SelectItem value="DECLINED">Declined</SelectItem>
+                            <SelectItem value="COMPLETED">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="p-4">
                         <Button
@@ -349,6 +378,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         </TabsContent>
 
         <TabsContent value="posts" className="mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-semibold">Campaign Posts</h3>
+            <Button
+              size="sm"
+              onClick={() => setShowAddPost(true)}
+              disabled={campaign.campaignKols.length === 0}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Post
+            </Button>
+          </div>
           <div className="rounded-lg border bg-card">
             {campaign.posts.length === 0 ? (
               <p className="p-6 text-muted-foreground">No posts tracked yet.</p>
@@ -502,6 +542,21 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Post Dialog */}
+      <PostForm
+        campaignId={id}
+        kols={campaign.campaignKols.map((ck) => ({
+          id: ck.kol.id,
+          name: ck.kol.name,
+          twitterHandle: ck.kol.twitterHandle,
+        }))}
+        open={showAddPost}
+        onClose={() => {
+          setShowAddPost(false);
+          fetchCampaign();
+        }}
+      />
     </div>
   );
 }

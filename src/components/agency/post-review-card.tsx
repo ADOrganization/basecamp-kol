@@ -1,0 +1,298 @@
+"use client";
+
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  CheckCircle,
+  XCircle,
+  ExternalLink,
+  MessageSquare,
+  Heart,
+  Repeat2,
+  Eye,
+  Loader2,
+  Send
+} from "lucide-react";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+
+interface Post {
+  id: string;
+  content: string | null;
+  type: string;
+  status: string;
+  tweetUrl: string | null;
+  impressions: number;
+  likes: number;
+  retweets: number;
+  replies: number;
+  kol: {
+    name: string;
+    twitterHandle: string;
+  };
+  campaign: {
+    name: string;
+  };
+}
+
+const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  DRAFT: "secondary",
+  PENDING_APPROVAL: "outline",
+  APPROVED: "default",
+  REJECTED: "destructive",
+  SCHEDULED: "secondary",
+  POSTED: "default",
+  VERIFIED: "default",
+};
+
+interface PostReviewCardProps {
+  post: Post;
+  showActions?: boolean;
+  onStatusChange?: (postId: string, newStatus: string) => void;
+}
+
+export function PostReviewCard({ post, showActions = false, onStatusChange }: PostReviewCardProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectNotes, setRejectNotes] = useState("");
+  const [currentStatus, setCurrentStatus] = useState(post.status);
+
+  const handleApprove = async () => {
+    setIsLoading(true);
+    setActionType("approve");
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "APPROVED" }),
+      });
+      if (response.ok) {
+        setCurrentStatus("APPROVED");
+        onStatusChange?.(post.id, "APPROVED");
+      }
+    } catch (error) {
+      console.error("Failed to approve post:", error);
+    } finally {
+      setIsLoading(false);
+      setActionType(null);
+    }
+  };
+
+  const handleReject = async () => {
+    setIsLoading(true);
+    setActionType("reject");
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "REJECTED",
+          clientNotes: rejectNotes || undefined,
+        }),
+      });
+      if (response.ok) {
+        setCurrentStatus("REJECTED");
+        setShowRejectDialog(false);
+        setRejectNotes("");
+        onStatusChange?.(post.id, "REJECTED");
+      }
+    } catch (error) {
+      console.error("Failed to reject post:", error);
+    } finally {
+      setIsLoading(false);
+      setActionType(null);
+    }
+  };
+
+  const handleMarkPosted = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "POSTED",
+          postedAt: new Date().toISOString(),
+        }),
+      });
+      if (response.ok) {
+        setCurrentStatus("POSTED");
+        onStatusChange?.(post.id, "POSTED");
+      }
+    } catch (error) {
+      console.error("Failed to mark as posted:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isPending = currentStatus === "PENDING_APPROVAL";
+  const isApproved = currentStatus === "APPROVED";
+  const isRejected = currentStatus === "REJECTED";
+
+  return (
+    <>
+      <Card className={`card-hover ${isPending ? "border-amber-200 dark:border-amber-900" : ""}`}>
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4 flex-1">
+              <Avatar className={`h-12 w-12 ${showActions ? "" : "h-10 w-10"}`}>
+                <AvatarFallback className="bg-indigo-100 text-indigo-600">
+                  {post.kol.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">{post.kol.name}</span>
+                  <span className="text-muted-foreground">@{post.kol.twitterHandle}</span>
+                  <Badge variant={statusColors[currentStatus]}>
+                    {currentStatus.replace("_", " ")}
+                  </Badge>
+                  <Badge variant="outline">{post.type}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Campaign: {post.campaign.name}
+                </p>
+                {showActions && post.content && (
+                  <div className="bg-muted p-4 rounded-lg mt-2">
+                    <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+                  </div>
+                )}
+                {!showActions && post.content && (
+                  <p className="text-sm mt-2 line-clamp-2">{post.content}</p>
+                )}
+                {currentStatus === "POSTED" && (
+                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      {post.impressions.toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Heart className="h-4 w-4" />
+                      {post.likes.toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Repeat2 className="h-4 w-4" />
+                      {post.retweets.toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageSquare className="h-4 w-4" />
+                      {post.replies.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 items-center">
+              {showActions && isPending && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-rose-600 hover:text-rose-700"
+                    onClick={() => setShowRejectDialog(true)}
+                    disabled={isLoading}
+                  >
+                    {isLoading && actionType === "reject" ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <XCircle className="h-4 w-4 mr-1" />
+                    )}
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-teal-600 hover:bg-teal-700"
+                    onClick={handleApprove}
+                    disabled={isLoading}
+                  >
+                    {isLoading && actionType === "approve" ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                </>
+              )}
+              {showActions && isApproved && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleMarkPosted}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-1" />
+                  )}
+                  Mark as Posted
+                </Button>
+              )}
+              {post.tweetUrl && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={post.tweetUrl} target="_blank">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    View
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Post</DialogTitle>
+            <DialogDescription>
+              Provide feedback to the KOL about why this post is being rejected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-notes">Feedback (optional)</Label>
+              <Textarea
+                id="reject-notes"
+                placeholder="Enter feedback for the KOL..."
+                value={rejectNotes}
+                onChange={(e) => setRejectNotes(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Reject Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
