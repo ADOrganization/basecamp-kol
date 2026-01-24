@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
@@ -14,6 +14,7 @@ interface ProfileFormProps {
     id: string;
     name: string | null;
     email: string;
+    avatarUrl?: string | null;
     twitterUsername?: string | null;
     telegramUsername?: string | null;
   };
@@ -22,9 +23,12 @@ interface ProfileFormProps {
 
 export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl || null);
   const [formData, setFormData] = useState({
     name: user.name || "",
     phone: "",
@@ -65,7 +69,61 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
     }
   };
 
-  const colorClass = variant === "client" ? "teal" : "indigo";
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Invalid file type. Please upload JPG, PNG, GIF, or WebP.");
+      return;
+    }
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      setError("File too large. Maximum size is 2MB.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const response = await fetch("/api/user/avatar", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload avatar");
+      }
+
+      setAvatarUrl(data.avatarUrl);
+      setSuccess(true);
+      router.refresh();
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload avatar");
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const avatarBgClass = variant === "client" ? "bg-teal-100 text-teal-600" : "bg-indigo-100 text-indigo-600";
 
   return (
     <Card>
@@ -79,12 +137,29 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex items-center gap-6">
             <Avatar className="h-20 w-20">
-              <AvatarFallback className={`bg-${colorClass}-100 text-${colorClass}-600 text-2xl`}>
+              {avatarUrl && <AvatarImage src={avatarUrl} alt={user.name || "User avatar"} />}
+              <AvatarFallback className={`${avatarBgClass} text-2xl`}>
                 {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <Button type="button" variant="outline" size="sm">Change Photo</Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAvatarClick}
+                disabled={isUploadingAvatar}
+              >
+                {isUploadingAvatar && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUploadingAvatar ? "Uploading..." : "Change Photo"}
+              </Button>
               <p className="text-xs text-muted-foreground mt-2">
                 JPG, PNG or GIF. Max 2MB.
               </p>

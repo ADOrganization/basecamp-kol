@@ -4,12 +4,12 @@ import { db } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, User, Users, Bell, Shield, FileText } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { PasswordForm } from "@/components/settings/password-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
+import { TeamManagement } from "@/components/settings/team-management";
 
 export default async function ClientSettingsPage() {
   const session = await auth();
@@ -109,46 +109,21 @@ export default async function ClientSettingsPage() {
 
         {/* Team Tab */}
         <TabsContent value="team" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Team Members</CardTitle>
-                  <CardDescription>
-                    People who have access to this organization
-                  </CardDescription>
-                </div>
-                <Button className="bg-teal-600 hover:bg-teal-700">Invite Member</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="divide-y">
-                {organization.members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between py-4">
-                    <div className="flex items-center gap-4">
-                      <Avatar>
-                        <AvatarFallback className="bg-teal-100 text-teal-600">
-                          {member.user.name?.charAt(0) || member.user.email.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{member.user.name || member.user.email}</p>
-                        <p className="text-sm text-muted-foreground">{member.user.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
-                        {member.role}
-                      </Badge>
-                      {member.userId !== session.user.id && (
-                        <Button variant="ghost" size="sm">Remove</Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <TeamManagement
+            members={organization.members.map(m => ({
+              id: m.id,
+              userId: m.userId,
+              role: m.role,
+              user: {
+                id: m.user.id,
+                name: m.user.name,
+                email: m.user.email,
+                avatarUrl: m.user.avatarUrl,
+              },
+            }))}
+            currentUserId={session.user.id}
+            variant="client"
+          />
         </TabsContent>
 
         {/* Notifications Tab */}

@@ -1,27 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import { Building2, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 interface OrganizationFormProps {
   organization: {
     id: string;
     name: string;
     slug: string;
+    logoUrl?: string | null;
   };
   variant?: "agency" | "client";
 }
 
 export function OrganizationForm({ organization, variant = "agency" }: OrganizationFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(organization.logoUrl || null);
   const [formData, setFormData] = useState({
     name: organization.name,
     website: "",
@@ -56,7 +61,62 @@ export function OrganizationForm({ organization, variant = "agency" }: Organizat
     }
   };
 
-  const colorClass = variant === "client" ? "teal" : "indigo";
+  const handleLogoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Invalid file type. Please upload JPG, PNG, GIF, WebP, or SVG.");
+      return;
+    }
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      setError("File too large. Maximum size is 2MB.");
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+
+      const response = await fetch("/api/organization/logo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload logo");
+      }
+
+      setLogoUrl(data.logoUrl);
+      setSuccess(true);
+      router.refresh();
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload logo");
+    } finally {
+      setIsUploadingLogo(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const logoBgClass = variant === "client" ? "bg-teal-100" : "bg-indigo-100";
+  const logoIconClass = variant === "client" ? "text-teal-600" : "text-indigo-600";
 
   return (
     <Card>
@@ -69,11 +129,38 @@ export function OrganizationForm({ organization, variant = "agency" }: Organizat
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex items-center gap-6">
-            <div className={`h-20 w-20 rounded-xl bg-${colorClass}-100 flex items-center justify-center`}>
-              <Building2 className={`h-10 w-10 text-${colorClass}-600`} />
+            <div className={`h-20 w-20 rounded-xl ${logoBgClass} flex items-center justify-center overflow-hidden`}>
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={organization.name}
+                  width={80}
+                  height={80}
+                  className="object-cover w-full h-full"
+                  unoptimized
+                />
+              ) : (
+                <Building2 className={`h-10 w-10 ${logoIconClass}`} />
+              )}
             </div>
             <div>
-              <Button type="button" variant="outline" size="sm">Upload Logo</Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleLogoClick}
+                disabled={isUploadingLogo}
+              >
+                {isUploadingLogo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUploadingLogo ? "Uploading..." : "Upload Logo"}
+              </Button>
               <p className="text-xs text-muted-foreground mt-2">
                 Recommended: 256x256px
               </p>
@@ -138,6 +225,7 @@ export function OrganizationForm({ organization, variant = "agency" }: Organizat
               disabled={isLoading}
               className={variant === "client" ? "bg-teal-600 hover:bg-teal-700" : ""}
             >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? "Saving..." : "Save Changes"}
             </Button>
           </div>
