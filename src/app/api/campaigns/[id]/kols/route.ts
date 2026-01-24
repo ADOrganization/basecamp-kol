@@ -66,7 +66,11 @@ export async function POST(
       data: {
         campaignId,
         kolId: validatedData.kolId,
-        assignedBudget: validatedData.assignedBudget,
+        assignedBudget: validatedData.assignedBudget || 0,
+        requiredPosts: validatedData.requiredPosts || 0,
+        requiredThreads: validatedData.requiredThreads || 0,
+        requiredRetweets: validatedData.requiredRetweets || 0,
+        requiredSpaces: validatedData.requiredSpaces || 0,
         deliverables: validatedData.deliverables ?? undefined,
         notes: validatedData.notes || null,
       },

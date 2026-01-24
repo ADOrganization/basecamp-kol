@@ -19,6 +19,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { KeywordsInput } from "./keywords-input";
+import { ChevronDown, ChevronUp, UserPlus, Check, Copy, Eye, EyeOff } from "lucide-react";
 
 interface CampaignFormProps {
   campaign?: {
@@ -26,6 +33,8 @@ interface CampaignFormProps {
     name: string;
     description: string | null;
     clientId: string | null;
+    projectTwitterHandle: string | null;
+    keywords: string[];
     totalBudget: number;
     status: string;
     startDate: string | null;
@@ -42,6 +51,15 @@ interface CampaignFormProps {
   onClose: () => void;
 }
 
+function generatePassword(length: number = 12): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
 export function CampaignForm({ campaign, clients = [], open, onClose }: CampaignFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +69,8 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
     name: campaign?.name || "",
     description: campaign?.description || "",
     clientId: campaign?.clientId || "",
+    projectTwitterHandle: campaign?.projectTwitterHandle || "",
+    keywords: campaign?.keywords || [],
     totalBudget: campaign?.totalBudget ? campaign.totalBudget / 100 : "",
     status: campaign?.status || "DRAFT",
     startDate: campaign?.startDate ? campaign.startDate.split("T")[0] : "",
@@ -60,6 +80,34 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
     kpiClicks: campaign?.kpis?.clicks || "",
     kpiFollowers: campaign?.kpis?.followers || "",
   });
+
+  // Client creation state
+  const [showClientCreation, setShowClientCreation] = useState(false);
+  const [clientData, setClientData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    organizationName: "",
+  });
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [clientCreated, setClientCreated] = useState(false);
+  const [createdClientInfo, setCreatedClientInfo] = useState<{
+    email: string;
+    password: string;
+    organizationName: string;
+  } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleGeneratePassword = () => {
+    setClientData({ ...clientData, password: generatePassword() });
+  };
+
+  const handleCopy = async (field: string, value: string) => {
+    await navigator.clipboard.writeText(value);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +119,8 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
         name: formData.name,
         description: formData.description || undefined,
         clientId: formData.clientId || undefined,
+        projectTwitterHandle: formData.projectTwitterHandle || undefined,
+        keywords: formData.keywords,
         totalBudget: formData.totalBudget ? Math.round(Number(formData.totalBudget) * 100) : 0,
         status: formData.status,
         startDate: formData.startDate || undefined,
@@ -100,6 +150,35 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
         return;
       }
 
+      // If client creation data is filled, create the client account
+      if (!campaign && showClientCreation && clientData.email && clientData.password && clientData.organizationName) {
+        setIsCreatingClient(true);
+        const clientResponse = await fetch(`/api/campaigns/${data.id}/client`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(clientData),
+        });
+
+        if (clientResponse.ok) {
+          setClientCreated(true);
+          setCreatedClientInfo({
+            email: clientData.email,
+            password: clientData.password,
+            organizationName: clientData.organizationName,
+          });
+          setIsCreatingClient(false);
+          // Don't close yet - show success with credentials
+          setIsLoading(false);
+          return;
+        } else {
+          const clientError = await clientResponse.json();
+          setError(clientError.error || "Failed to create client account");
+          setIsCreatingClient(false);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       router.refresh();
       onClose();
     } catch {
@@ -107,6 +186,91 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
       setIsLoading(false);
     }
   };
+
+  const handleClose = () => {
+    setClientCreated(false);
+    setCreatedClientInfo(null);
+    setShowClientCreation(false);
+    setClientData({ name: "", email: "", password: "", organizationName: "" });
+    router.refresh();
+    onClose();
+  };
+
+  // If client was created, show success with credentials
+  if (clientCreated && createdClientInfo) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <Check className="h-5 w-5" />
+              Client Account Created
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              The campaign and client account have been created. Share these credentials with your client:
+            </p>
+
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Organization</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{createdClientInfo.organizationName}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleCopy("org", createdClientInfo.organizationName)}
+                  >
+                    {copiedField === "org" ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Email</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{createdClientInfo.email}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleCopy("email", createdClientInfo.email)}
+                  >
+                    {copiedField === "email" ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Password</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-sm">{createdClientInfo.password}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleCopy("password", createdClientInfo.password)}
+                  >
+                    {copiedField === "password" ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Make sure to save these credentials. The password cannot be retrieved after closing this dialog.
+            </p>
+
+            <Button onClick={handleClose} className="w-full">
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -136,6 +300,19 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="projectTwitterHandle">Project Twitter Handle</Label>
+              <Input
+                id="projectTwitterHandle"
+                value={formData.projectTwitterHandle}
+                onChange={(e) => setFormData({ ...formData, projectTwitterHandle: e.target.value })}
+                placeholder="@ProjectHandle"
+              />
+              <p className="text-xs text-muted-foreground">
+                The Twitter/X handle for the project being promoted
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
@@ -143,6 +320,14 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Campaign objectives and details..."
                 rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Keywords for Tracking</Label>
+              <KeywordsInput
+                value={formData.keywords}
+                onChange={(keywords) => setFormData({ ...formData, keywords })}
               />
             </div>
 
@@ -271,13 +456,92 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
             </div>
           </div>
 
+          {/* Inline Client Creation (only for new campaigns) */}
+          {!campaign && !formData.clientId && (
+            <Collapsible open={showClientCreation} onOpenChange={setShowClientCreation}>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="outline" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Create New Client Account
+                  </span>
+                  {showClientCreation ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Create a client account that will be linked to this campaign. They can login to view campaign progress.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Client Name *</Label>
+                      <Input
+                        value={clientData.name}
+                        onChange={(e) => setClientData({ ...clientData, name: e.target.value })}
+                        placeholder="John Smith"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Organization Name *</Label>
+                      <Input
+                        value={clientData.organizationName}
+                        onChange={(e) => setClientData({ ...clientData, organizationName: e.target.value })}
+                        placeholder="Acme Inc"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email *</Label>
+                      <Input
+                        type="email"
+                        value={clientData.email}
+                        onChange={(e) => setClientData({ ...clientData, email: e.target.value })}
+                        placeholder="client@example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Password *</Label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            value={clientData.password}
+                            onChange={(e) => setClientData({ ...clientData, password: e.target.value })}
+                            placeholder="Min 6 characters"
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleGeneratePassword}
+                        >
+                          Generate
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Saving..." : campaign ? "Save Changes" : "Create Campaign"}
+            <Button type="submit" disabled={isLoading || isCreatingClient}>
+              {isLoading ? "Saving..." : isCreatingClient ? "Creating Client..." : campaign ? "Save Changes" : "Create Campaign"}
             </Button>
           </div>
         </form>

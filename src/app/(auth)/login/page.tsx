@@ -95,12 +95,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Demo credentials hint */}
-          <div className="rounded-md bg-indigo-500/10 border border-indigo-500/20 p-3 text-xs text-indigo-300">
-            <p className="font-medium mb-1">Demo Accounts:</p>
-            <p>Agency: agency@demo.com / password123</p>
-            <p>Client: client@demo.com / password123</p>
-          </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
           <Button

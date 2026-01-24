@@ -46,14 +46,24 @@ async function getDashboardStats(organizationId: string) {
     NANO: kols.filter(k => k.tier === "NANO").length,
   };
 
-  // Generate mock trend data (in real app, this would come from time-series data)
+  // Generate trend data from actual posts
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const dayPosts = posts.filter(p => {
+      const postDate = p.postedAt ? new Date(p.postedAt) : new Date(p.createdAt);
+      return postDate >= dayStart && postDate <= dayEnd;
+    });
+
     return {
       date: date.toLocaleDateString("en-US", { weekday: "short" }),
-      impressions: Math.floor(Math.random() * 500000) + 100000,
-      engagement: Math.floor(Math.random() * 20000) + 5000,
+      impressions: dayPosts.reduce((sum, p) => sum + p.impressions, 0),
+      engagement: dayPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0),
     };
   });
 

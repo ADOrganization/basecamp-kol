@@ -3,6 +3,13 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { postApprovalSchema } from "@/lib/validations";
 
+// Helper function to find keyword matches in content
+function findKeywordMatches(content: string, keywords: string[]): string[] {
+  if (!content || !keywords || keywords.length === 0) return [];
+  const lowerContent = content.toLowerCase();
+  return keywords.filter(kw => lowerContent.includes(kw.toLowerCase()));
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -68,13 +75,18 @@ export async function PUT(
 
     const isAgency = session.user.organizationType === "AGENCY";
 
-    // Verify post access
+    // Verify post access and get campaign keywords
     const existingPost = await db.post.findFirst({
       where: {
         id,
         campaign: isAgency
           ? { agencyId: session.user.organizationId }
           : { clientId: session.user.organizationId },
+      },
+      include: {
+        campaign: {
+          select: { keywords: true },
+        },
       },
     });
 
@@ -95,6 +107,13 @@ export async function PUT(
       return NextResponse.json(post);
     }
 
+    // Recalculate keyword matches if content is updated
+    const newContent = body.content !== undefined ? body.content : existingPost.content;
+    const matchedKeywords = newContent
+      ? findKeywordMatches(newContent, existingPost.campaign.keywords)
+      : [];
+    const hasKeywordMatch = matchedKeywords.length > 0;
+
     // Agency can update all fields
     const post = await db.post.update({
       where: { id },
@@ -108,6 +127,8 @@ export async function PUT(
           ? new Date(body.scheduledFor)
           : existingPost.scheduledFor,
         postedAt: body.postedAt ? new Date(body.postedAt) : existingPost.postedAt,
+        matchedKeywords,
+        hasKeywordMatch,
         impressions: body.impressions ?? existingPost.impressions,
         likes: body.likes ?? existingPost.likes,
         retweets: body.retweets ?? existingPost.retweets,
@@ -121,7 +142,7 @@ export async function PUT(
           select: { id: true, name: true, twitterHandle: true },
         },
         campaign: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, keywords: true },
         },
       },
     });

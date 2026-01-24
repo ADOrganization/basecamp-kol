@@ -108,7 +108,7 @@ export default function ClientAnalyticsPage() {
     ? ((totals.likes + totals.retweets + totals.replies) / totals.impressions * 100).toFixed(2)
     : "0";
 
-  // Generate engagement trend data (last 7 days simulated)
+  // Generate engagement trend data (last 7 days from actual posts)
   const trendData = Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
@@ -121,8 +121,8 @@ export default function ClientAnalyticsPage() {
     );
     return {
       date: date.toLocaleDateString("en-US", { weekday: "short" }),
-      impressions: dayPosts.reduce((sum, p) => sum + p.impressions, 0) || Math.floor(Math.random() * 5000),
-      engagement: dayPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0) || Math.floor(Math.random() * 500),
+      impressions: dayPosts.reduce((sum, p) => sum + p.impressions, 0),
+      engagement: dayPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0),
     };
   });
 

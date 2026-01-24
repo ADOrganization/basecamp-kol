@@ -173,6 +173,12 @@ model Campaign {
   name        String
   description String?
 
+  // Project Twitter handle (e.g., @ProjectHandle)
+  projectTwitterHandle String?
+
+  // Keywords for post tracking (e.g., ["$TOKEN", "#launch", "DEMO"])
+  keywords    String[]
+
   // Budget (stored in cents)
   totalBudget Int            @default(0)
   spentBudget Int            @default(0)
@@ -213,7 +219,13 @@ model CampaignKOL {
   assignedBudget Int               @default(0) // cents
   status         CampaignKOLStatus @default(PENDING)
 
-  // Deliverables stored as JSON
+  // Structured deliverables tracking
+  requiredPosts     Int            @default(0)
+  requiredThreads   Int            @default(0)
+  requiredRetweets  Int            @default(0)
+  requiredSpaces    Int            @default(0)
+
+  // Legacy deliverables JSON (kept for backward compatibility)
   deliverables   Json?             // [{ type: "post", quantity: 2 }, { type: "thread", quantity: 1 }]
 
   notes          String?
@@ -268,6 +280,10 @@ model Post {
   // Schedule
   scheduledFor DateTime?
   postedAt     DateTime?
+
+  // Keyword matching
+  matchedKeywords String[]
+  hasKeywordMatch Boolean  @default(false)
 
   // Metrics (cached from Twitter API)
   impressions  Int        @default(0)

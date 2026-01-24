@@ -42,7 +42,9 @@ export const campaignSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters"),
   description: z.string().optional(),
   clientId: z.string().optional(),
-  totalBudget: z.number().min(0, "Budget must be positive"),
+  projectTwitterHandle: z.string().optional(),
+  keywords: z.array(z.string()).optional(),
+  totalBudget: z.number().min(0, "Budget must be positive").default(0),
   status: z.enum(["DRAFT", "PENDING_APPROVAL", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -56,7 +58,11 @@ export const campaignSchema = z.object({
 
 export const campaignKolSchema = z.object({
   kolId: z.string().min(1, "KOL is required"),
-  assignedBudget: z.number().min(0, "Budget must be positive"),
+  assignedBudget: z.number().min(0, "Budget must be positive").default(0),
+  requiredPosts: z.number().min(0).default(0),
+  requiredThreads: z.number().min(0).default(0),
+  requiredRetweets: z.number().min(0).default(0),
+  requiredSpaces: z.number().min(0).default(0),
   deliverables: z.array(z.object({
     type: z.enum(["POST", "THREAD", "RETWEET", "QUOTE", "SPACE"]),
     quantity: z.number().min(1),
@@ -72,6 +78,15 @@ export const postSchema = z.object({
   content: z.string().optional(),
   scheduledFor: z.string().optional(),
   tweetUrl: z.string().url().optional().or(z.literal("")),
+  postedAt: z.string().optional(),
+  // Metrics (for manual entry)
+  impressions: z.number().min(0).optional(),
+  likes: z.number().min(0).optional(),
+  retweets: z.number().min(0).optional(),
+  replies: z.number().min(0).optional(),
+  quotes: z.number().min(0).optional(),
+  bookmarks: z.number().min(0).optional(),
+  clicks: z.number().min(0).optional(),
 });
 
 export const postApprovalSchema = z.object({
