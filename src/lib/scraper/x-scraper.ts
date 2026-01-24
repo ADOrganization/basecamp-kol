@@ -147,38 +147,48 @@ function matchesKeywords(content: string, keywords: string[]): boolean {
  */
 interface APIEndpoint {
   name: string;
-  getUserTweets: (handle: string, count: number) => string;
+  method: 'GET' | 'POST';
+  getUrl: (handle: string, count: number) => string;
   getHeaders: (apiKey: string) => Record<string, string>;
+  getBody?: (handle: string, count: number) => string | null;
   parser: string;
 }
 
 const API_ENDPOINTS: APIEndpoint[] = [
-  // twexapi.io - Primary (user's API)
+  // twexapi.io - Primary (user's API) - uses Bearer token auth
+  // Try advanced_search to find user's tweets
   {
-    name: 'twexapi',
-    getUserTweets: (handle: string, count: number) =>
-      `https://api.twexapi.io/twitter/user/last_tweets?userName=${handle}&limit=${count}`,
+    name: 'twexapi-search',
+    method: 'POST',
+    getUrl: () => `https://api.twexapi.io/twitter/advanced_search`,
+    getHeaders: (apiKey: string) => ({
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+    getBody: (handle: string, count: number) => JSON.stringify({
+      query: `from:${handle}`,
+      count: count,
+    }),
+    parser: 'twexapi',
+  },
+  // twitterapi.io - Alternative with X-API-Key header
+  {
+    name: 'twitterapi.io',
+    method: 'GET',
+    getUrl: (handle: string, count: number) =>
+      `https://api.twitterapi.io/twitter/user/last_tweets?userName=${handle}&limit=${count}`,
     getHeaders: (apiKey: string) => ({
       'X-API-Key': apiKey,
       'Accept': 'application/json',
     }),
     parser: 'twexapi',
   },
-  // twitterapi.io - Alternative
-  {
-    name: 'twitterapi.io',
-    getUserTweets: (handle: string, count: number) =>
-      `https://api.twitterapi.io/twitter/user/last_tweets?userName=${handle}&limit=${count}`,
-    getHeaders: (apiKey: string) => ({
-      'X-API-Key': apiKey,
-      'Accept': 'application/json',
-    }),
-    parser: 'twexapi', // Same format
-  },
   // RapidAPI fallbacks
   {
     name: 'twitter154',
-    getUserTweets: (handle: string, count: number) =>
+    method: 'GET',
+    getUrl: (handle: string, count: number) =>
       `https://twitter154.p.rapidapi.com/user/tweets?username=${handle}&limit=${count}&include_replies=false&include_pinned=false`,
     getHeaders: (apiKey: string) => ({
       'x-rapidapi-key': apiKey,
@@ -188,7 +198,8 @@ const API_ENDPOINTS: APIEndpoint[] = [
   },
   {
     name: 'twitter-api45',
-    getUserTweets: (handle: string) =>
+    method: 'GET',
+    getUrl: (handle: string) =>
       `https://twitter-api45.p.rapidapi.com/timeline.php?screenname=${handle}`,
     getHeaders: (apiKey: string) => ({
       'x-rapidapi-key': apiKey,
@@ -217,19 +228,21 @@ async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult>
   // Determine which endpoints to try based on API key format
   const isTwexApiKey = apiKey.startsWith('twitterx_');
   const endpointsToTry = isTwexApiKey
-    ? API_ENDPOINTS.filter(e => e.name === 'twexapi' || e.name === 'twitterapi.io')
+    ? API_ENDPOINTS.filter(e => e.name.startsWith('twexapi'))
     : API_ENDPOINTS;
 
   // Try each endpoint in sequence
   for (const endpoint of endpointsToTry) {
     try {
-      const url = endpoint.getUserTweets(cleanHandle, maxTweets);
+      const url = endpoint.getUrl(cleanHandle, maxTweets);
       const headers = endpoint.getHeaders(apiKey);
-      console.log(`[Scraper] Trying ${endpoint.name}...`);
+      const body = endpoint.getBody ? endpoint.getBody(cleanHandle, maxTweets) : null;
+      console.log(`[Scraper] Trying ${endpoint.name}... ${endpoint.method} ${url}`);
 
       const response = await fetch(url, {
-        method: 'GET',
+        method: endpoint.method,
         headers,
+        body,
         signal: AbortSignal.timeout(20000),
       });
 
