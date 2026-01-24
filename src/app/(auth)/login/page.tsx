@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
-export default function LoginPage() {
-  const router = useRouter();
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,18 +28,27 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
+        callbackUrl,
       });
 
-      if (result?.error) {
+      if (!result) {
+        setError("An unexpected error occurred");
+        setIsLoading(false);
+        return;
+      }
+
+      if (result.error) {
         setError("Invalid email or password");
         setIsLoading(false);
         return;
       }
 
-      // Refresh and redirect
-      router.refresh();
-      router.push("/");
-    } catch {
+      if (result.ok) {
+        // Success - redirect using window.location for full page refresh
+        window.location.href = result.url || callbackUrl;
+      }
+    } catch (err) {
+      console.error("Login error:", err);
       setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
@@ -70,6 +81,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isLoading}
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
@@ -82,8 +94,16 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
+          </div>
+
+          {/* Demo credentials hint */}
+          <div className="rounded-md bg-indigo-500/10 border border-indigo-500/20 p-3 text-xs text-indigo-300">
+            <p className="font-medium mb-1">Demo Accounts:</p>
+            <p>Agency: agency@demo.com / password123</p>
+            <p>Client: client@demo.com / password123</p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
@@ -92,7 +112,14 @@ export default function LoginPage() {
             className="w-full bg-indigo-600 hover:bg-indigo-700"
             disabled={isLoading}
           >
-            {isLoading ? "Signing in..." : "Sign in"}
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              "Sign in"
+            )}
           </Button>
           <p className="text-sm text-slate-400">
             Don&apos;t have an account?{" "}
@@ -103,5 +130,19 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+        </CardContent>
+      </Card>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
