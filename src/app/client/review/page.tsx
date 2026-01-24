@@ -73,9 +73,12 @@ export default function ClientReviewPage() {
         body: JSON.stringify({ action: "approve" }),
       });
       if (response.ok) {
+        // Optimistic update for immediate feedback
         setPosts(posts.map(p =>
           p.id === postId ? { ...p, status: "APPROVED" } : p
         ));
+        // Refetch to ensure server-client sync
+        fetchPosts();
       }
     } catch (error) {
       console.error("Failed to approve post:", error);
@@ -93,9 +96,12 @@ export default function ClientReviewPage() {
         body: JSON.stringify({ action: "reject" }),
       });
       if (response.ok) {
+        // Optimistic update for immediate feedback
         setPosts(posts.map(p =>
           p.id === postId ? { ...p, status: "REJECTED" } : p
         ));
+        // Refetch to ensure server-client sync
+        fetchPosts();
       }
     } catch (error) {
       console.error("Failed to reject post:", error);

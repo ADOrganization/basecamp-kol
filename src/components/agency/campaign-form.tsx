@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,7 +60,6 @@ function generatePassword(length: number = 12): string {
 }
 
 export function CampaignForm({ campaign, clients = [], open, onClose }: CampaignFormProps) {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -179,7 +177,6 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
         }
       }
 
-      router.refresh();
       onClose();
     } catch {
       setError("An error occurred. Please try again.");
@@ -192,7 +189,6 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
     setCreatedClientInfo(null);
     setShowClientCreation(false);
     setClientData({ name: "", email: "", password: "", organizationName: "" });
-    router.refresh();
     onClose();
   };
 

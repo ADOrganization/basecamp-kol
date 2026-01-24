@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +61,6 @@ const TAG_COLORS = [
 ];
 
 export function KOLForm({ kol, open, onClose }: KOLFormProps) {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [availableTags, setAvailableTags] = useState<KOLTag[]>([]);
@@ -179,7 +177,6 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
         return;
       }
 
-      router.refresh();
       onClose();
     } catch {
       setError("An error occurred. Please try again.");
