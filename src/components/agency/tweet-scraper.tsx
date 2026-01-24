@@ -95,19 +95,27 @@ export function TweetScraper({
   const [showSettings, setShowSettings] = useState(false);
 
   // Twitter auth state - persist in localStorage
+  const [twitterApiKey, setTwitterApiKey] = useState("");
   const [twitterCookies, setTwitterCookies] = useState("");
   const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
 
-  // Load saved cookies on mount
+  // Load saved auth on mount
   useEffect(() => {
+    const savedApiKey = localStorage.getItem("twitter_api_key");
     const savedCookies = localStorage.getItem("twitter_cookies");
     const savedCsrf = localStorage.getItem("twitter_csrf");
+    if (savedApiKey) setTwitterApiKey(savedApiKey);
     if (savedCookies) setTwitterCookies(savedCookies);
     if (savedCsrf) setTwitterCsrfToken(savedCsrf);
   }, []);
 
-  // Save cookies when changed
-  const saveCookies = () => {
+  // Save auth when changed
+  const saveAuth = () => {
+    if (twitterApiKey) {
+      localStorage.setItem("twitter_api_key", twitterApiKey);
+    } else {
+      localStorage.removeItem("twitter_api_key");
+    }
     if (twitterCookies) {
       localStorage.setItem("twitter_cookies", twitterCookies);
     } else {
@@ -145,6 +153,7 @@ export function TweetScraper({
           mode: "all",
           kolIds: selectedKols.length === kols.length ? undefined : selectedKols,
           autoImport: false,
+          twitterApiKey: twitterApiKey || undefined,
           twitterCookies: twitterCookies || undefined,
           twitterCsrfToken: twitterCsrfToken || undefined,
         }),
@@ -308,44 +317,69 @@ export function TweetScraper({
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-between">
                 <span className="flex items-center gap-2">
-                  <Cookie className="h-4 w-4" />
-                  Twitter Auth {twitterCookies ? "(Configured)" : "(Not Set)"}
+                  <Settings className="h-4 w-4" />
+                  Twitter API {twitterApiKey ? "(Configured)" : "(Not Set)"}
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? "rotate-180" : ""}`} />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 p-3 border rounded-lg bg-muted/50">
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  For reliable scraping, paste your Twitter cookies. Open X.com in browser, go to DevTools → Network →
-                  find any request → right-click → Copy as cURL. Extract the Cookie header value.
-                </p>
+              <div className="space-y-4">
+                {/* API Key - Primary method */}
                 <div className="space-y-2">
-                  <Label htmlFor="cookies" className="text-xs">Cookie Header Value</Label>
-                  <Textarea
-                    id="cookies"
-                    placeholder='auth_token=xxx; ct0=xxx; ...'
-                    value={twitterCookies}
-                    onChange={(e) => setTwitterCookies(e.target.value)}
-                    className="h-16 text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="csrf" className="text-xs">CSRF Token (x-csrf-token / ct0)</Label>
+                  <Label htmlFor="apikey" className="text-sm font-medium">Twitter API Key (Recommended)</Label>
                   <Input
-                    id="csrf"
-                    placeholder="ct0 value from cookies"
-                    value={twitterCsrfToken}
-                    onChange={(e) => setTwitterCsrfToken(e.target.value)}
-                    className="text-xs font-mono"
+                    id="apikey"
+                    type="password"
+                    placeholder="twitterx_xxx..."
+                    value={twitterApiKey}
+                    onChange={(e) => setTwitterApiKey(e.target.value)}
+                    className="font-mono"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Get an API key from RapidAPI Twitter endpoints for reliable scraping.
+                  </p>
                 </div>
+
+                {/* Cookies - Fallback method */}
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start text-xs text-muted-foreground">
+                      <Cookie className="h-3 w-3 mr-2" />
+                      Advanced: Browser Cookies (Fallback)
+                      <ChevronDown className="h-3 w-3 ml-auto" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 space-y-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="cookies" className="text-xs">Cookie Header Value</Label>
+                      <Textarea
+                        id="cookies"
+                        placeholder='auth_token=xxx; ct0=xxx; ...'
+                        value={twitterCookies}
+                        onChange={(e) => setTwitterCookies(e.target.value)}
+                        className="h-16 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="csrf" className="text-xs">CSRF Token (ct0)</Label>
+                      <Input
+                        id="csrf"
+                        placeholder="ct0 value from cookies"
+                        value={twitterCsrfToken}
+                        onChange={(e) => setTwitterCsrfToken(e.target.value)}
+                        className="text-xs font-mono"
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={saveCookies}>
-                    Save to Browser
+                  <Button size="sm" variant="default" onClick={saveAuth}>
+                    Save Settings
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setTwitterCookies(""); setTwitterCsrfToken(""); }}>
-                    Clear
+                  <Button size="sm" variant="ghost" onClick={() => { setTwitterApiKey(""); setTwitterCookies(""); setTwitterCsrfToken(""); }}>
+                    Clear All
                   </Button>
                 </div>
               </div>

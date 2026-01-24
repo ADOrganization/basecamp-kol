@@ -139,14 +139,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   // Scraper state
   const [showScraper, setShowScraper] = useState(false);
 
-  // Cookie state for scraper/monitor
+  // API key and cookie state for scraper/monitor
+  const [twitterApiKey, setTwitterApiKey] = useState("");
   const [twitterCookies, setTwitterCookies] = useState("");
   const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
 
-  // Load cookies from localStorage
+  // Load auth from localStorage
   useEffect(() => {
+    const savedApiKey = localStorage.getItem("twitter_api_key");
     const savedCookies = localStorage.getItem("twitter_cookies");
     const savedCsrf = localStorage.getItem("twitter_csrf");
+    if (savedApiKey) setTwitterApiKey(savedApiKey);
     if (savedCookies) setTwitterCookies(savedCookies);
     if (savedCsrf) setTwitterCsrfToken(savedCsrf);
   }, []);
@@ -362,6 +365,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             handle: ck.kol.twitterHandle,
           }))}
           keywords={campaign.keywords}
+          twitterApiKey={twitterApiKey}
           twitterCookies={twitterCookies}
           twitterCsrfToken={twitterCsrfToken}
         />

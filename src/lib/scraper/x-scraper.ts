@@ -1,15 +1,31 @@
 /**
- * Free X/Twitter Scraper
- * Uses multiple methods to scrape tweets without API limits:
- * 1. Direct Twitter with user-provided cookies (most reliable)
- * 2. Nitter instances (open-source Twitter frontend)
- * 3. Twitter Syndication API (used for embeds)
+ * X/Twitter Scraper
+ * Uses multiple methods to scrape tweets:
+ * 1. Twitter API via RapidAPI (most reliable - requires API key)
+ * 2. Direct Twitter with user-provided cookies
+ * 3. Nitter instances (open-source Twitter frontend)
+ * 4. Twitter Syndication API (used for embeds)
  */
 
-// Cookie storage - users can set this via the UI
+// API key storage - users can set this via the UI
+let twitterApiKey: string | null = null;
+
+// Cookie storage (fallback)
 let twitterCookies: string | null = null;
 let twitterAuthToken: string | null = null;
 let twitterCsrfToken: string | null = null;
+
+export function setTwitterApiKey(apiKey: string) {
+  twitterApiKey = apiKey;
+}
+
+export function clearTwitterApiKey() {
+  twitterApiKey = null;
+}
+
+export function hasTwitterApiKey(): boolean {
+  return !!twitterApiKey;
+}
 
 export function setTwitterAuth(cookies: string, authToken?: string, csrfToken?: string) {
   twitterCookies = cookies;
@@ -24,7 +40,7 @@ export function clearTwitterAuth() {
 }
 
 export function hasTwitterAuth(): boolean {
-  return !!twitterCookies;
+  return !!twitterCookies || !!twitterApiKey;
 }
 
 export interface ScrapedTweet {
@@ -108,7 +124,174 @@ function matchesKeywords(content: string, keywords: string[]): boolean {
 }
 
 /**
- * Method 0: Direct Twitter API with user cookies (most reliable)
+ * Method 0: Twitter API via RapidAPI (most reliable)
+ * Uses third-party API services for reliable access
+ */
+async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult> {
+  if (!twitterApiKey) {
+    return { success: false, tweets: [], error: 'No API key set', method: 'rapidapi' };
+  }
+
+  const { handle, keywords, maxTweets = 50, includeReplies = false, includeRetweets = true, sinceDate } = options;
+  const cleanHandle = handle.replace('@', '');
+
+  try {
+    // Try Twitter API v2 via RapidAPI
+    const url = `https://twitter-api45.p.rapidapi.com/timeline.php?screenname=${cleanHandle}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': twitterApiKey,
+        'x-rapidapi-host': 'twitter-api45.p.rapidapi.com',
+      },
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!response.ok) {
+      // Try alternative endpoint
+      const altUrl = `https://twitter241.p.rapidapi.com/user-tweets?user=${cleanHandle}&count=${maxTweets}`;
+      const altResponse = await fetch(altUrl, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': twitterApiKey,
+          'x-rapidapi-host': 'twitter241.p.rapidapi.com',
+        },
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!altResponse.ok) {
+        return { success: false, tweets: [], error: `API error: ${response.status}`, method: 'rapidapi' };
+      }
+
+      const altData = await altResponse.json();
+      const tweets = parseRapidAPIResponse(altData, cleanHandle, 'twitter241');
+      return filterTweets(tweets, { keywords, includeReplies, includeRetweets, sinceDate, maxTweets });
+    }
+
+    const data = await response.json();
+    const tweets = parseRapidAPIResponse(data, cleanHandle, 'twitter-api45');
+    return filterTweets(tweets, { keywords, includeReplies, includeRetweets, sinceDate, maxTweets });
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, tweets: [], error: errorMsg, method: 'rapidapi' };
+  }
+}
+
+// Parse RapidAPI response (handles multiple API formats)
+function parseRapidAPIResponse(data: unknown, handle: string, source: string): ScrapedTweet[] {
+  const tweets: ScrapedTweet[] = [];
+
+  try {
+    // Handle twitter-api45 format
+    if (source === 'twitter-api45') {
+      const timeline = (data as Record<string, unknown>)?.timeline || [];
+      for (const item of timeline as Array<Record<string, unknown>>) {
+        try {
+          const tweet = item as Record<string, unknown>;
+          const tweetId = String(tweet.tweet_id || tweet.id || '');
+          if (!tweetId) continue;
+
+          tweets.push({
+            id: tweetId,
+            url: `https://x.com/${handle}/status/${tweetId}`,
+            content: String(tweet.text || tweet.full_text || ''),
+            authorHandle: String(tweet.screen_name || handle),
+            authorName: String(tweet.name || handle),
+            postedAt: new Date(String(tweet.created_at || Date.now())),
+            metrics: {
+              likes: Number(tweet.favorites || tweet.favorite_count || 0),
+              retweets: Number(tweet.retweets || tweet.retweet_count || 0),
+              replies: Number(tweet.replies || tweet.reply_count || 0),
+              quotes: Number(tweet.quotes || tweet.quote_count || 0),
+              views: Number(tweet.views || tweet.view_count || 0),
+            },
+            mediaUrls: [],
+            isRetweet: !!tweet.retweeted_status,
+            isQuote: !!tweet.is_quote_status,
+          });
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    // Handle twitter241 format
+    if (source === 'twitter241') {
+      const results = (data as Record<string, unknown>)?.result || (data as Record<string, unknown>)?.tweets || [];
+      for (const item of (Array.isArray(results) ? results : []) as Array<Record<string, unknown>>) {
+        try {
+          const tweet = item?.tweet || item;
+          const tweetId = String((tweet as Record<string, unknown>)?.rest_id || (tweet as Record<string, unknown>)?.id || '');
+          if (!tweetId) continue;
+
+          const legacy = (tweet as Record<string, unknown>)?.legacy as Record<string, unknown> || tweet;
+          const core = (tweet as Record<string, unknown>)?.core as Record<string, unknown>;
+          const userLegacy = ((core?.user_results as Record<string, unknown>)?.result as Record<string, unknown>)?.legacy as Record<string, unknown>;
+
+          tweets.push({
+            id: tweetId,
+            url: `https://x.com/${handle}/status/${tweetId}`,
+            content: String(legacy?.full_text || legacy?.text || ''),
+            authorHandle: String(userLegacy?.screen_name || handle),
+            authorName: String(userLegacy?.name || handle),
+            postedAt: new Date(String(legacy?.created_at || Date.now())),
+            metrics: {
+              likes: Number(legacy?.favorite_count || 0),
+              retweets: Number(legacy?.retweet_count || 0),
+              replies: Number(legacy?.reply_count || 0),
+              quotes: Number(legacy?.quote_count || 0),
+              views: Number(((tweet as Record<string, unknown>)?.views as Record<string, unknown>)?.count || 0),
+            },
+            mediaUrls: [],
+            isRetweet: !!legacy?.retweeted_status_result,
+            isQuote: !!legacy?.is_quote_status,
+          });
+        } catch {
+          continue;
+        }
+      }
+    }
+  } catch {
+    // Return empty if parsing fails
+  }
+
+  return tweets;
+}
+
+// Filter tweets helper
+function filterTweets(
+  tweets: ScrapedTweet[],
+  options: { keywords?: string[]; includeReplies?: boolean; includeRetweets?: boolean; sinceDate?: Date; maxTweets?: number }
+): ScrapeResult {
+  let filtered = tweets;
+
+  if (!options.includeReplies) {
+    filtered = filtered.filter(t => !t.content.startsWith('@'));
+  }
+
+  if (!options.includeRetweets) {
+    filtered = filtered.filter(t => !t.isRetweet);
+  }
+
+  if (options.keywords && options.keywords.length > 0) {
+    filtered = filtered.filter(t => matchesKeywords(t.content, options.keywords!));
+  }
+
+  if (options.sinceDate) {
+    filtered = filtered.filter(t => t.postedAt >= options.sinceDate!);
+  }
+
+  return {
+    success: true,
+    tweets: filtered.slice(0, options.maxTweets || 50),
+    method: 'rapidapi',
+  };
+}
+
+/**
+ * Method 1: Direct Twitter API with user cookies
  * Requires user to paste their cookies from browser dev tools
  */
 async function scrapeFromTwitterDirect(options: ScrapeOptions): Promise<ScrapeResult> {
@@ -711,7 +894,18 @@ function parseNitterRSS(xml: string, handle: string): ScrapedTweet[] {
 export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult> {
   console.log(`[Scraper] Starting scrape for @${options.handle}`);
 
-  // Try direct Twitter API first if cookies are set
+  // Try RapidAPI first if API key is set (most reliable)
+  if (twitterApiKey) {
+    console.log(`[Scraper] Trying RapidAPI...`);
+    const apiResult = await scrapeFromRapidAPI(options);
+    if (apiResult.success && apiResult.tweets.length > 0) {
+      console.log(`[Scraper] RapidAPI success: ${apiResult.tweets.length} tweets`);
+      return apiResult;
+    }
+    console.log(`[Scraper] RapidAPI failed: ${apiResult.error}`);
+  }
+
+  // Try direct Twitter API if cookies are set
   if (twitterCookies) {
     console.log(`[Scraper] Trying direct Twitter API with cookies...`);
     const directResult = await scrapeFromTwitterDirect(options);

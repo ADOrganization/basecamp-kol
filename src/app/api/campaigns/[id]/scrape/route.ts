@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scrapeTweets, scrapeMultipleKOLs, scrapeSingleTweet, setTwitterAuth, clearTwitterAuth, type ScrapedTweet } from "@/lib/scraper/x-scraper";
+import { scrapeTweets, scrapeMultipleKOLs, scrapeSingleTweet, setTwitterAuth, clearTwitterAuth, setTwitterApiKey, clearTwitterApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -33,9 +33,16 @@ export async function POST(
 
     const { id: campaignId } = await params;
     const body = await request.json();
-    const { mode = "all", kolIds, tweetUrls, autoImport = false, twitterCookies, twitterCsrfToken } = body;
+    const { mode = "all", kolIds, tweetUrls, autoImport = false, twitterCookies, twitterCsrfToken, twitterApiKey } = body;
 
-    // Set Twitter auth if provided
+    // Set Twitter API key if provided (preferred method)
+    if (twitterApiKey) {
+      setTwitterApiKey(twitterApiKey);
+    } else {
+      clearTwitterApiKey();
+    }
+
+    // Set Twitter cookies as fallback
     if (twitterCookies) {
       setTwitterAuth(twitterCookies, undefined, twitterCsrfToken);
     } else {

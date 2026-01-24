@@ -64,6 +64,7 @@ interface TweetMonitorProps {
   campaignName: string;
   kols: KOL[];
   keywords: string[];
+  twitterApiKey?: string;
   twitterCookies?: string;
   twitterCsrfToken?: string;
 }
@@ -81,6 +82,7 @@ export function TweetMonitor({
   campaignName,
   kols,
   keywords: initialKeywords,
+  twitterApiKey,
   twitterCookies,
   twitterCsrfToken,
 }: TweetMonitorProps) {
@@ -146,6 +148,7 @@ export function TweetMonitor({
         body: JSON.stringify({
           mode: "all",
           autoImport: false,
+          twitterApiKey,
           twitterCookies,
           twitterCsrfToken,
         }),
@@ -198,7 +201,7 @@ export function TweetMonitor({
     } finally {
       setIsLoading(false);
     }
-  }, [campaignId, campaignName, kols, keywords, seenTweetIds, twitterCookies, twitterCsrfToken]);
+  }, [campaignId, campaignName, kols, keywords, seenTweetIds, twitterApiKey, twitterCookies, twitterCsrfToken]);
 
   // Start/stop monitoring
   const toggleMonitoring = useCallback(() => {
