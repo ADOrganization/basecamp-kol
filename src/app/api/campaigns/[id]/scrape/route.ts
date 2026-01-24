@@ -35,9 +35,19 @@ export async function POST(
     const body = await request.json();
     const { mode = "all", kolIds, tweetUrls, autoImport = false, filterKeywords, twitterCookies, twitterCsrfToken, twitterApiKey } = body;
 
-    // Set Twitter API key if provided (preferred method)
-    if (twitterApiKey) {
-      setTwitterApiKey(twitterApiKey);
+    // Load organization's saved Twitter API key if not provided in request
+    let apiKeyToUse = twitterApiKey;
+    if (!apiKeyToUse) {
+      const org = await db.organization.findUnique({
+        where: { id: session.user.organizationId },
+        select: { twitterApiKey: true },
+      });
+      apiKeyToUse = org?.twitterApiKey || null;
+    }
+
+    // Set Twitter API key if available (preferred method)
+    if (apiKeyToUse) {
+      setTwitterApiKey(apiKeyToUse);
     } else {
       clearTwitterApiKey();
     }

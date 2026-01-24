@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Twitter, MessageSquare, Bell, Loader2, AlertCircle } from "lucide-react";
+import { Twitter, MessageSquare, Bell, Loader2, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import {
   Alert,
   AlertDescription,
@@ -18,25 +18,86 @@ interface IntegrationsCardProps {
 }
 
 export function TwitterIntegrationCard() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
-  const [formData, setFormData] = useState({
-    apiKey: "",
-    apiSecret: "",
-    bearerToken: "",
-  });
+  const [apiKey, setApiKey] = useState("");
+  const [hasExistingKey, setHasExistingKey] = useState(false);
+  const [maskedKey, setMaskedKey] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const handleConnect = async () => {
-    if (!formData.apiKey || !formData.apiSecret || !formData.bearerToken) {
-      setShowInfo(true);
-      return;
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch("/api/organization/twitter");
+      if (response.ok) {
+        const data = await response.json();
+        setHasExistingKey(data.hasApiKey);
+        setMaskedKey(data.maskedApiKey);
+      }
+    } catch (error) {
+      console.error("Failed to fetch Twitter settings:", error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    setIsLoading(true);
-    // Simulate connection attempt
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setShowInfo(true);
+  const handleSave = async () => {
+    if (!apiKey.trim()) return;
+
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/twitter", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ twitterApiKey: apiKey }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "API key saved successfully" });
+        setApiKey("");
+        fetchSettings();
+      } else {
+        const data = await response.json();
+        setMessage({ type: "error", text: data.error || "Failed to save" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to save API key" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (!confirm("Remove the API key?")) return;
+
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/twitter", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ twitterApiKey: "" }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "API key removed" });
+        setHasExistingKey(false);
+        setMaskedKey(null);
+      } else {
+        setMessage({ type: "error", text: "Failed to remove" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to remove API key" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -47,65 +108,106 @@ export function TwitterIntegrationCard() {
           Twitter / X API
         </CardTitle>
         <CardDescription>
-          Connect to Twitter API for post verification and metrics tracking
+          Configure your RapidAPI key for tweet scraping
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {showInfo && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuration Required</AlertTitle>
-            <AlertDescription>
-              Twitter API integration requires a valid Twitter Developer account and API credentials.
-              Visit developer.twitter.com to obtain your credentials.
-            </AlertDescription>
-          </Alert>
+        {/* Status */}
+        <div className="flex items-center gap-2">
+          {hasExistingKey ? (
+            <>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <Badge variant="secondary" className="bg-green-100 text-green-700">Connected</Badge>
+              {maskedKey && (
+                <span className="text-sm text-muted-foreground font-mono">
+                  {maskedKey}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <Badge variant="secondary">Not Configured</Badge>
+            </>
+          )}
+        </div>
+
+        {/* API Key Input */}
+        <div className="space-y-2">
+          <Label htmlFor="rapidapi-key">
+            {hasExistingKey ? "Update RapidAPI Key" : "RapidAPI Key"}
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                id="rapidapi-key"
+                type={showKey ? "text" : "password"}
+                placeholder="Enter your RapidAPI key..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="pr-10 font-mono"
+                disabled={isLoading}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowKey(!showKey)}
+              >
+                {showKey ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+            <Button onClick={handleSave} disabled={isSaving || !apiKey.trim() || isLoading}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get your API key from{" "}
+            <a
+              href="https://rapidapi.com/davethebeast/api/twitter154"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              rapidapi.com/twitter154
+            </a>
+            {" "}(recommended) or similar Twitter API providers.
+          </p>
+        </div>
+
+        {/* Remove button */}
+        {hasExistingKey && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClear}
+            disabled={isSaving}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            Remove API Key
+          </Button>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="twitter-key">API Key</Label>
-            <Input
-              id="twitter-key"
-              type="password"
-              placeholder="Enter your API key"
-              value={formData.apiKey}
-              onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-            />
+        {/* Message */}
+        {message && (
+          <div
+            className={`flex items-center gap-2 text-sm ${
+              message.type === "success" ? "text-green-600" : "text-destructive"
+            }`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            {message.text}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="twitter-secret">API Secret</Label>
-            <Input
-              id="twitter-secret"
-              type="password"
-              placeholder="Enter your API secret"
-              value={formData.apiSecret}
-              onChange={(e) => setFormData({ ...formData, apiSecret: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="twitter-bearer">Bearer Token</Label>
-            <Input
-              id="twitter-bearer"
-              type="password"
-              placeholder="Enter your bearer token"
-              value={formData.bearerToken}
-              onChange={(e) => setFormData({ ...formData, bearerToken: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Not Connected</Badge>
-            <span className="text-sm text-muted-foreground">
-              Add your credentials to enable Twitter integration
-            </span>
-          </div>
-          <Button onClick={handleConnect} disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isLoading ? "Connecting..." : "Save & Connect"}
-          </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
