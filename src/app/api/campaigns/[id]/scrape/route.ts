@@ -33,7 +33,7 @@ export async function POST(
 
     const { id: campaignId } = await params;
     const body = await request.json();
-    const { mode = "all", kolIds, tweetUrls, autoImport = false, twitterCookies, twitterCsrfToken, twitterApiKey } = body;
+    const { mode = "all", kolIds, tweetUrls, autoImport = false, filterKeywords, twitterCookies, twitterCsrfToken, twitterApiKey } = body;
 
     // Set Twitter API key if provided (preferred method)
     if (twitterApiKey) {
@@ -121,8 +121,9 @@ export async function POST(
         return NextResponse.json({ error: "No KOLs to scrape" }, { status: 400 });
       }
 
-      // Scrape all KOLs
-      const results = await scrapeMultipleKOLs(handles, campaign.keywords, 30);
+      // Scrape all KOLs - use filterKeywords if provided, otherwise use campaign keywords
+      const keywordsToUse = filterKeywords && filterKeywords.length > 0 ? filterKeywords : campaign.keywords;
+      const results = await scrapeMultipleKOLs(handles, keywordsToUse, 30);
 
       // Process results
       for (const ck of kolsToScrape) {

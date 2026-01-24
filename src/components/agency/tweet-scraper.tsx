@@ -37,6 +37,8 @@ import {
   Settings,
   ChevronDown,
   Cookie,
+  Filter,
+  X,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 
@@ -135,6 +137,11 @@ export function TweetScraper({
   const [selectedTweets, setSelectedTweets] = useState<Set<string>>(new Set());
   const [showOnlyKeywordMatches, setShowOnlyKeywordMatches] = useState(false);
 
+  // Keyword filter state - filter BEFORE scraping
+  const [filterByKeywords, setFilterByKeywords] = useState(true);
+  const [activeKeywords, setActiveKeywords] = useState<string[]>(keywords);
+  const [newKeyword, setNewKeyword] = useState("");
+
   // Manual import state
   const [manualUrls, setManualUrls] = useState("");
   const [manualResults, setManualResults] = useState<ScrapedTweet[]>([]);
@@ -153,6 +160,7 @@ export function TweetScraper({
           mode: "all",
           kolIds: selectedKols.length === kols.length ? undefined : selectedKols,
           autoImport: false,
+          filterKeywords: filterByKeywords ? activeKeywords : undefined,
           twitterApiKey: twitterApiKey || undefined,
           twitterCookies: twitterCookies || undefined,
           twitterCsrfToken: twitterCsrfToken || undefined,
@@ -433,23 +441,90 @@ export function TweetScraper({
                   </div>
                 </div>
 
-                {/* Keywords */}
-                {keywords.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Tracking Keywords</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {keywords.map((kw) => (
-                        <Badge key={kw} variant="outline">
-                          <Hash className="h-3 w-3 mr-1" />
-                          {kw}
-                        </Badge>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Tweets containing these keywords will be highlighted
-                    </p>
+                {/* Keyword Filter Section */}
+                <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      Keyword Filter
+                    </Label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={filterByKeywords}
+                        onCheckedChange={(checked) => setFilterByKeywords(!!checked)}
+                      />
+                      <span className="text-sm font-medium">
+                        {filterByKeywords ? "Enabled" : "Disabled"}
+                      </span>
+                    </label>
                   </div>
-                )}
+
+                  {filterByKeywords && (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        Only scrape tweets containing these keywords:
+                      </p>
+
+                      {/* Add keyword input */}
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Add keyword (e.g., $TOKEN, #launch)..."
+                          value={newKeyword}
+                          onChange={(e) => setNewKeyword(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && newKeyword.trim()) {
+                              if (!activeKeywords.includes(newKeyword.trim())) {
+                                setActiveKeywords([...activeKeywords, newKeyword.trim()]);
+                              }
+                              setNewKeyword("");
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (newKeyword.trim() && !activeKeywords.includes(newKeyword.trim())) {
+                              setActiveKeywords([...activeKeywords, newKeyword.trim()]);
+                              setNewKeyword("");
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+
+                      {/* Active keywords */}
+                      <div className="flex flex-wrap gap-2">
+                        {activeKeywords.length === 0 ? (
+                          <p className="text-sm text-muted-foreground italic">
+                            No keywords set. Add keywords above or disable filter to scrape all tweets.
+                          </p>
+                        ) : (
+                          activeKeywords.map((kw) => (
+                            <Badge
+                              key={kw}
+                              variant="secondary"
+                              className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                              onClick={() => setActiveKeywords(activeKeywords.filter(k => k !== kw))}
+                            >
+                              <Hash className="h-3 w-3 mr-1" />
+                              {kw}
+                              <X className="h-3 w-3 ml-1" />
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {!filterByKeywords && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400">
+                      Filter disabled - will scrape ALL tweets from selected KOLs
+                    </p>
+                  )}
+                </div>
 
                 {/* Scrape Button */}
                 <Button
