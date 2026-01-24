@@ -26,6 +26,7 @@ import {
   Hash,
   Filter,
   X,
+  Bell,
 } from "lucide-react";
 import {
   Dialog,
@@ -35,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { PostForm } from "@/components/agency/post-form";
 import { TweetScraper } from "@/components/agency/tweet-scraper";
+import { TweetMonitor } from "@/components/agency/tweet-monitor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -136,6 +138,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   // Scraper state
   const [showScraper, setShowScraper] = useState(false);
+
+  // Cookie state for scraper/monitor
+  const [twitterCookies, setTwitterCookies] = useState("");
+  const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
+
+  // Load cookies from localStorage
+  useEffect(() => {
+    const savedCookies = localStorage.getItem("twitter_cookies");
+    const savedCsrf = localStorage.getItem("twitter_csrf");
+    if (savedCookies) setTwitterCookies(savedCookies);
+    if (savedCsrf) setTwitterCsrfToken(savedCsrf);
+  }, []);
 
   useEffect(() => {
     fetchCampaign();
@@ -336,6 +350,22 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <p className="text-2xl font-bold">{formatNumber(totalImpressions)}</p>
         </div>
       </div>
+
+      {/* Keyword Monitor */}
+      {campaign.keywords.length > 0 && (
+        <TweetMonitor
+          campaignId={id}
+          campaignName={campaign.name}
+          kols={campaign.campaignKols.map((ck) => ({
+            id: ck.kol.id,
+            name: ck.kol.name,
+            handle: ck.kol.twitterHandle,
+          }))}
+          keywords={campaign.keywords}
+          twitterCookies={twitterCookies}
+          twitterCsrfToken={twitterCsrfToken}
+        />
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="kols">
@@ -547,7 +577,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       </td>
                       {campaign.keywords.length > 0 && (
                         <td className="p-4">
-                          {post.matchedKeywords.length > 0 ? (
+                          {post.matchedKeywords && post.matchedKeywords.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {post.matchedKeywords.map((kw) => (
                                 <Badge key={kw} variant="secondary" className="text-xs bg-green-100 text-green-700">

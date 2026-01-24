@@ -70,7 +70,7 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
     description: campaign?.description || "",
     clientId: campaign?.clientId || "",
     projectTwitterHandle: campaign?.projectTwitterHandle || "",
-    keywords: campaign?.keywords || [],
+    keywords: Array.isArray(campaign?.keywords) ? campaign.keywords : [],
     totalBudget: campaign?.totalBudget ? campaign.totalBudget / 100 : "",
     status: campaign?.status || "DRAFT",
     startDate: campaign?.startDate ? campaign.startDate.split("T")[0] : "",
