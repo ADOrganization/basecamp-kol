@@ -7,15 +7,16 @@
  * 4. Twitter Syndication API (used for embeds)
  */
 
-// Default API key - used when no custom key is provided
-const DEFAULT_TWITTER_API_KEY = "twitterx_cea08a5329178ff33c5537b60840e698e8f5d48a55e15242";
+// Default API key - users should provide their own RapidAPI key
+// Set to empty since the placeholder key is not subscribed
+const DEFAULT_TWITTER_API_KEY = "";
 
 // Custom API key storage - users can override via the UI
 let customTwitterApiKey: string | null = null;
 
 // Get the active API key (custom or default)
-function getTwitterApiKey(): string {
-  return customTwitterApiKey || DEFAULT_TWITTER_API_KEY;
+function getTwitterApiKey(): string | null {
+  return customTwitterApiKey || DEFAULT_TWITTER_API_KEY || null;
 }
 
 // Legacy variable for compatibility
@@ -37,7 +38,7 @@ export function clearTwitterApiKey() {
 }
 
 export function hasTwitterApiKey(): boolean {
-  return true; // Always true since we have a default
+  return !!(customTwitterApiKey || DEFAULT_TWITTER_API_KEY);
 }
 
 export function getDefaultApiKey(): string {
@@ -146,6 +147,10 @@ function matchesKeywords(content: string, keywords: string[]): boolean {
  */
 async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult> {
   const apiKey = getTwitterApiKey();
+
+  if (!apiKey) {
+    return { success: false, tweets: [], error: 'No API key configured', method: 'rapidapi' };
+  }
 
   const { handle, keywords, maxTweets = 50, includeReplies = false, includeRetweets = true, sinceDate } = options;
   const cleanHandle = handle.replace('@', '');
@@ -909,14 +914,16 @@ function parseNitterRSS(xml: string, handle: string): ScrapedTweet[] {
 export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult> {
   console.log(`[Scraper] Starting scrape for @${options.handle}`);
 
-  // Try RapidAPI first (most reliable - always available with default key)
-  console.log(`[Scraper] Trying RapidAPI...`);
-  const apiResult = await scrapeFromRapidAPI(options);
-  if (apiResult.success && apiResult.tweets.length > 0) {
-    console.log(`[Scraper] RapidAPI success: ${apiResult.tweets.length} tweets`);
-    return apiResult;
+  // Try RapidAPI first if API key is configured
+  if (hasTwitterApiKey()) {
+    console.log(`[Scraper] Trying RapidAPI...`);
+    const apiResult = await scrapeFromRapidAPI(options);
+    if (apiResult.success && apiResult.tweets.length > 0) {
+      console.log(`[Scraper] RapidAPI success: ${apiResult.tweets.length} tweets`);
+      return apiResult;
+    }
+    console.log(`[Scraper] RapidAPI failed: ${apiResult.error}`);
   }
-  console.log(`[Scraper] RapidAPI failed: ${apiResult.error}`);
 
   // Try direct Twitter API if cookies are set
   if (twitterCookies) {

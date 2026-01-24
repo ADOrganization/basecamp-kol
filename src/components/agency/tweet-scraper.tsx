@@ -326,69 +326,65 @@ export function TweetScraper({
               <Button variant="ghost" size="sm" className="w-full justify-between">
                 <span className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
-                  Twitter API {twitterApiKey ? "(Custom Key)" : "(Default Key)"}
+                  Twitter Auth {(twitterApiKey || twitterCookies) ? "(Configured)" : "(Not Set - Click to Configure)"}
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? "rotate-180" : ""}`} />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 p-3 border rounded-lg bg-muted/50">
               <div className="space-y-4">
-                {/* API Key status */}
-                <div className="flex items-center gap-2 p-2 rounded bg-green-500/10 border border-green-500/20">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm text-green-700 dark:text-green-400">
-                    {twitterApiKey ? "Using custom API key" : "Using default API key"}
-                  </span>
+                {/* Auth status */}
+                {(twitterApiKey || twitterCookies) ? (
+                  <div className="flex items-center gap-2 p-2 rounded bg-green-500/10 border border-green-500/20">
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    <span className="text-sm text-green-700 dark:text-green-400">
+                      {twitterApiKey ? "Using API key" : "Using browser cookies"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
+                    <div className="h-2 w-2 rounded-full bg-amber-500" />
+                    <span className="text-sm text-amber-700 dark:text-amber-400">
+                      No auth configured - set up cookies below for scraping to work
+                    </span>
+                  </div>
+                )}
+
+                {/* Browser Cookies - Recommended method */}
+                <div className="space-y-2 p-3 border rounded bg-primary/5">
+                  <Label className="text-sm font-medium">Browser Cookies (Recommended)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Open X.com → DevTools (F12) → Network → find any request → Copy as cURL → extract Cookie value
+                  </p>
+                  <Textarea
+                    placeholder='auth_token=xxx; ct0=xxx; ...'
+                    value={twitterCookies}
+                    onChange={(e) => setTwitterCookies(e.target.value)}
+                    className="h-16 text-xs font-mono"
+                  />
+                  <Input
+                    placeholder="ct0 token (also in cookies)"
+                    value={twitterCsrfToken}
+                    onChange={(e) => setTwitterCsrfToken(e.target.value)}
+                    className="text-xs font-mono"
+                  />
                 </div>
 
-                {/* Custom API Key - Optional override */}
+                {/* API Key - Alternative */}
                 <div className="space-y-2">
-                  <Label htmlFor="apikey" className="text-sm font-medium">Custom API Key (Optional)</Label>
+                  <Label htmlFor="apikey" className="text-sm font-medium">RapidAPI Key (Alternative)</Label>
                   <Input
                     id="apikey"
                     type="password"
-                    placeholder="Leave empty to use default key..."
+                    placeholder="Your RapidAPI Twitter API key..."
                     value={twitterApiKey}
                     onChange={(e) => setTwitterApiKey(e.target.value)}
                     className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Override the default API key with your own RapidAPI key if needed.
+                    Get from rapidapi.com - requires subscription to a Twitter API endpoint
                   </p>
                 </div>
-
-                {/* Cookies - Fallback method */}
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-full justify-start text-xs text-muted-foreground">
-                      <Cookie className="h-3 w-3 mr-2" />
-                      Advanced: Browser Cookies (Fallback)
-                      <ChevronDown className="h-3 w-3 ml-auto" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2 space-y-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="cookies" className="text-xs">Cookie Header Value</Label>
-                      <Textarea
-                        id="cookies"
-                        placeholder='auth_token=xxx; ct0=xxx; ...'
-                        value={twitterCookies}
-                        onChange={(e) => setTwitterCookies(e.target.value)}
-                        className="h-16 text-xs font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="csrf" className="text-xs">CSRF Token (ct0)</Label>
-                      <Input
-                        id="csrf"
-                        placeholder="ct0 value from cookies"
-                        value={twitterCsrfToken}
-                        onChange={(e) => setTwitterCsrfToken(e.target.value)}
-                        className="text-xs font-mono"
-                      />
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
 
                 <div className="flex gap-2">
                   <Button size="sm" variant="default" onClick={saveAuth}>
