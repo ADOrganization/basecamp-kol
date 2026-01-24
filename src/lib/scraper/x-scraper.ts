@@ -143,73 +143,108 @@ function matchesKeywords(content: string, keywords: string[]): boolean {
 }
 
 /**
- * RapidAPI endpoint configurations - try multiple providers
+ * API endpoint configurations - try multiple providers
  */
-const RAPIDAPI_ENDPOINTS = [
+interface APIEndpoint {
+  name: string;
+  getUserTweets: (handle: string, count: number) => string;
+  getHeaders: (apiKey: string) => Record<string, string>;
+  parser: string;
+}
+
+const API_ENDPOINTS: APIEndpoint[] = [
+  // twexapi.io - Primary (user's API)
+  {
+    name: 'twexapi',
+    getUserTweets: (handle: string, count: number) =>
+      `https://api.twexapi.io/twitter/user/last_tweets?userName=${handle}&limit=${count}`,
+    getHeaders: (apiKey: string) => ({
+      'X-API-Key': apiKey,
+      'Accept': 'application/json',
+    }),
+    parser: 'twexapi',
+  },
+  // twitterapi.io - Alternative
+  {
+    name: 'twitterapi.io',
+    getUserTweets: (handle: string, count: number) =>
+      `https://api.twitterapi.io/twitter/user/last_tweets?userName=${handle}&limit=${count}`,
+    getHeaders: (apiKey: string) => ({
+      'X-API-Key': apiKey,
+      'Accept': 'application/json',
+    }),
+    parser: 'twexapi', // Same format
+  },
+  // RapidAPI fallbacks
   {
     name: 'twitter154',
-    host: 'twitter154.p.rapidapi.com',
     getUserTweets: (handle: string, count: number) =>
       `https://twitter154.p.rapidapi.com/user/tweets?username=${handle}&limit=${count}&include_replies=false&include_pinned=false`,
+    getHeaders: (apiKey: string) => ({
+      'x-rapidapi-key': apiKey,
+      'x-rapidapi-host': 'twitter154.p.rapidapi.com',
+    }),
     parser: 'twitter154',
   },
   {
     name: 'twitter-api45',
-    host: 'twitter-api45.p.rapidapi.com',
     getUserTweets: (handle: string) =>
       `https://twitter-api45.p.rapidapi.com/timeline.php?screenname=${handle}`,
+    getHeaders: (apiKey: string) => ({
+      'x-rapidapi-key': apiKey,
+      'x-rapidapi-host': 'twitter-api45.p.rapidapi.com',
+    }),
     parser: 'twitter-api45',
-  },
-  {
-    name: 'twttrapi',
-    host: 'twttrapi.p.rapidapi.com',
-    getUserTweets: (handle: string, count: number) =>
-      `https://twttrapi.p.rapidapi.com/user-tweets?username=${handle}&count=${count}`,
-    parser: 'twttrapi',
-  },
-  {
-    name: 'twitter241',
-    host: 'twitter241.p.rapidapi.com',
-    getUserTweets: (handle: string, count: number) =>
-      `https://twitter241.p.rapidapi.com/user-tweets?user=${handle}&count=${count}`,
-    parser: 'twitter241',
   },
 ];
 
 /**
- * Method 0: Twitter API via RapidAPI (most reliable)
- * Uses third-party API services for reliable access
- * Tries multiple RapidAPI providers in sequence
+ * Method 0: Twitter API via third-party services (most reliable)
+ * Uses twexapi.io, twitterapi.io, or RapidAPI providers
+ * Tries multiple endpoints in sequence
  */
 async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult> {
   const apiKey = getTwitterApiKey();
 
   if (!apiKey) {
-    return { success: false, tweets: [], error: 'No API key configured', method: 'rapidapi' };
+    return { success: false, tweets: [], error: 'No API key configured', method: 'api' };
   }
 
   const { handle, keywords, maxTweets = 50, includeReplies = false, includeRetweets = true, sinceDate } = options;
   const cleanHandle = handle.replace('@', '');
   const errors: string[] = [];
 
-  // Try each RapidAPI endpoint in sequence
-  for (const endpoint of RAPIDAPI_ENDPOINTS) {
+  // Determine which endpoints to try based on API key format
+  const isTwexApiKey = apiKey.startsWith('twitterx_');
+  const endpointsToTry = isTwexApiKey
+    ? API_ENDPOINTS.filter(e => e.name === 'twexapi' || e.name === 'twitterapi.io')
+    : API_ENDPOINTS;
+
+  // Try each endpoint in sequence
+  for (const endpoint of endpointsToTry) {
     try {
       const url = endpoint.getUserTweets(cleanHandle, maxTweets);
-      console.log(`[Scraper] Trying RapidAPI endpoint: ${endpoint.name}...`);
+      const headers = endpoint.getHeaders(apiKey);
+      console.log(`[Scraper] Trying ${endpoint.name}...`);
 
       const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': endpoint.host,
-        },
+        headers,
         signal: AbortSignal.timeout(20000),
       });
 
       if (!response.ok) {
         const statusText = response.statusText || 'Unknown error';
-        errors.push(`${endpoint.name}: HTTP ${response.status} ${statusText}`);
+        let errorDetail = `HTTP ${response.status} ${statusText}`;
+        try {
+          const errorBody = await response.text();
+          if (errorBody) {
+            errorDetail += ` - ${errorBody.slice(0, 200)}`;
+          }
+        } catch {
+          // Ignore error body parsing failures
+        }
+        errors.push(`${endpoint.name}: ${errorDetail}`);
         console.log(`[Scraper] ${endpoint.name} failed: HTTP ${response.status}`);
         continue;
       }
@@ -217,18 +252,18 @@ async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult>
       const data = await response.json();
 
       // Check for API error responses
-      if (data.error || data.errors || data.message?.includes('error')) {
+      if (data.error || data.errors || (data.message && typeof data.message === 'string' && data.message.toLowerCase().includes('error'))) {
         const errorMsg = data.error || data.errors?.[0]?.message || data.message || 'API returned error';
         errors.push(`${endpoint.name}: ${errorMsg}`);
         console.log(`[Scraper] ${endpoint.name} API error:`, errorMsg);
         continue;
       }
 
-      const tweets = parseRapidAPIResponse(data, cleanHandle, endpoint.parser);
+      const tweets = parseAPIResponse(data, cleanHandle, endpoint.parser);
 
       if (tweets.length === 0) {
         errors.push(`${endpoint.name}: No tweets parsed from response`);
-        console.log(`[Scraper] ${endpoint.name}: No tweets parsed`);
+        console.log(`[Scraper] ${endpoint.name}: No tweets parsed. Response:`, JSON.stringify(data).slice(0, 500));
         continue;
       }
 
@@ -245,17 +280,63 @@ async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult>
 
   // All endpoints failed
   const combinedError = errors.length > 0
-    ? `All RapidAPI endpoints failed: ${errors.join('; ')}`
-    : 'All RapidAPI endpoints failed with unknown errors';
+    ? `All API endpoints failed: ${errors.join('; ')}`
+    : 'All API endpoints failed with unknown errors';
 
-  return { success: false, tweets: [], error: combinedError, method: 'rapidapi' };
+  return { success: false, tweets: [], error: combinedError, method: 'api' };
 }
 
-// Parse RapidAPI response (handles multiple API formats)
-function parseRapidAPIResponse(data: unknown, handle: string, source: string): ScrapedTweet[] {
+// Parse API response (handles multiple API formats)
+function parseAPIResponse(data: unknown, handle: string, source: string): ScrapedTweet[] {
   const tweets: ScrapedTweet[] = [];
 
   try {
+    // Handle twexapi.io / twitterapi.io format
+    if (source === 'twexapi') {
+      const dataObj = data as Record<string, unknown>;
+      const tweetArray = dataObj?.tweets || dataObj?.data || dataObj?.results || [];
+
+      if (!Array.isArray(tweetArray)) {
+        console.log('[Parser] twexapi: tweets is not an array:', typeof tweetArray);
+        return tweets;
+      }
+
+      for (const item of tweetArray as Array<Record<string, unknown>>) {
+        try {
+          const tweetId = String(item.id || item.tweet_id || item.tweetId || '');
+          if (!tweetId || tweetId === 'undefined') continue;
+
+          const author = item.author as Record<string, unknown> || {};
+          const authorHandle = String(author.userName || author.username || author.screen_name || item.authorHandle || handle);
+          const authorName = String(author.name || author.displayName || item.authorName || authorHandle);
+
+          tweets.push({
+            id: tweetId,
+            url: String(item.url || `https://x.com/${authorHandle}/status/${tweetId}`),
+            content: String(item.text || item.full_text || item.content || ''),
+            authorHandle,
+            authorName,
+            postedAt: new Date(String(item.createdAt || item.created_at || item.timestamp || Date.now())),
+            metrics: {
+              likes: Number(item.likeCount || item.likes || item.favorite_count || 0),
+              retweets: Number(item.retweetCount || item.retweets || item.retweet_count || 0),
+              replies: Number(item.replyCount || item.replies || item.reply_count || 0),
+              quotes: Number(item.quoteCount || item.quotes || item.quote_count || 0),
+              views: Number(item.viewCount || item.views || item.view_count || item.impressions || 0),
+            },
+            mediaUrls: [],
+            isRetweet: String(item.text || '').startsWith('RT @') || !!item.isRetweet,
+            isQuote: !!item.isQuote || !!item.quotedTweet,
+          });
+        } catch (e) {
+          console.log('[Parser] twexapi: Error parsing tweet:', e);
+          continue;
+        }
+      }
+
+      return tweets;
+    }
+
     // Handle twitter154 format (most common and reliable)
     if (source === 'twitter154') {
       const results = (data as Record<string, unknown>)?.results ||
