@@ -414,9 +414,35 @@ export function TweetScraper({
               </div>
             ) : scrapedTweets.length === 0 ? (
               <div className="space-y-4">
+                {/* Workflow Steps */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                  <div className="flex items-center gap-1">
+                    <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</span>
+                    <span>Select KOLs</span>
+                  </div>
+                  <span className="text-muted-foreground">→</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</span>
+                    <span>Set Keywords</span>
+                  </div>
+                  <span className="text-muted-foreground">→</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-5 h-5 rounded-full bg-muted-foreground/30 text-muted-foreground flex items-center justify-center text-xs font-bold">3</span>
+                    <span>Scrape</span>
+                  </div>
+                  <span className="text-muted-foreground">→</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-5 h-5 rounded-full bg-muted-foreground/30 text-muted-foreground flex items-center justify-center text-xs font-bold">4</span>
+                    <span>Select & Import</span>
+                  </div>
+                </div>
+
                 {/* KOL Selection */}
                 <div className="space-y-2">
-                  <Label>Select KOLs to Scrape</Label>
+                  <Label className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</span>
+                    Select KOLs to Scrape
+                  </Label>
                   <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto p-2 border rounded-lg">
                     {kols.map((kol) => (
                       <label
@@ -445,7 +471,7 @@ export function TweetScraper({
                 <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-semibold flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
+                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</span>
                       Keyword Filter
                     </Label>
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -526,24 +552,35 @@ export function TweetScraper({
                   )}
                 </div>
 
-                {/* Scrape Button */}
-                <Button
-                  onClick={handleScrape}
-                  disabled={isLoading || selectedKols.length === 0}
-                  className="w-full"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Scraping...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Scrape {selectedKols.length} KOL{selectedKols.length !== 1 ? "s" : ""}
-                    </>
+                {/* Scrape Button - Step 3 */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</span>
+                    Scrape Tweets
+                  </Label>
+                  <Button
+                    onClick={handleScrape}
+                    disabled={isLoading || selectedKols.length === 0 || (filterByKeywords && activeKeywords.length === 0)}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Scraping tweets from {selectedKols.length} KOL{selectedKols.length !== 1 ? "s" : ""}...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 mr-2" />
+                        Scrape {selectedKols.length} KOL{selectedKols.length !== 1 ? "s" : ""}
+                        {filterByKeywords && activeKeywords.length > 0 && ` (${activeKeywords.length} keywords)`}
+                      </>
+                    )}
+                  </Button>
+                  {filterByKeywords && activeKeywords.length === 0 && (
+                    <p className="text-sm text-destructive">Add at least one keyword or disable the filter to scrape.</p>
                   )}
-                </Button>
+                </div>
 
                 {/* Results Summary */}
                 {scrapeResults.length > 0 && (
@@ -572,10 +609,21 @@ export function TweetScraper({
               </div>
             ) : (
               <div className="flex-1 overflow-hidden flex flex-col">
+                {/* Step 4 Header */}
+                <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">4</span>
+                    <span className="font-semibold">Select & Import Tweets</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Found <strong>{displayedTweets.length}</strong> tweets. Select the ones you want to track, then click <strong>Import</strong> to add them to your campaign&apos;s Posts.
+                  </p>
+                </div>
+
                 {/* Toolbar */}
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 p-2 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <Checkbox
                         checked={selectedTweets.size === displayedTweets.length && displayedTweets.length > 0}
                         onCheckedChange={toggleSelectAll}
@@ -583,7 +631,7 @@ export function TweetScraper({
                       Select All
                     </label>
                     {keywords.length > 0 && (
-                      <label className="flex items-center gap-2 text-sm">
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
                         <Checkbox
                           checked={showOnlyKeywordMatches}
                           onCheckedChange={(checked) => setShowOnlyKeywordMatches(!!checked)}
@@ -592,9 +640,9 @@ export function TweetScraper({
                         Keyword matches only
                       </label>
                     )}
-                    <span className="text-sm text-muted-foreground">
-                      {selectedTweets.size} selected
-                    </span>
+                    <Badge variant="secondary">
+                      {selectedTweets.size} of {displayedTweets.length} selected
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -606,7 +654,7 @@ export function TweetScraper({
                       }}
                     >
                       <RefreshCw className="h-4 w-4 mr-1" />
-                      Reset
+                      Start Over
                     </Button>
                     <Button
                       size="sm"
@@ -618,7 +666,7 @@ export function TweetScraper({
                       ) : (
                         <Import className="h-4 w-4 mr-1" />
                       )}
-                      Import {selectedTweets.size}
+                      Import {selectedTweets.size} to Campaign
                     </Button>
                   </div>
                 </div>

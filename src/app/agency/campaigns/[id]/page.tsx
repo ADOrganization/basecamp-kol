@@ -273,7 +273,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   // Filter posts
   const filteredPosts = campaign.posts.filter((post) => {
     if (showKeywordMatchesOnly && !post.hasKeywordMatch) return false;
-    if (filterByKol && post.kol.id !== filterByKol) return false;
+    if (filterByKol && post.kol?.id !== filterByKol) return false;
     return true;
   });
 
@@ -421,7 +421,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 <tbody>
                   {campaign.campaignKols.map((ck) => {
                     // Get posts for this KOL
-                    const kolPosts = campaign.posts.filter(p => p.kol.id === ck.kol.id);
+                    const kolPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id);
                     const deliverables = calculateDeliverables(kolPosts, {
                       posts: ck.requiredPosts,
                       threads: ck.requiredThreads,
@@ -570,8 +570,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   {filteredPosts.map((post) => (
                     <tr key={post.id} className="border-t">
                       <td className="p-4">
-                        <p className="font-medium">{post.kol.name}</p>
-                        <p className="text-sm text-muted-foreground">@{post.kol.twitterHandle}</p>
+                        <p className="font-medium">{post.kol?.name || "Unknown"}</p>
+                        <p className="text-sm text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</p>
                       </td>
                       <td className="p-4">{post.type}</td>
                       <td className="p-4">
