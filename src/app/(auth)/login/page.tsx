@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
+import { Suspense, useState, useEffect } from "react";
+import { signIn, getCsrfToken } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,44 +12,36 @@ import { Loader2 } from "lucide-react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const error = searchParams.get("error");
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [loginError, setLoginError] = useState(error ? "Invalid email or password" : "");
   const [isLoading, setIsLoading] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
+
+  useEffect(() => {
+    getCsrfToken().then((token) => {
+      if (token) setCsrfToken(token);
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setLoginError("");
     setIsLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      // Use signIn with redirect: true to let NextAuth handle the redirect
+      await signIn("credentials", {
         email,
         password,
-        redirect: false,
         callbackUrl,
+        redirect: true,
       });
-
-      if (!result) {
-        setError("An unexpected error occurred");
-        setIsLoading(false);
-        return;
-      }
-
-      if (result.error) {
-        setError("Invalid email or password");
-        setIsLoading(false);
-        return;
-      }
-
-      if (result.ok) {
-        // Success - redirect using window.location for full page refresh
-        window.location.href = result.url || callbackUrl;
-      }
     } catch (err) {
       console.error("Login error:", err);
-      setError("An error occurred. Please try again.");
+      setLoginError("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
@@ -66,16 +58,18 @@ function LoginForm() {
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
+        <input type="hidden" name="csrfToken" value={csrfToken} />
         <CardContent className="space-y-4">
-          {error && (
+          {loginError && (
             <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-400">
-              {error}
+              {loginError}
             </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-slate-200">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder="you@example.com"
               value={email}
@@ -89,6 +83,7 @@ function LoginForm() {
             <Label htmlFor="password" className="text-slate-200">Password</Label>
             <Input
               id="password"
+              name="password"
               type="password"
               placeholder="Enter your password"
               value={password}
