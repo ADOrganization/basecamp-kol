@@ -266,8 +266,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   if (!campaign) return null;
 
-  const totalImpressions = campaign.posts.reduce((sum, p) => sum + p.impressions, 0);
-  const totalEngagement = campaign.posts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0);
+  const totalImpressions = campaign.posts.reduce((sum, p) => sum + (p.impressions || 0), 0);
+  const totalEngagement = campaign.posts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0), 0);
   const assignedBudgetTotal = campaign.campaignKols.reduce((sum, ck) => sum + ck.assignedBudget, 0);
 
   // Filter posts
@@ -573,10 +573,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                         <p className="font-medium">{post.kol?.name || "Unknown"}</p>
                         <p className="text-sm text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</p>
                       </td>
-                      <td className="p-4">{post.type}</td>
+                      <td className="p-4">{post.type || "POST"}</td>
                       <td className="p-4">
-                        <Badge className={getStatusColor(post.status)} variant="secondary">
-                          {post.status.replace("_", " ")}
+                        <Badge className={getStatusColor(post.status || "POSTED")} variant="secondary">
+                          {(post.status || "POSTED").replace("_", " ")}
                         </Badge>
                       </td>
                       {campaign.keywords.length > 0 && (
@@ -594,9 +594,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           )}
                         </td>
                       )}
-                      <td className="p-4 text-right">{formatNumber(post.impressions)}</td>
+                      <td className="p-4 text-right">{formatNumber(post.impressions || 0)}</td>
                       <td className="p-4 text-right">
-                        {formatNumber(post.likes + post.retweets + post.replies)}
+                        {formatNumber((post.likes || 0) + (post.retweets || 0) + (post.replies || 0))}
                       </td>
                       <td className="p-4">
                         {post.tweetUrl && (
