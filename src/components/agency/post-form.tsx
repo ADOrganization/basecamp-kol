@@ -151,8 +151,10 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) resetForm();
-      onClose();
+      if (!isOpen) {
+        resetForm();
+        onClose();
+      }
     }}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>

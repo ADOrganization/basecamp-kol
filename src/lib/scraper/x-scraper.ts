@@ -1,13 +1,13 @@
 /**
  * X/Twitter Scraper
  * Uses multiple methods to scrape tweets:
- * 1. Twitter API via RapidAPI (most reliable - requires API key)
+ * 1. Twitter API (twexapi.io or other providers - most reliable, requires API key)
  * 2. Direct Twitter with user-provided cookies
  * 3. Nitter instances (open-source Twitter frontend)
  * 4. Twitter Syndication API (used for embeds)
  */
 
-// Default API key - users should provide their own RapidAPI key
+// Default API key - users should provide their own API key
 // Set to empty since the placeholder key is not subscribed
 const DEFAULT_TWITTER_API_KEY = "";
 
@@ -182,7 +182,7 @@ const API_ENDPOINTS: APIEndpoint[] = [
     }),
     parser: 'twexapi',
   },
-  // RapidAPI fallbacks
+  // Additional API fallbacks
   {
     name: 'twitter154',
     method: 'GET',
@@ -209,10 +209,10 @@ const API_ENDPOINTS: APIEndpoint[] = [
 
 /**
  * Method 0: Twitter API via third-party services (most reliable)
- * Uses twexapi.io, twitterapi.io, or RapidAPI providers
- * Tries multiple endpoints in sequence
+ * Uses twexapi.io or other API providers
+ * Tries multiple endpoints in sequence with rate limit handling
  */
-async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult> {
+async function scrapeFromTwitterAPI(options: ScrapeOptions): Promise<ScrapeResult> {
   const apiKey = getTwitterApiKey();
 
   if (!apiKey) {
@@ -229,63 +229,93 @@ async function scrapeFromRapidAPI(options: ScrapeOptions): Promise<ScrapeResult>
     ? API_ENDPOINTS.filter(e => e.name.startsWith('twexapi'))
     : API_ENDPOINTS;
 
+  // Helper function to wait
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   // Try each endpoint in sequence
   for (const endpoint of endpointsToTry) {
-    try {
-      const url = endpoint.getUrl(cleanHandle, maxTweets);
-      const headers = endpoint.getHeaders(apiKey);
-      const body = endpoint.getBody ? endpoint.getBody(cleanHandle, maxTweets) : null;
-      console.log(`[Scraper] Trying ${endpoint.name}... ${endpoint.method} ${url}`);
+    // Allow up to 2 retries for rate limiting
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const url = endpoint.getUrl(cleanHandle, maxTweets);
+        const headers = endpoint.getHeaders(apiKey);
+        const body = endpoint.getBody ? endpoint.getBody(cleanHandle, maxTweets) : null;
+        console.log(`[Scraper] Trying ${endpoint.name}... ${endpoint.method} ${url}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
 
-      const response = await fetch(url, {
-        method: endpoint.method,
-        headers,
-        body,
-        signal: AbortSignal.timeout(20000),
-      });
+        const response = await fetch(url, {
+          method: endpoint.method,
+          headers,
+          body,
+          signal: AbortSignal.timeout(20000),
+        });
 
-      if (!response.ok) {
-        const statusText = response.statusText || 'Unknown error';
-        let errorDetail = `HTTP ${response.status} ${statusText}`;
-        try {
-          const errorBody = await response.text();
-          if (errorBody) {
-            errorDetail += ` - ${errorBody.slice(0, 200)}`;
+        // Handle rate limiting with retry
+        if (response.status === 429) {
+          let waitTime = 6000; // Default 6 seconds
+          try {
+            const errorBody = await response.text();
+            // Try to parse wait time from error message
+            const waitMatch = errorBody.match(/wait\s+(\d+(?:\.\d+)?)\s*seconds/i);
+            if (waitMatch) {
+              waitTime = Math.ceil(parseFloat(waitMatch[1]) * 1000) + 1000; // Add 1 second buffer
+            }
+            console.log(`[Scraper] Rate limited. Waiting ${waitTime / 1000}s before retry...`);
+          } catch {
+            console.log(`[Scraper] Rate limited. Waiting ${waitTime / 1000}s before retry...`);
           }
-        } catch {
-          // Ignore error body parsing failures
+
+          if (attempt < 2) {
+            await wait(waitTime);
+            continue; // Retry this endpoint
+          } else {
+            errors.push(`${endpoint.name}: Rate limit exceeded after retries`);
+            break; // Move to next endpoint
+          }
         }
-        errors.push(`${endpoint.name}: ${errorDetail}`);
-        console.log(`[Scraper] ${endpoint.name} failed: HTTP ${response.status}`);
-        continue;
-      }
 
-      const data = await response.json();
+        if (!response.ok) {
+          const statusText = response.statusText || 'Unknown error';
+          let errorDetail = `HTTP ${response.status} ${statusText}`;
+          try {
+            const errorBody = await response.text();
+            if (errorBody) {
+              errorDetail += ` - ${errorBody.slice(0, 200)}`;
+            }
+          } catch {
+            // Ignore error body parsing failures
+          }
+          errors.push(`${endpoint.name}: ${errorDetail}`);
+          console.log(`[Scraper] ${endpoint.name} failed: HTTP ${response.status}`);
+          break; // Move to next endpoint
+        }
 
-      // Check for API error responses
-      if (data.error || data.errors || (data.message && typeof data.message === 'string' && data.message.toLowerCase().includes('error'))) {
-        const errorMsg = data.error || data.errors?.[0]?.message || data.message || 'API returned error';
+        const data = await response.json();
+
+        // Check for API error responses
+        if (data.error || data.errors || (data.message && typeof data.message === 'string' && data.message.toLowerCase().includes('error'))) {
+          const errorMsg = data.error || data.errors?.[0]?.message || data.message || 'API returned error';
+          errors.push(`${endpoint.name}: ${errorMsg}`);
+          console.log(`[Scraper] ${endpoint.name} API error:`, errorMsg);
+          break; // Move to next endpoint
+        }
+
+        const tweets = parseAPIResponse(data, cleanHandle, endpoint.parser);
+
+        if (tweets.length === 0) {
+          errors.push(`${endpoint.name}: No tweets parsed from response`);
+          console.log(`[Scraper] ${endpoint.name}: No tweets parsed. Response:`, JSON.stringify(data).slice(0, 500));
+          break; // Move to next endpoint
+        }
+
+        console.log(`[Scraper] ${endpoint.name} success: ${tweets.length} tweets parsed`);
+        return filterTweets(tweets, { keywords, includeReplies, includeRetweets, sinceDate, maxTweets });
+
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
         errors.push(`${endpoint.name}: ${errorMsg}`);
-        console.log(`[Scraper] ${endpoint.name} API error:`, errorMsg);
-        continue;
+        console.log(`[Scraper] ${endpoint.name} exception:`, errorMsg);
+        break; // Move to next endpoint
       }
-
-      const tweets = parseAPIResponse(data, cleanHandle, endpoint.parser);
-
-      if (tweets.length === 0) {
-        errors.push(`${endpoint.name}: No tweets parsed from response`);
-        console.log(`[Scraper] ${endpoint.name}: No tweets parsed. Response:`, JSON.stringify(data).slice(0, 500));
-        continue;
-      }
-
-      console.log(`[Scraper] ${endpoint.name} success: ${tweets.length} tweets parsed`);
-      return filterTweets(tweets, { keywords, includeReplies, includeRetweets, sinceDate, maxTweets });
-
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      errors.push(`${endpoint.name}: ${errorMsg}`);
-      console.log(`[Scraper] ${endpoint.name} exception:`, errorMsg);
-      continue;
     }
   }
 
@@ -1150,17 +1180,17 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
 
   const errors: string[] = [];
 
-  // Try RapidAPI first if API key is configured
+  // Try Twitter API first if API key is configured
   if (hasTwitterApiKey()) {
-    console.log(`[Scraper] Trying RapidAPI...`);
-    const apiResult = await scrapeFromRapidAPI(options);
+    console.log(`[Scraper] Trying Twitter API...`);
+    const apiResult = await scrapeFromTwitterAPI(options);
     if (apiResult.success && apiResult.tweets.length > 0) {
-      console.log(`[Scraper] RapidAPI success: ${apiResult.tweets.length} tweets`);
+      console.log(`[Scraper] Twitter API success: ${apiResult.tweets.length} tweets`);
       return apiResult;
     }
-    console.log(`[Scraper] RapidAPI failed: ${apiResult.error}`);
+    console.log(`[Scraper] Twitter API failed: ${apiResult.error}`);
     if (apiResult.error) {
-      errors.push(`RapidAPI: ${apiResult.error}`);
+      errors.push(apiResult.error);
     }
   }
 
@@ -1267,9 +1297,9 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
 
   // Add helpful hints based on what was tried
   if (!hasTwitterApiKey() && !twitterCookies) {
-    finalError += ' Configure a RapidAPI key or Twitter cookies in Settings for more reliable scraping.';
-  } else if (hasTwitterApiKey() && errors.some(e => e.includes('RapidAPI'))) {
-    finalError += ' Check that your RapidAPI key is valid and has an active subscription.';
+    finalError += ' Configure a Twitter API key or cookies in Settings for more reliable scraping.';
+  } else if (hasTwitterApiKey() && errors.some(e => e.includes('API endpoints failed'))) {
+    finalError += ' Check that your API key is valid. If using twexapi.io, wait a few seconds between requests.';
   }
 
   return {
@@ -1351,5 +1381,88 @@ export async function scrapeMultipleKOLs(
   }
 
   return results;
+}
+
+/**
+ * Fetch Twitter profile picture URL for a given handle
+ * Uses multiple methods to get the avatar
+ */
+export async function fetchTwitterAvatar(handle: string): Promise<string | null> {
+  const cleanHandle = handle.replace('@', '').toLowerCase();
+
+  // Method 1: Use unavatar.io (reliable, no API key needed)
+  try {
+    const unavatarUrl = `https://unavatar.io/twitter/${cleanHandle}`;
+    const response = await fetch(unavatarUrl, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (response.ok) {
+      console.log(`[Avatar] Found via unavatar.io for @${cleanHandle}`);
+      return unavatarUrl;
+    }
+  } catch (error) {
+    console.log(`[Avatar] unavatar.io failed:`, error);
+  }
+
+  // Method 2: Try Twitter API if configured
+  const apiKey = getTwitterApiKey();
+  if (apiKey) {
+    try {
+      // Try twexapi user endpoint
+      if (apiKey.startsWith('twitterx_')) {
+        const response = await fetch(`https://api.twexapi.io/user/info?username=${cleanHandle}`, {
+          method: 'GET',
+          headers: {
+            'X-API-Key': apiKey,
+            'Accept': 'application/json',
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Handle different response formats
+          const avatarUrl = data.profile_image_url_https ||
+                           data.profile_image_url ||
+                           data.data?.profile_image_url_https ||
+                           data.data?.profile_image_url ||
+                           data.avatar_url;
+          if (avatarUrl) {
+            // Get higher resolution image by replacing _normal with _400x400
+            const highResUrl = avatarUrl.replace('_normal', '_400x400');
+            console.log(`[Avatar] Found via twexapi.io for @${cleanHandle}`);
+            return highResUrl;
+          }
+        }
+      }
+    } catch (error) {
+      console.log(`[Avatar] API method failed:`, error);
+    }
+  }
+
+  // Method 3: Fallback to syndication API embed
+  try {
+    // Use Twitter's widget API which sometimes includes profile info
+    const embedUrl = `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${cleanHandle}`;
+    const response = await fetch(embedUrl, {
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data[0]?.profile_image_url_https) {
+        const avatarUrl = data[0].profile_image_url_https.replace('_normal', '_400x400');
+        console.log(`[Avatar] Found via syndication API for @${cleanHandle}`);
+        return avatarUrl;
+      }
+    }
+  } catch (error) {
+    console.log(`[Avatar] Syndication API failed:`, error);
+  }
+
+  console.log(`[Avatar] Could not fetch avatar for @${cleanHandle}`);
+  return null;
 }
 

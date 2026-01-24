@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
+import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,11 +84,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Fetch Twitter avatar
+    let avatarUrl: string | null = null;
+    try {
+      avatarUrl = await fetchTwitterAvatar(twitterHandle);
+    } catch (error) {
+      console.log("Failed to fetch Twitter avatar:", error);
+    }
+
     const kol = await db.kOL.create({
       data: {
         organizationId: session.user.organizationId,
         name: validatedData.name,
         twitterHandle,
+        avatarUrl,
         telegramUsername: validatedData.telegramUsername || null,
         email: validatedData.email || null,
         tier: validatedData.tier,

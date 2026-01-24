@@ -26,6 +26,7 @@ interface KOL {
   id: string;
   name: string;
   twitterHandle: string;
+  avatarUrl: string | null;
   tier: string;
   status: string;
   followersCount: number;
@@ -151,7 +152,18 @@ export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
                 >
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium">
+                      {kol.avatarUrl ? (
+                        <img
+                          src={kol.avatarUrl}
+                          alt={kol.name}
+                          className="h-10 w-10 rounded-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className={`h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium ${kol.avatarUrl ? 'hidden' : ''}`}>
                         {kol.name.charAt(0).toUpperCase()}
                       </div>
                       <div>

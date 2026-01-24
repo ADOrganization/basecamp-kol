@@ -8,6 +8,7 @@ interface KOL {
   id: string;
   name: string;
   twitterHandle: string;
+  avatarUrl: string | null;
   tier: string;
   status: string;
   followersCount: number;

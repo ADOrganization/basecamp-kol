@@ -177,6 +177,7 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
         return;
       }
 
+      setIsLoading(false);
       onClose();
     } catch {
       setError("An error occurred. Please try again.");
@@ -185,7 +186,7 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{kol ? "Edit KOL" : "Add New KOL"}</DialogTitle>

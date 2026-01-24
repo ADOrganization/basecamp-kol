@@ -370,17 +370,17 @@ export function TweetScraper({
 
                 {/* API Key - Alternative */}
                 <div className="space-y-2">
-                  <Label htmlFor="apikey" className="text-sm font-medium">RapidAPI Key (Alternative)</Label>
+                  <Label htmlFor="apikey" className="text-sm font-medium">Twitter API Key</Label>
                   <Input
                     id="apikey"
                     type="password"
-                    placeholder="Your RapidAPI Twitter API key..."
+                    placeholder="Your API key (e.g., twitterx_...)..."
                     value={twitterApiKey}
                     onChange={(e) => setTwitterApiKey(e.target.value)}
                     className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Get from rapidapi.com - requires subscription to a Twitter API endpoint
+                    Get from twexapi.io or another Twitter API provider
                   </p>
                 </div>
 

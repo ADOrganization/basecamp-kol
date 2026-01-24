@@ -109,7 +109,7 @@ export function TwitterSettings() {
       <CardHeader>
         <CardTitle>Twitter/X API</CardTitle>
         <CardDescription>
-          Configure your RapidAPI key for reliable tweet scraping
+          Configure your Twitter API key (twexapi.io or other provider) for reliable tweet scraping
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -136,14 +136,14 @@ export function TwitterSettings() {
         {/* Input */}
         <div className="space-y-2">
           <Label htmlFor="apiKey">
-            {hasExistingKey ? "Update API Key" : "RapidAPI Key"}
+            {hasExistingKey ? "Update API Key" : "Twitter API Key"}
           </Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
                 id="apiKey"
                 type={showKey ? "text" : "password"}
-                placeholder="Enter your RapidAPI key..."
+                placeholder="Enter your API key (e.g., twitterx_...)..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="pr-10 font-mono"

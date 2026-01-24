@@ -177,6 +177,7 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
         }
       }
 
+      setIsLoading(false);
       onClose();
     } catch {
       setError("An error occurred. Please try again.");
@@ -195,7 +196,7 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
   // If client was created, show success with credentials
   if (clientCreated && createdClientInfo) {
     return (
-      <Dialog open={open} onOpenChange={handleClose}>
+      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600">
@@ -269,7 +270,7 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{campaign ? "Edit Campaign" : "Create New Campaign"}</DialogTitle>

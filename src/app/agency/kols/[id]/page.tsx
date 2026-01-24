@@ -28,6 +28,7 @@ interface KOLDetails {
   name: string;
   twitterHandle: string;
   twitterId: string | null;
+  avatarUrl: string | null;
   telegramUsername: string | null;
   email: string | null;
   tier: string;
@@ -125,7 +126,18 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-2xl font-bold">
+          {kol.avatarUrl ? (
+            <img
+              src={kol.avatarUrl}
+              alt={kol.name}
+              className="h-16 w-16 rounded-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <div className={`h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-2xl font-bold ${kol.avatarUrl ? 'hidden' : ''}`}>
             {kol.name.charAt(0).toUpperCase()}
           </div>
           <div>

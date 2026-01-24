@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
+import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
 
 export async function GET(
   request: NextRequest,
@@ -85,6 +86,7 @@ export async function PUT(
     const twitterHandle = validatedData.twitterHandle.replace("@", "");
 
     // Check for duplicate handle (excluding current KOL)
+    let avatarUrl = existingKol.avatarUrl;
     if (twitterHandle !== existingKol.twitterHandle) {
       const duplicateKol = await db.kOL.findFirst({
         where: {
@@ -100,6 +102,20 @@ export async function PUT(
           { status: 400 }
         );
       }
+
+      // Twitter handle changed - fetch new avatar
+      try {
+        avatarUrl = await fetchTwitterAvatar(twitterHandle);
+      } catch (error) {
+        console.log("Failed to fetch Twitter avatar:", error);
+      }
+    } else if (!existingKol.avatarUrl) {
+      // No avatar yet - try to fetch one
+      try {
+        avatarUrl = await fetchTwitterAvatar(twitterHandle);
+      } catch (error) {
+        console.log("Failed to fetch Twitter avatar:", error);
+      }
     }
 
     const kol = await db.kOL.update({
@@ -107,6 +123,7 @@ export async function PUT(
       data: {
         name: validatedData.name,
         twitterHandle,
+        avatarUrl,
         telegramUsername: validatedData.telegramUsername || null,
         email: validatedData.email || null,
         tier: validatedData.tier,
