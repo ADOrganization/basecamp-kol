@@ -53,7 +53,10 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
       }
 
       setSuccess(true);
-      router.refresh(); // Refresh server data
+
+      // Refresh server components to pick up new user data from database
+      router.refresh();
+
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update profile");

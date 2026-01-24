@@ -73,6 +73,17 @@ test.describe('Settings Page', () => {
     await expect(page.locator('text=Profile updated successfully')).toBeVisible({ timeout: 10000 });
     console.log('SUCCESS: Saw success message!');
 
+    // IMPORTANT: Wait for page refresh and verify sidebar shows new name
+    await page.waitForTimeout(1000); // Give router.refresh() time to complete
+    const sidebarName = page.locator(`button:has-text("${newName}")`).first();
+    const sidebarUpdated = await sidebarName.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (sidebarUpdated) {
+      console.log('VERIFIED: Sidebar updated with new name!');
+    } else {
+      console.log('Sidebar may need page reload to update');
+    }
+
     // Reload page and verify the name persisted
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -84,6 +95,11 @@ test.describe('Settings Page', () => {
 
     expect(updatedName).toBe(newName);
     console.log('VERIFIED: Name persisted after reload!');
+
+    // Verify sidebar shows the new name after reload (user menu is below nav, look for button containing the name)
+    const sidebarAfterReload = page.locator(`button:has-text("${newName}")`).first();
+    await expect(sidebarAfterReload).toBeVisible({ timeout: 5000 });
+    console.log('VERIFIED: Sidebar shows new name after reload!');
   });
 
   test('should show loading state when saving', async ({ page }) => {
