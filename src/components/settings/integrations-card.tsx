@@ -282,7 +282,7 @@ export function NotificationsCard({ variant = "agency" }: IntegrationsCardProps)
 
   const handleEnableBrowser = async () => {
     // Check if browser supports notifications
-    if (!("Notification" in window)) {
+    if (typeof window === "undefined" || !("Notification" in window)) {
       setShowBrowserInfo(true);
       return;
     }
