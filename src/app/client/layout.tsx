@@ -24,6 +24,7 @@ export default async function ClientLayout({
     select: {
       name: true,
       email: true,
+      avatarUrl: true,
       memberships: {
         select: {
           organization: {
@@ -37,6 +38,7 @@ export default async function ClientLayout({
 
   const userName = freshUser?.name ?? session.user.name;
   const userEmail = freshUser?.email ?? session.user.email;
+  const userAvatarUrl = freshUser?.avatarUrl ?? null;
   const orgName = freshUser?.memberships[0]?.organization.name ?? session.user.organizationName;
 
   return (
@@ -45,6 +47,7 @@ export default async function ClientLayout({
         user={{
           name: userName,
           email: userEmail,
+          avatarUrl: userAvatarUrl,
           organizationName: orgName,
         }}
       />

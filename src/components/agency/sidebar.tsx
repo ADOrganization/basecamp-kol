@@ -27,6 +27,7 @@ interface AgencySidebarProps {
   user: {
     name: string | null;
     email: string;
+    avatarUrl?: string | null;
     organizationName: string;
   };
 }
@@ -80,9 +81,17 @@ export function AgencySidebar({ user }: AgencySidebarProps) {
       <div className="border-t border-slate-800 p-4">
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-muted">
-            <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-medium">
-              {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-            </div>
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name || "User avatar"}
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-medium">
+                {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 text-left">
               <p className="font-medium text-white truncate">
                 {user.name || user.email}
