@@ -172,6 +172,19 @@ async function handleMessage(organizationId: string, botToken: string | null, me
     return;
   }
 
+  // Check for /submit command in group chat
+  if (textContent.startsWith("/submit")) {
+    await handleSubmitCommandFromGroup(
+      organizationId,
+      botToken,
+      chat.id,
+      textContent,
+      senderUsername,
+      senderTelegramId
+    );
+    return;
+  }
+
   // Store the message
   await db.telegramGroupMessage.create({
     data: {
@@ -666,4 +679,193 @@ async function handleSubmitCommand(
   );
 
   console.log(`[Submit] Completed for KOL ${kol.name}, post ${post.id}`);
+}
+
+async function handleSubmitCommandFromGroup(
+  organizationId: string,
+  botToken: string | null,
+  telegramChatId: number,
+  text: string,
+  senderUsername: string | undefined,
+  senderTelegramId: string | undefined
+) {
+  // Helper to send response
+  const sendResponse = async (message: string) => {
+    if (!botToken) return;
+    const client = new TelegramClient(botToken);
+    await client.sendMessage(telegramChatId, message);
+  };
+
+  // Extract tweet URL from message
+  const tweetUrl = text.replace(/^\/submit\s*/i, "").trim();
+
+  // Parse tweet URL - extract tweet ID
+  const tweetIdMatch = tweetUrl.match(/status\/(\d+)/);
+  if (!tweetIdMatch) {
+    await sendResponse(
+      "Please provide a valid Twitter/X URL.\n\n" +
+      "Example:\n/submit https://x.com/handle/status/123456789"
+    );
+    return;
+  }
+
+  const tweetId = tweetIdMatch[1];
+
+  if (!senderUsername) {
+    await sendResponse(
+      "Unable to identify you. Please make sure your Telegram username is set."
+    );
+    return;
+  }
+
+  // Find KOL by telegram username
+  let kol = await db.kOL.findFirst({
+    where: {
+      organizationId,
+      telegramUsername: {
+        equals: senderUsername,
+        mode: "insensitive",
+      },
+    },
+  });
+
+  // Also check TelegramChatKOL for match
+  if (!kol && senderTelegramId) {
+    const chatKol = await db.telegramChatKOL.findFirst({
+      where: {
+        telegramUserId: senderTelegramId,
+        kol: {
+          organizationId,
+        },
+      },
+      include: { kol: true },
+    });
+
+    if (chatKol) {
+      kol = chatKol.kol;
+    }
+  }
+
+  if (!kol) {
+    await sendResponse(
+      `No KOL profile found for @${senderUsername}. Please contact your agency to add your Telegram username to your profile.`
+    );
+    return;
+  }
+
+  console.log(`[Submit Group] KOL identified: ${kol.name} (@${kol.twitterHandle})`);
+
+  // Find active campaign KOL is assigned to
+  const campaignKol = await db.campaignKOL.findFirst({
+    where: {
+      kolId: kol.id,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      campaign: {
+        status: "ACTIVE",
+        agencyId: organizationId,
+      },
+    },
+    include: {
+      campaign: true,
+    },
+  });
+
+  if (!campaignKol) {
+    await sendResponse(
+      "You're not assigned to any active campaign. Please contact your agency."
+    );
+    return;
+  }
+
+  console.log(`[Submit Group] Campaign found: ${campaignKol.campaign.name}`);
+
+  // Check for duplicate submission
+  const existing = await db.post.findFirst({
+    where: { tweetId },
+  });
+
+  if (existing) {
+    await sendResponse(
+      "This tweet was already submitted."
+    );
+    return;
+  }
+
+  // Scrape tweet
+  let tweet;
+  try {
+    tweet = await scrapeSingleTweet(tweetUrl);
+  } catch (error) {
+    console.error(`[Submit Group] Failed to scrape tweet:`, error);
+    tweet = null;
+  }
+
+  if (!tweet) {
+    await sendResponse(
+      "Couldn't fetch tweet details. Please check the URL and try again."
+    );
+    return;
+  }
+
+  console.log(`[Submit Group] Tweet scraped: ${tweet.content.slice(0, 50)}...`);
+
+  // Create Post record with status POSTED (counts as deliverable)
+  const post = await db.post.create({
+    data: {
+      campaignId: campaignKol.campaignId,
+      kolId: kol.id,
+      tweetId: tweet.id,
+      tweetUrl: tweet.url,
+      content: tweet.content,
+      status: "POSTED",
+      postedAt: tweet.postedAt,
+      impressions: tweet.metrics.views,
+      likes: tweet.metrics.likes,
+      retweets: tweet.metrics.retweets,
+      replies: tweet.metrics.replies,
+      quotes: tweet.metrics.quotes,
+    },
+  });
+
+  console.log(`[Submit Group] Post created: ${post.id}`);
+
+  const client = botToken ? new TelegramClient(botToken) : null;
+
+  // 1. Notify client's telegram group if configured
+  if (campaignKol.campaign.clientTelegramChatId && client) {
+    try {
+      await client.sendMessage(
+        campaignKol.campaign.clientTelegramChatId,
+        `🚀 *New Post Submitted!*\n\n` +
+        `*Campaign:* ${campaignKol.campaign.name}\n` +
+        `*KOL:* @${kol.twitterHandle}\n` +
+        `*Tweet:* ${tweet.url}\n\n` +
+        `*Current Metrics:*\n` +
+        `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
+        `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
+        `• Retweets: ${tweet.metrics.retweets.toLocaleString()}\n` +
+        `• Replies: ${tweet.metrics.replies.toLocaleString()}`,
+        { parse_mode: "Markdown" }
+      );
+      console.log(`[Submit Group] Notification sent to client group ${campaignKol.campaign.clientTelegramChatId}`);
+    } catch (error) {
+      console.error(`[Submit Group] Failed to notify client group:`, error);
+    }
+  } else {
+    console.log(`[Submit Group] No client telegram group configured for campaign`);
+  }
+
+  // 2. Reply success to the KOL in the group chat
+  await sendResponse(
+    `✅ Tweet submitted successfully!\n\n` +
+    `Campaign: ${campaignKol.campaign.name}\n` +
+    `Tweet: ${tweet.url}\n\n` +
+    `Current metrics:\n` +
+    `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
+    `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
+    `• Retweets: ${tweet.metrics.retweets.toLocaleString()}\n\n` +
+    `This post has been added to your deliverables.`
+  );
+
+  console.log(`[Submit Group] Completed for KOL ${kol.name}, post ${post.id}`);
 }
