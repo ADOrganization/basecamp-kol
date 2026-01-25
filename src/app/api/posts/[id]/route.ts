@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { postApprovalSchema } from "@/lib/validations";
+import { TelegramClient } from "@/lib/telegram/client";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -104,6 +105,17 @@ export async function PUT(
           clientNotes: validatedData.clientNotes || null,
         },
       });
+
+      // Send Telegram notification for status changes
+      if (["APPROVED", "REJECTED", "CHANGES_REQUESTED"].includes(validatedData.status)) {
+        await sendStatusNotification(
+          id,
+          validatedData.status,
+          validatedData.clientNotes || null,
+          session.user.organizationId
+        );
+      }
+
       return NextResponse.json(post);
     }
 
@@ -115,6 +127,7 @@ export async function PUT(
     const hasKeywordMatch = matchedKeywords.length > 0;
 
     // Agency can update all fields
+    const newStatus = body.status || existingPost.status;
     const post = await db.post.update({
       where: { id },
       data: {
@@ -122,7 +135,8 @@ export async function PUT(
         content: body.content !== undefined ? body.content : existingPost.content,
         tweetUrl: body.tweetUrl !== undefined ? body.tweetUrl : existingPost.tweetUrl,
         tweetId: body.tweetId !== undefined ? body.tweetId : existingPost.tweetId,
-        status: body.status || existingPost.status,
+        status: newStatus,
+        clientNotes: body.clientNotes !== undefined ? body.clientNotes : existingPost.clientNotes,
         scheduledFor: body.scheduledFor
           ? new Date(body.scheduledFor)
           : existingPost.scheduledFor,
@@ -146,6 +160,16 @@ export async function PUT(
         },
       },
     });
+
+    // Send Telegram notification for status changes
+    if (body.status && ["APPROVED", "REJECTED", "CHANGES_REQUESTED"].includes(body.status) && body.status !== existingPost.status) {
+      await sendStatusNotification(
+        id,
+        body.status,
+        body.clientNotes || null,
+        session.user.organizationId
+      );
+    }
 
     return NextResponse.json(post);
   } catch (error) {
@@ -195,5 +219,97 @@ export async function DELETE(
       { error: "Failed to delete post" },
       { status: 500 }
     );
+  }
+}
+
+// Send Telegram notification to KOL when post status changes
+async function sendStatusNotification(
+  postId: string,
+  newStatus: string,
+  notes: string | null,
+  organizationId: string
+) {
+  try {
+    // Get the post with KOL info
+    const post = await db.post.findUnique({
+      where: { id: postId },
+      include: {
+        kol: {
+          include: {
+            telegramChatLinks: {
+              include: {
+                chat: true,
+              },
+            },
+          },
+        },
+        campaign: {
+          select: { name: true, agencyId: true },
+        },
+      },
+    });
+
+    if (!post?.kol) return;
+
+    // Get the organization's bot token
+    const org = await db.organization.findUnique({
+      where: { id: post.campaign.agencyId },
+      select: { telegramBotToken: true },
+    });
+
+    if (!org?.telegramBotToken) return;
+
+    // Find a chat to send the notification to (prefer private, then any with telegramUserId)
+    const privateChat = post.kol.telegramChatLinks.find(
+      (link) => link.chat.type === "PRIVATE" && link.chat.status === "ACTIVE"
+    );
+    const anyChat = post.kol.telegramChatLinks.find(
+      (link) => link.telegramUserId && link.chat.status === "ACTIVE"
+    );
+
+    const targetChat = privateChat || anyChat;
+    if (!targetChat) return;
+
+    const client = new TelegramClient(org.telegramBotToken);
+
+    // Build the notification message
+    let message = "";
+    const contentPreview = post.content
+      ? post.content.substring(0, 100) + (post.content.length > 100 ? "..." : "")
+      : "No content";
+
+    switch (newStatus) {
+      case "APPROVED":
+        message = `✅ *Content Approved*\n\n` +
+          `Your content for campaign "${post.campaign.name}" has been approved!\n\n` +
+          `Content: ${contentPreview}\n\n` +
+          `You can now post this content.`;
+        break;
+      case "REJECTED":
+        message = `❌ *Content Rejected*\n\n` +
+          `Your content for campaign "${post.campaign.name}" has been rejected.\n\n` +
+          `Content: ${contentPreview}\n\n` +
+          (notes ? `Reason: ${notes}\n\n` : "") +
+          `Please submit new content using the /review command.`;
+        break;
+      case "CHANGES_REQUESTED":
+        message = `✏️ *Changes Requested*\n\n` +
+          `Changes have been requested for your content in campaign "${post.campaign.name}".\n\n` +
+          `Content: ${contentPreview}\n\n` +
+          (notes ? `Feedback: ${notes}\n\n` : "") +
+          `Please revise and resubmit using the /review command.`;
+        break;
+      default:
+        return; // Don't send notifications for other status changes
+    }
+
+    await client.sendMessage(targetChat.chat.telegramChatId, message, {
+      parse_mode: "Markdown",
+    });
+
+    console.log(`[Post Status] Sent ${newStatus} notification to KOL ${post.kol.name}`);
+  } catch (error) {
+    console.error("Failed to send status notification:", error);
+    // Don't throw - notification failure shouldn't break the status update
   }
 }
