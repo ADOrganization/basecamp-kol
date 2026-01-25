@@ -69,7 +69,7 @@ export default function CampaignsPage() {
       const response = await fetch("/api/telegram/chats");
       if (response.ok) {
         const data = await response.json();
-        setTelegramChats(data);
+        setTelegramChats(data.chats || []);
       }
     } catch (error) {
       console.error("Failed to fetch telegram chats:", error);

@@ -198,7 +198,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       const response = await fetch("/api/telegram/chats");
       if (response.ok) {
         const data = await response.json();
-        setTelegramChats(data);
+        setTelegramChats(data.chats || []);
       }
     } catch (error) {
       console.error("Failed to fetch telegram chats:", error);
