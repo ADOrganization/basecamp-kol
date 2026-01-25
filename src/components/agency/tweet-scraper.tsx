@@ -186,6 +186,7 @@ export function TweetScraper({
 
       if (response.ok) {
         const data = await response.json();
+        console.log("[TweetScraper] Scrape response debug:", data.debug);
         setScrapeResults(data.results || []);
         setScrapedTweets(data.tweets || []);
 

@@ -226,6 +226,10 @@ export async function POST(
       newTweets: scrapedTweets.length,
       imported: importedCount,
       keywords: campaign.keywords,
+      debug: {
+        apiKeyConfigured: !!apiKeyToUse,
+        apiKeySource: twitterApiKey ? 'request' : (apiKeyToUse ? 'organization' : 'none'),
+      },
     });
   } catch (error) {
     console.error("Error scraping tweets:", error);
