@@ -15,6 +15,7 @@ interface CampaignCardProps {
     endDate: string | null;
     projectTwitterHandle: string | null;
     projectAvatarUrl: string | null;
+    projectBannerUrl: string | null;
     client: { id: string; name: string } | null;
     _count: {
       campaignKols: number;
@@ -33,25 +34,46 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
       href={`/agency/campaigns/${campaign.id}`}
       className="block rounded-lg border bg-card overflow-hidden hover:border-primary/50 transition-colors"
     >
-      {/* Project Avatar Header */}
-      {campaign.projectAvatarUrl ? (
-        <div className="relative h-24 bg-gradient-to-br from-primary/10 to-primary/5">
-          <div className="absolute -bottom-8 left-6">
+      {/* Project Banner & Avatar Header */}
+      {campaign.projectAvatarUrl || campaign.projectBannerUrl ? (
+        <div className="relative h-28 overflow-hidden">
+          {/* Banner Background */}
+          {campaign.projectBannerUrl ? (
             <img
-              src={campaign.projectAvatarUrl}
-              alt={campaign.name}
-              className="h-16 w-16 rounded-xl border-4 border-card object-cover shadow-lg"
+              src={campaign.projectBannerUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling?.classList.remove('hidden');
               }}
             />
-            <div className="hidden h-16 w-16 rounded-xl border-4 border-card bg-primary/10 flex items-center justify-center">
-              <Twitter className="h-8 w-8 text-primary/50" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
+          )}
+          {/* Gradient overlay for better text visibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+          {/* Profile Picture */}
+          {campaign.projectAvatarUrl && (
+            <div className="absolute -bottom-8 left-5">
+              <img
+                src={campaign.projectAvatarUrl}
+                alt={campaign.name}
+                className="h-16 w-16 rounded-xl border-4 border-card object-cover shadow-lg"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <div className="hidden h-16 w-16 rounded-xl border-4 border-card bg-primary/10 items-center justify-center">
+                <Twitter className="h-8 w-8 text-primary/50" />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Status Badge */}
           <div className="absolute top-3 right-3">
-            <Badge className={getStatusColor(campaign.status)} variant="secondary">
+            <Badge className={`${getStatusColor(campaign.status)} shadow-sm`} variant="secondary">
               {campaign.status.replace("_", " ")}
             </Badge>
           </div>
@@ -66,7 +88,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
         </div>
       )}
 
-      <div className={campaign.projectAvatarUrl ? "p-6 pt-10" : "p-6 pt-2"}>
+      <div className={(campaign.projectAvatarUrl || campaign.projectBannerUrl) ? "p-6 pt-10" : "p-6 pt-2"}>
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-semibold text-lg">{campaign.name}</h3>

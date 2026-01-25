@@ -626,6 +626,90 @@ export async function fetchTwitterProfile(handle: string): Promise<TwitterProfil
 }
 
 /**
+ * Fetch Twitter banner URL for a given handle
+ * Returns the banner image URL or null if not found
+ */
+export async function fetchTwitterBanner(handle: string): Promise<string | null> {
+  const cleanHandle = handle.replace('@', '').toLowerCase();
+
+  // Method 1: Try syndication API which includes user ID for banner URL
+  try {
+    const embedUrl = `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${cleanHandle}`;
+    const response = await fetch(embedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const profile = data[0];
+        // Check if profile has banner URL
+        if (profile.profile_banner_url) {
+          console.log(`[Banner] Found via syndication API for @${cleanHandle}`);
+          return profile.profile_banner_url + '/1500x500';
+        }
+        // Try constructing from user ID
+        if (profile.id_str || profile.id) {
+          const userId = profile.id_str || profile.id;
+          const bannerUrl = `https://pbs.twimg.com/profile_banners/${userId}/1500x500`;
+          // Verify the banner exists
+          const bannerCheck = await fetch(bannerUrl, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(5000),
+          });
+          if (bannerCheck.ok) {
+            console.log(`[Banner] Constructed from user ID for @${cleanHandle}`);
+            return bannerUrl;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.log(`[Banner] Syndication API error for @${cleanHandle}:`, error);
+  }
+
+  // Method 2: Try Twitter embed page scraping (backup)
+  try {
+    const embedHtml = `https://publish.twitter.com/oembed?url=https://twitter.com/${cleanHandle}`;
+    const response = await fetch(embedHtml, {
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      // The oembed response might include author info we can use
+      if (data.author_url) {
+        console.log(`[Banner] Got oembed data for @${cleanHandle}, but no direct banner URL`);
+      }
+    }
+  } catch (error) {
+    console.log(`[Banner] Embed scrape failed for @${cleanHandle}:`, error);
+  }
+
+  console.log(`[Banner] Could not fetch banner for @${cleanHandle}`);
+  return null;
+}
+
+/**
+ * Fetch both Twitter avatar and banner for a given handle
+ */
+export async function fetchTwitterMedia(handle: string): Promise<{
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+}> {
+  const [avatarUrl, bannerUrl] = await Promise.all([
+    fetchTwitterAvatar(handle),
+    fetchTwitterBanner(handle),
+  ]);
+
+  return { avatarUrl, bannerUrl };
+}
+
+/**
  * Fetch Twitter profile picture URL for a given handle
  */
 export async function fetchTwitterAvatar(handle: string): Promise<string | null> {

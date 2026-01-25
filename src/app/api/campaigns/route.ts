@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
-import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
+import { fetchTwitterMedia } from "@/lib/scraper/x-scraper";
 
 export async function GET(request: NextRequest) {
   try {
@@ -121,14 +121,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = campaignSchema.parse(body);
 
-    // Fetch project avatar if Twitter handle provided
+    // Fetch project avatar and banner if Twitter handle provided
     let projectAvatarUrl: string | null = null;
+    let projectBannerUrl: string | null = null;
     if (validatedData.projectTwitterHandle) {
       const handle = validatedData.projectTwitterHandle.replace('@', '');
       try {
-        projectAvatarUrl = await fetchTwitterAvatar(handle);
+        const media = await fetchTwitterMedia(handle);
+        projectAvatarUrl = media.avatarUrl;
+        projectBannerUrl = media.bannerUrl;
       } catch (error) {
-        console.log("Failed to fetch project Twitter avatar:", error);
+        console.log("Failed to fetch project Twitter media:", error);
       }
     }
 
@@ -140,6 +143,7 @@ export async function POST(request: NextRequest) {
         description: validatedData.description || null,
         projectTwitterHandle: validatedData.projectTwitterHandle || null,
         projectAvatarUrl,
+        projectBannerUrl,
         keywords: validatedData.keywords || [],
         totalBudget: validatedData.totalBudget || 0,
         status: validatedData.status,

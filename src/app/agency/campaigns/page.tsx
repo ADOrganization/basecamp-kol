@@ -24,6 +24,7 @@ interface Campaign {
   endDate: string | null;
   projectTwitterHandle: string | null;
   projectAvatarUrl: string | null;
+  projectBannerUrl: string | null;
   client: { id: string; name: string } | null;
   _count: {
     campaignKols: number;

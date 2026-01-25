@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
+import { fetchTwitterMedia } from "@/lib/scraper/x-scraper";
 
-// POST - Refresh avatars for all campaigns with Twitter handles
+// POST - Refresh avatars and banners for all campaigns with Twitter handles
 export async function POST() {
   try {
     const session = await auth();
@@ -15,7 +15,7 @@ export async function POST() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get campaigns with Twitter handles but missing avatars
+    // Get campaigns with Twitter handles but missing avatars or banners
     const campaigns = await db.campaign.findMany({
       where: {
         agencyId: session.user.organizationId,
@@ -23,6 +23,8 @@ export async function POST() {
         OR: [
           { projectAvatarUrl: null },
           { projectAvatarUrl: "" },
+          { projectBannerUrl: null },
+          { projectBannerUrl: "" },
         ],
       },
       select: {
@@ -39,18 +41,21 @@ export async function POST() {
 
       const handle = campaign.projectTwitterHandle.replace('@', '');
       try {
-        const avatarUrl = await fetchTwitterAvatar(handle);
-        if (avatarUrl) {
+        const media = await fetchTwitterMedia(handle);
+        if (media.avatarUrl || media.bannerUrl) {
           await db.campaign.update({
             where: { id: campaign.id },
-            data: { projectAvatarUrl: avatarUrl },
+            data: {
+              projectAvatarUrl: media.avatarUrl,
+              projectBannerUrl: media.bannerUrl,
+            },
           });
           successCount++;
         } else {
           failCount++;
         }
       } catch (error) {
-        console.error(`Failed to fetch avatar for @${handle}:`, error);
+        console.error(`Failed to fetch media for @${handle}:`, error);
         failCount++;
       }
     }
@@ -62,9 +67,9 @@ export async function POST() {
       failed: failCount,
     });
   } catch (error) {
-    console.error("Error refreshing campaign avatars:", error);
+    console.error("Error refreshing campaign media:", error);
     return NextResponse.json(
-      { error: "Failed to refresh avatars" },
+      { error: "Failed to refresh media" },
       { status: 500 }
     );
   }
