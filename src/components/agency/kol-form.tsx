@@ -32,12 +32,19 @@ interface KOLTag {
   color: string;
 }
 
+interface TelegramChat {
+  id: string;
+  telegramChatId: string;
+  title: string | null;
+}
+
 interface KOLFormProps {
   kol?: {
     id: string;
     name: string;
     twitterHandle: string;
     telegramUsername: string | null;
+    telegramGroupId: string | null;
     email: string | null;
     tier: string;
     status: string;
@@ -50,6 +57,7 @@ interface KOLFormProps {
     notes: string | null;
     tags?: KOLTag[];
   };
+  telegramChats?: TelegramChat[];
   open: boolean;
   onClose: () => void;
 }
@@ -60,7 +68,7 @@ const TAG_COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
 ];
 
-export function KOLForm({ kol, open, onClose }: KOLFormProps) {
+export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [availableTags, setAvailableTags] = useState<KOLTag[]>([]);
@@ -73,6 +81,7 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
     name: kol?.name || "",
     twitterHandle: kol?.twitterHandle || "",
     telegramUsername: kol?.telegramUsername || "",
+    telegramGroupId: kol?.telegramGroupId || "",
     email: kol?.email || "",
     tier: kol?.tier || "SMALL",
     status: kol?.status || "ACTIVE",
@@ -148,11 +157,19 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Validate required telegram group
+    if (!formData.telegramGroupId) {
+      setError("Telegram group is required");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const payload = {
         ...formData,
+        telegramGroupId: formData.telegramGroupId || undefined,
         ratePerPost: formData.ratePerPost ? Math.round(Number(formData.ratePerPost) * 100) : undefined,
         ratePerThread: formData.ratePerThread ? Math.round(Number(formData.ratePerThread) * 100) : undefined,
         ratePerRetweet: formData.ratePerRetweet ? Math.round(Number(formData.ratePerRetweet) * 100) : undefined,
@@ -231,6 +248,33 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
                   onChange={(e) => setFormData({ ...formData, telegramUsername: e.target.value })}
                   placeholder="@telegram"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="telegramGroupId">Telegram Group *</Label>
+                <Select
+                  value={formData.telegramGroupId || ""}
+                  onValueChange={(value) => setFormData({ ...formData, telegramGroupId: value })}
+                >
+                  <SelectTrigger id="telegramGroupId">
+                    <SelectValue placeholder="Select Telegram group" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" sideOffset={4}>
+                    {telegramChats.length === 0 ? (
+                      <SelectItem value="" disabled>
+                        No groups available
+                      </SelectItem>
+                    ) : (
+                      telegramChats.map((chat) => (
+                        <SelectItem key={chat.id} value={chat.telegramChatId}>
+                          {chat.title || `Chat ${chat.telegramChatId}`}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Group where KOL will receive review feedback
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

@@ -21,13 +21,21 @@ interface KOL {
   };
 }
 
+interface TelegramChat {
+  id: string;
+  telegramChatId: string;
+  title: string | null;
+}
+
 export default function KOLsPage() {
   const [kols, setKols] = useState<KOL[]>([]);
+  const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     fetchKols();
+    fetchTelegramChats();
   }, []);
 
   const fetchKols = async () => {
@@ -41,6 +49,18 @@ export default function KOLsPage() {
       console.error("Failed to fetch KOLs:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchTelegramChats = async () => {
+    try {
+      const response = await fetch("/api/telegram/chats");
+      if (response.ok) {
+        const data = await response.json();
+        setTelegramChats(data.chats || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch telegram chats:", error);
     }
   };
 
@@ -64,6 +84,7 @@ export default function KOLsPage() {
       <KOLTable kols={kols} onAddNew={() => setShowForm(true)} onRefresh={fetchKols} />
 
       <KOLForm
+        telegramChats={telegramChats}
         open={showForm}
         onClose={() => {
           setShowForm(false);

@@ -118,6 +118,7 @@ model KOL {
   twitterId         String?
   avatarUrl         String?
   telegramUsername  String?
+  telegramGroupId   String?   // Telegram group ID where KOL receives notifications
   email             String?
   tier              KOLTier   @default(SMALL)
   status            KOLStatus @default(ACTIVE)

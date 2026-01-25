@@ -19,6 +19,7 @@ export const kolSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   twitterHandle: z.string().min(1, "Twitter handle is required").regex(/^@?[\w]+$/, "Invalid Twitter handle"),
   telegramUsername: z.string().optional(),
+  telegramGroupId: z.string().min(1, "Telegram group is required"),
   email: z.string().email().optional().or(z.literal("")),
   tier: z.enum(["SMALL", "MID", "LARGE", "MACRO"]),
   status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"]),

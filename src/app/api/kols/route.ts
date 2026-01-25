@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
         twitterHandle,
         avatarUrl,
         telegramUsername: validatedData.telegramUsername || null,
+        telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,
         tier: validatedData.tier,
         status: validatedData.status,

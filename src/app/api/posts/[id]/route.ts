@@ -222,7 +222,7 @@ export async function DELETE(
   }
 }
 
-// Send Telegram notification to KOL when post status changes
+// Send Telegram notification to KOL and client when post status changes
 async function sendStatusNotification(
   postId: string,
   newStatus: string,
@@ -230,21 +230,24 @@ async function sendStatusNotification(
   organizationId: string
 ) {
   try {
-    // Get the post with KOL info
+    // Get the post with KOL info and campaign
     const post = await db.post.findUnique({
       where: { id: postId },
       include: {
         kol: {
-          include: {
-            telegramChatLinks: {
-              include: {
-                chat: true,
-              },
-            },
+          select: {
+            id: true,
+            name: true,
+            twitterHandle: true,
+            telegramGroupId: true,
           },
         },
         campaign: {
-          select: { name: true, agencyId: true },
+          select: {
+            name: true,
+            agencyId: true,
+            clientTelegramChatId: true,
+          },
         },
       },
     });
@@ -262,43 +265,24 @@ async function sendStatusNotification(
       return;
     }
 
-    // Find a chat to send the notification to
-    // Priority: 1) Group/supergroup chat (where /review was likely submitted), 2) Private chat
-    const groupChat = post.kol.telegramChatLinks.find(
-      (link) => (link.chat.type === "GROUP" || link.chat.type === "SUPERGROUP") && link.chat.status === "ACTIVE"
-    );
-    const privateChat = post.kol.telegramChatLinks.find(
-      (link) => link.chat.type === "PRIVATE" && link.chat.status === "ACTIVE"
-    );
-
-    const targetChat = groupChat || privateChat;
-    if (!targetChat) {
-      console.log(`[Post Status] No telegram chat found for KOL ${post.kol.name}`);
-      console.log(`[Post Status] KOL has ${post.kol.telegramChatLinks.length} chat links`);
-      return;
-    }
-
-    console.log(`[Post Status] Sending to ${targetChat.chat.type} chat: ${targetChat.chat.telegramChatId}`);
-
     const client = new TelegramClient(org.telegramBotToken);
 
-    // Build the notification message
-    let message = "";
-
+    // Build the KOL notification message
+    let kolMessage = "";
     switch (newStatus) {
       case "APPROVED":
-        message = `✅ *Content Approved*\n\n` +
+        kolMessage = `✅ *Content Approved*\n\n` +
           `Your content for campaign "${post.campaign.name}" has been approved!\n\n` +
           `You can now post this content.`;
         break;
       case "REJECTED":
-        message = `❌ *Content Rejected*\n\n` +
+        kolMessage = `❌ *Content Rejected*\n\n` +
           `Your content for campaign "${post.campaign.name}" has been rejected.\n\n` +
           (notes ? `*Reason:* ${notes}\n\n` : "") +
           `Please submit new content using the /review command.`;
         break;
       case "CHANGES_REQUESTED":
-        message = `✏️ *Changes Requested*\n\n` +
+        kolMessage = `✏️ *Changes Requested*\n\n` +
           `Changes have been requested for your content in campaign "${post.campaign.name}".\n\n` +
           (notes ? `*Feedback:* ${notes}\n\n` : "") +
           `Please revise and resubmit using the /review command.`;
@@ -307,15 +291,61 @@ async function sendStatusNotification(
         return; // Don't send notifications for other status changes
     }
 
-    const result = await client.sendMessage(targetChat.chat.telegramChatId, message, {
-      parse_mode: "Markdown",
-    });
-
-    if (result.ok) {
-      console.log(`[Post Status] Sent ${newStatus} notification to KOL ${post.kol.name} in ${targetChat.chat.type} chat`);
+    // 1. Send to KOL's assigned telegram group
+    if (post.kol.telegramGroupId) {
+      try {
+        const kolResult = await client.sendMessage(post.kol.telegramGroupId, kolMessage, {
+          parse_mode: "Markdown",
+        });
+        if (kolResult.ok) {
+          console.log(`[Post Status] Sent ${newStatus} notification to KOL ${post.kol.name}'s group`);
+        } else {
+          console.error(`[Post Status] Failed to send to KOL group: ${kolResult.description}`);
+        }
+      } catch (error) {
+        console.error(`[Post Status] Error sending to KOL group:`, error);
+      }
     } else {
-      console.error(`[Post Status] Failed to send message: ${result.description}`);
+      console.log(`[Post Status] KOL ${post.kol.name} has no assigned telegram group`);
     }
+
+    // 2. Send to client's telegram group
+    if (post.campaign.clientTelegramChatId) {
+      // Build client notification message
+      let clientMessage = "";
+      switch (newStatus) {
+        case "APPROVED":
+          clientMessage = `✅ *Content Approved*\n\n` +
+            `Content from @${post.kol.twitterHandle} for campaign "${post.campaign.name}" has been approved.`;
+          break;
+        case "REJECTED":
+          clientMessage = `❌ *Content Rejected*\n\n` +
+            `Content from @${post.kol.twitterHandle} for campaign "${post.campaign.name}" has been rejected.\n\n` +
+            (notes ? `*Reason:* ${notes}` : "");
+          break;
+        case "CHANGES_REQUESTED":
+          clientMessage = `✏️ *Changes Requested*\n\n` +
+            `Changes have been requested for content from @${post.kol.twitterHandle} in campaign "${post.campaign.name}".\n\n` +
+            (notes ? `*Feedback:* ${notes}` : "");
+          break;
+      }
+
+      try {
+        const clientResult = await client.sendMessage(post.campaign.clientTelegramChatId, clientMessage, {
+          parse_mode: "Markdown",
+        });
+        if (clientResult.ok) {
+          console.log(`[Post Status] Sent ${newStatus} notification to client group`);
+        } else {
+          console.error(`[Post Status] Failed to send to client group: ${clientResult.description}`);
+        }
+      } catch (error) {
+        console.error(`[Post Status] Error sending to client group:`, error);
+      }
+    } else {
+      console.log(`[Post Status] Campaign has no client telegram group configured`);
+    }
+
   } catch (error) {
     console.error("Failed to send status notification:", error);
     // Don't throw - notification failure shouldn't break the status update

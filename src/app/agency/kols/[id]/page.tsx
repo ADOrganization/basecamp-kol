@@ -24,6 +24,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+interface TelegramChat {
+  id: string;
+  telegramChatId: string;
+  title: string | null;
+}
+
 interface KOLDetails {
   id: string;
   name: string;
@@ -31,6 +37,7 @@ interface KOLDetails {
   twitterId: string | null;
   avatarUrl: string | null;
   telegramUsername: string | null;
+  telegramGroupId: string | null;
   email: string | null;
   tier: string;
   status: string;
@@ -81,9 +88,22 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const router = useRouter();
   const [kol, setKol] = useState<KOLDetails | null>(null);
+  const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchTelegramChats = async () => {
+    try {
+      const response = await fetch("/api/telegram/chats");
+      if (response.ok) {
+        const data = await response.json();
+        setTelegramChats(data.chats || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch telegram chats:", error);
+    }
+  };
 
   const fetchKol = async () => {
     try {
@@ -103,6 +123,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     fetchKol();
+    fetchTelegramChats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -410,7 +431,11 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
       </Tabs>
 
       <KOLForm
-        kol={kol}
+        kol={{
+          ...kol,
+          telegramGroupId: kol.telegramGroupId || null,
+        }}
+        telegramChats={telegramChats}
         open={showForm}
         onClose={() => {
           setShowForm(false);
