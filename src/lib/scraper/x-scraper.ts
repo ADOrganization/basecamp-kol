@@ -1207,10 +1207,10 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
       console.log(`[Scraper] Twitter API success: ${apiResult.tweets.length} tweets`);
       return apiResult;
     }
-    console.log(`[Scraper] Twitter API failed: ${apiResult.error}`);
-    if (apiResult.error) {
-      errors.push(apiResult.error);
-    }
+    // Always log and capture the error or reason for no tweets
+    const apiError = apiResult.error || (apiResult.success ? 'No tweets found for this user' : 'Unknown API error');
+    console.log(`[Scraper] Twitter API result: ${apiError}`);
+    errors.push(`Twitter API: ${apiError}`);
   } else {
     console.log(`[Scraper] Skipping Twitter API - no API key configured`);
   }
