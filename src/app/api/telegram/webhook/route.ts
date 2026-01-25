@@ -157,6 +157,12 @@ async function handleMessage(organizationId: string, botToken: string | null, me
     ? [message.from.first_name, message.from.last_name].filter(Boolean).join(" ")
     : null;
 
+  // Check for /help command
+  if (textContent.startsWith("/help")) {
+    await handleHelpCommand(botToken, chat.id);
+    return;
+  }
+
   // Check for /review command
   if (textContent.startsWith("/review")) {
     await handleReviewCommand(
@@ -363,6 +369,12 @@ async function handlePrivateMessage(
     return;
   }
 
+  // Check for /help command
+  if (textContent?.startsWith("/help")) {
+    await handleHelpCommand(botToken, message.chat.id);
+    return;
+  }
+
   // Check for /submit command
   if (textContent?.startsWith("/submit")) {
     await handleSubmitCommand(organizationId, botToken, message, senderUsername, senderTelegramId);
@@ -507,6 +519,36 @@ async function matchKolToChat(
       data: { telegramUserId },
     });
   }
+}
+
+async function handleHelpCommand(
+  botToken: string | null,
+  chatId: number
+) {
+  if (!botToken) return;
+
+  const client = new TelegramClient(botToken);
+  const helpMessage = `📚 *Available Commands*
+
+*Content Submission:*
+• \`/submit <tweet_url>\` - Submit a posted tweet
+• \`/submit <campaign> <tweet_url>\` - Submit to a specific campaign (if you have multiple)
+
+*Content Review:*
+• \`/review <draft_content>\` - Submit content for agency review before posting
+
+*Other:*
+• \`/start\` - Initialize bot connection
+• \`/help\` - Show this help message
+
+*Examples:*
+\`/submit https://x.com/user/status/123456789\`
+\`/submit Zeus https://x.com/user/status/123456789\`
+\`/review Check out @ProjectHandle - amazing DeFi protocol! #crypto\`
+
+Need assistance? Contact your agency.`;
+
+  await client.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
 }
 
 async function handleSubmitCommand(
