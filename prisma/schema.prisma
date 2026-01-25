@@ -150,6 +150,7 @@ model KOL {
   payments          Payment[]
   messages          TelegramMessage[]
   telegramChatLinks TelegramChatKOL[]
+  followerSnapshots KOLFollowerSnapshot[]
 
   @@unique([organizationId, twitterHandle])
   @@map("kols")
@@ -320,8 +321,54 @@ model Post {
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   kol      KOL      @relation(fields: [kolId], references: [id], onDelete: Cascade)
+  metricSnapshots PostMetricSnapshot[]
 
   @@map("posts")
+}
+
+// ============================================
+// ANALYTICS SNAPSHOTS
+// ============================================
+
+model PostMetricSnapshot {
+  id           String   @id @default(cuid())
+  postId       String
+
+  // Metrics at this point in time
+  impressions  Int      @default(0)
+  likes        Int      @default(0)
+  retweets     Int      @default(0)
+  replies      Int      @default(0)
+  quotes       Int      @default(0)
+  bookmarks    Int      @default(0)
+
+  // Calculated
+  engagementRate Float  @default(0)
+
+  capturedAt   DateTime @default(now())
+
+  post         Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, capturedAt])
+  @@map("post_metric_snapshots")
+}
+
+model KOLFollowerSnapshot {
+  id              String   @id @default(cuid())
+  kolId           String
+
+  followersCount  Int      @default(0)
+  followingCount  Int      @default(0)
+
+  // Daily change (calculated from previous snapshot)
+  followersChange Int      @default(0)  // positive = gained, negative = lost
+
+  capturedAt      DateTime @default(now())
+
+  kol             KOL      @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@index([kolId, capturedAt])
+  @@map("kol_follower_snapshots")
 }
 
 // ============================================

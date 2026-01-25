@@ -15,8 +15,10 @@ import {
   Eye,
   Loader2,
   Send,
-  Edit3
+  Edit3,
+  BarChart3
 } from "lucide-react";
+import { PostAnalyticsModal } from "./post-analytics-modal";
 import Link from "next/link";
 import {
   Dialog,
@@ -70,6 +72,7 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
   const [actionType, setActionType] = useState<"approve" | "reject" | "changes" | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showChangesDialog, setShowChangesDialog] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
   const [changesNotes, setChangesNotes] = useState("");
   const [currentStatus, setCurrentStatus] = useState(post.status);
@@ -193,6 +196,7 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
   // Show actions for DRAFT and PENDING_APPROVAL statuses
   const needsReview = currentStatus === "PENDING_APPROVAL" || currentStatus === "DRAFT";
   const isApproved = currentStatus === "APPROVED";
+  const isPosted = currentStatus === "POSTED" || currentStatus === "VERIFIED";
 
   return (
     <>
@@ -313,6 +317,16 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                   Mark as Posted
                 </Button>
               )}
+              {isPosted && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAnalyticsModal(true)}
+                >
+                  <BarChart3 className="h-4 w-4 mr-1" />
+                  Analytics
+                </Button>
+              )}
               {post.tweetUrl && (
                 <Button size="sm" variant="outline" asChild>
                   <Link href={post.tweetUrl} target="_blank">
@@ -401,6 +415,12 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PostAnalyticsModal
+        postId={post.id}
+        isOpen={showAnalyticsModal}
+        onClose={() => setShowAnalyticsModal(false)}
+      />
     </>
   );
 }
