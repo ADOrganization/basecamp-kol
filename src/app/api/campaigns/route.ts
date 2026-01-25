@@ -34,6 +34,10 @@ export async function GET(request: NextRequest) {
           },
         },
         posts: {
+          where: {
+            // Only count scraped/posted tweets, not content reviews
+            status: { in: ["POSTED", "VERIFIED"] },
+          },
           select: {
             id: true,
             status: true,
@@ -48,7 +52,6 @@ export async function GET(request: NextRequest) {
         _count: {
           select: {
             campaignKols: true,
-            posts: true,
           },
         },
       },

@@ -179,56 +179,95 @@ async function sendToKol(
 
   console.log(`[Telegram Send] Found KOL link:`, anyKolLink ? `chatType=${anyKolLink.chat.type}, telegramUserId=${anyKolLink.telegramUserId}` : 'null');
 
-  // If we have their user ID from any source, we can send them a message
+  const client = new TelegramClient(botToken);
+
+  // Try to send DM if we have their user ID
   if (anyKolLink?.telegramUserId) {
-    const client = new TelegramClient(botToken);
     const result = await client.sendMessage(
       parseInt(anyKolLink.telegramUserId),
       validatedData.content
     );
 
-    if (!result.ok) {
-      // If sending fails, it's likely because they haven't started the bot
-      return NextResponse.json(
-        {
-          error: result.description?.includes("bot was blocked")
-            ? "The KOL has blocked the bot. They need to unblock and send /start to the bot."
-            : result.description?.includes("chat not found")
-            ? "Cannot send direct message. The KOL needs to start a conversation with the bot first by sending /start."
-            : result.description || "Failed to send message"
+    if (result.ok) {
+      // Store in TelegramMessage (for 1:1 KOL messages)
+      const message = await db.telegramMessage.create({
+        data: {
+          kolId: kol.id,
+          telegramChatId: anyKolLink.telegramUserId,
+          telegramMessageId: result.result?.message_id?.toString(),
+          content: validatedData.content,
+          direction: "OUTBOUND",
+          senderName: "Bot",
+          timestamp: new Date(),
         },
-        { status: 400 }
-      );
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: {
+          id: message.id,
+          content: message.content,
+          timestamp: message.timestamp,
+        },
+        sentVia: "dm",
+      });
     }
 
-    // Store in TelegramMessage (for 1:1 KOL messages)
-    const message = await db.telegramMessage.create({
-      data: {
-        kolId: kol.id,
-        telegramChatId: anyKolLink.telegramUserId,
-        telegramMessageId: result.result?.message_id?.toString(),
-        content: validatedData.content,
-        direction: "OUTBOUND",
-        senderName: "Bot",
-        timestamp: new Date(),
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: {
-        id: message.id,
-        content: message.content,
-        timestamp: message.timestamp,
-      },
-    });
+    console.log(`[Telegram Send] DM failed: ${result.description}, trying group fallback`);
   }
 
-  // No telegram user ID found - they need to interact with the bot
+  // DM failed or no user ID - try to send to a group they're in
+  const groupLink = await db.telegramChatKOL.findFirst({
+    where: {
+      kolId: kol.id,
+      chat: {
+        organizationId,
+        type: { in: ["GROUP", "SUPERGROUP"] },
+        status: "ACTIVE",
+      },
+    },
+    include: {
+      chat: true,
+    },
+  });
+
+  if (groupLink) {
+    const result = await client.sendMessage(
+      groupLink.chat.telegramChatId,
+      `@${kol.telegramUsername} ${validatedData.content}`
+    );
+
+    if (result.ok) {
+      // Store in TelegramGroupMessage
+      const message = await db.telegramGroupMessage.create({
+        data: {
+          chatId: groupLink.chat.id,
+          telegramMessageId: result.result?.message_id?.toString(),
+          content: validatedData.content,
+          direction: "OUTBOUND",
+          senderName: "Bot",
+          timestamp: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: {
+          id: message.id,
+          content: message.content,
+          timestamp: message.timestamp,
+        },
+        sentVia: "group",
+        note: "Message sent to group (DM not available - user needs to /start the bot for direct messages)",
+      });
+    }
+  }
+
+  // No way to reach this KOL
   return NextResponse.json(
     {
       error:
-        "Cannot send direct message to this KOL. They need to send /start to the bot first.",
+        "Cannot reach this KOL. They need to either send /start to the bot or be in a group with the bot.",
     },
     { status: 400 }
   );
