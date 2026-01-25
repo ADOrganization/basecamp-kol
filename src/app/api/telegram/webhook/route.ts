@@ -758,14 +758,10 @@ async function handleSubmitCommand(
       const client = new TelegramClient(botToken);
       const clientNotifResult = await client.sendMessage(
         campaignKol.campaign.clientTelegramChatId,
-        `🚀 *New Post Submitted!*\n\n` +
+        `*New Post Submitted!*\n\n` +
         `*Campaign:* ${campaignKol.campaign.name}\n` +
         `*KOL:* @${kol.twitterHandle}\n` +
-        `*Post:* ${tweet.url}\n\n` +
-        `*Metrics:*\n` +
-        `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
-        `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
-        `• Retweets: ${tweet.metrics.retweets.toLocaleString()}`,
+        `*Post:* ${tweet.url}`,
         { parse_mode: "Markdown" }
       );
       if (clientNotifResult.ok) {
@@ -784,11 +780,7 @@ async function handleSubmitCommand(
   await sendResponse(
     `Post submitted successfully!\n\n` +
     `Campaign: ${campaignKol.campaign.name}\n` +
-    `Post: ${tweet.url}\n\n` +
-    `Current metrics:\n` +
-    `- Views: ${tweet.metrics.views.toLocaleString()}\n` +
-    `- Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
-    `- Retweets: ${tweet.metrics.retweets.toLocaleString()}`
+    `Post: ${tweet.url}`
   );
 
   console.log(`[Submit] Completed for KOL ${kol.name}, post ${post.id}`);
@@ -1041,15 +1033,10 @@ async function handleSubmitCommandFromGroup(
     try {
       const clientNotifResult = await client.sendMessage(
         clientGroupId,
-        `🚀 *New Post Submitted!*\n\n` +
+        `*New Post Submitted!*\n\n` +
         `*Campaign:* ${campaignKol.campaign.name}\n` +
         `*KOL:* @${kol.twitterHandle}\n` +
-        `*Post:* ${tweet.url}\n\n` +
-        `*Current Metrics:*\n` +
-        `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
-        `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
-        `• Retweets: ${tweet.metrics.retweets.toLocaleString()}\n` +
-        `• Replies: ${tweet.metrics.replies.toLocaleString()}`,
+        `*Post:* ${tweet.url}`,
         { parse_mode: "Markdown" }
       );
       console.log(`[Submit Group] Telegram API response:`, JSON.stringify(clientNotifResult));
@@ -1071,12 +1058,8 @@ async function handleSubmitCommandFromGroup(
 
   // 2. Reply success to the KOL in the group chat
   let responseMessage = `✅ Post submitted successfully!\n\n` +
-    `Campaign: ${campaignKol.campaign.name} (ID: ${campaignKol.campaign.id.slice(-6)})\n` +
+    `Campaign: ${campaignKol.campaign.name}\n` +
     `Post: ${tweet.url}\n\n` +
-    `Current metrics:\n` +
-    `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
-    `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
-    `• Retweets: ${tweet.metrics.retweets.toLocaleString()}\n\n` +
     `This post has been added to your deliverables.`;
 
   if (clientNotified) {
