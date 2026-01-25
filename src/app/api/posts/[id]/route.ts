@@ -284,29 +284,23 @@ async function sendStatusNotification(
 
     // Build the notification message
     let message = "";
-    const contentPreview = post.content
-      ? post.content.substring(0, 100) + (post.content.length > 100 ? "..." : "")
-      : "No content";
 
     switch (newStatus) {
       case "APPROVED":
         message = `✅ *Content Approved*\n\n` +
           `Your content for campaign "${post.campaign.name}" has been approved!\n\n` +
-          `Content: ${contentPreview}\n\n` +
           `You can now post this content.`;
         break;
       case "REJECTED":
         message = `❌ *Content Rejected*\n\n` +
           `Your content for campaign "${post.campaign.name}" has been rejected.\n\n` +
-          `Content: ${contentPreview}\n\n` +
-          (notes ? `Reason: ${notes}\n\n` : "") +
+          (notes ? `*Reason:* ${notes}\n\n` : "") +
           `Please submit new content using the /review command.`;
         break;
       case "CHANGES_REQUESTED":
         message = `✏️ *Changes Requested*\n\n` +
           `Changes have been requested for your content in campaign "${post.campaign.name}".\n\n` +
-          `Content: ${contentPreview}\n\n` +
-          (notes ? `Feedback: ${notes}\n\n` : "") +
+          (notes ? `*Feedback:* ${notes}\n\n` : "") +
           `Please revise and resubmit using the /review command.`;
         break;
       default:
