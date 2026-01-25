@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { Users, Megaphone, TrendingUp, Eye, Heart, MessageSquare, Repeat2, ArrowUpRight, Sparkles } from "lucide-react";
+import { Users, Megaphone, TrendingUp, Eye, Heart, MessageSquare, Repeat2, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { DashboardCharts } from "./dashboard-charts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -113,27 +113,6 @@ export default async function AgencyDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 p-8 text-white">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
-        <div className="relative">
-          <div className="flex items-center gap-2 text-indigo-200 mb-2">
-            <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-medium">Welcome back</span>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">
-            {session.user.name || session.user.email.split("@")[0]}
-          </h1>
-          <p className="text-indigo-200 max-w-xl">
-            Here&apos;s what&apos;s happening with your campaigns today. You have{" "}
-            <span className="text-white font-semibold">{stats.activeCampaignCount} active campaigns</span> and{" "}
-            <span className="text-white font-semibold">{stats.kolCount} KOLs</span> in your network.
-          </p>
-        </div>
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -right-20 -bottom-20 h-60 w-60 rounded-full bg-purple-500/20 blur-3xl" />
-      </div>
-
       {/* Hero Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Impressions */}

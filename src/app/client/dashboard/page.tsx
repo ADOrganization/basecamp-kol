@@ -11,7 +11,6 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
-  Sparkles,
   Users,
   BarChart3,
   Zap
@@ -135,33 +134,8 @@ export default async function ClientDashboard() {
     redirect(`/client/campaigns/${stats.campaigns[0].id}`);
   }
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  };
-
   return (
     <div className="space-y-8">
-      {/* Welcome Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 p-8 text-white">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
-        <div className="relative">
-          <div className="flex items-center gap-2 text-teal-200 mb-2">
-            <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-medium">{getGreeting()}</span>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">
-            {session.user.name || "Welcome back"}
-          </h1>
-          <p className="text-teal-100 max-w-xl">
-            You have <span className="text-white font-semibold">{stats.activeCampaigns} active campaign{stats.activeCampaigns !== 1 ? "s" : ""}</span> with{" "}
-            <span className="text-white font-semibold">{stats.totalKols} KOLs</span> creating content for you.
-          </p>
-        </div>
-      </div>
-
       {/* Pending Approvals Alert */}
       {stats.pendingPosts > 0 && (
         <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
