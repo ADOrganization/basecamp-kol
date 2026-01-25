@@ -776,7 +776,7 @@ async function handleSubmitCommandFromGroup(
 
   console.log(`[Submit Group] KOL identified: ${kol.name} (@${kol.twitterHandle}), updated telegramGroupId to ${telegramChatId}`);
 
-  // Find active campaign KOL is assigned to
+  // Find active campaign KOL is assigned to - explicitly select clientTelegramChatId
   const campaignKol = await db.campaignKOL.findFirst({
     where: {
       kolId: kol.id,
@@ -787,7 +787,15 @@ async function handleSubmitCommandFromGroup(
       },
     },
     include: {
-      campaign: true,
+      campaign: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          clientTelegramChatId: true,
+          projectTwitterHandle: true,
+        },
+      },
     },
   });
 
@@ -798,8 +806,8 @@ async function handleSubmitCommandFromGroup(
     return;
   }
 
-  console.log(`[Submit Group] Campaign found: ${campaignKol.campaign.name}`);
-  console.log(`[Submit Group] Campaign ID: ${campaignKol.campaign.id}`);
+  // Log full campaign object for debugging
+  console.log(`[Submit Group] Campaign found:`, JSON.stringify(campaignKol.campaign));
   console.log(`[Submit Group] Campaign clientTelegramChatId: "${campaignKol.campaign.clientTelegramChatId}" (type: ${typeof campaignKol.campaign.clientTelegramChatId})`);
 
   // Check for duplicate submission
@@ -895,7 +903,7 @@ async function handleSubmitCommandFromGroup(
     }
   } else {
     console.log(`[Submit Group] SKIPPED: No client telegram group - clientGroupId="${clientGroupId}", client=${!!client}`);
-    clientNotifyError = "No client group configured for this campaign";
+    clientNotifyError = `No client group configured for campaign "${campaignKol.campaign.name}" (ID: ${campaignKol.campaign.id})`;
   }
 
   // 2. Reply success to the KOL in the group chat
