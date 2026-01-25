@@ -111,6 +111,10 @@ interface AvailableKOL {
   twitterHandle: string;
   tier: string;
   followersCount: number;
+  ratePerPost: number | null;
+  ratePerThread: number | null;
+  ratePerRetweet: number | null;
+  ratePerSpace: number | null;
 }
 
 interface TelegramChat {
@@ -251,6 +255,57 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     setRequiredThreads("");
     setRequiredRetweets("");
     setRequiredSpaces("");
+  };
+
+  // Calculate budget based on KOL rates and deliverables
+  const calculateBudget = (kolId: string, posts: string, threads: string, retweets: string, spaces: string) => {
+    const kol = availableKols.find(k => k.id === kolId);
+    if (!kol) return;
+
+    const postsCount = parseInt(posts) || 0;
+    const threadsCount = parseInt(threads) || 0;
+    const retweetsCount = parseInt(retweets) || 0;
+    const spacesCount = parseInt(spaces) || 0;
+
+    // Rates are stored in cents
+    const postsCost = postsCount * (kol.ratePerPost || 0);
+    const threadsCost = threadsCount * (kol.ratePerThread || 0);
+    const retweetsCost = retweetsCount * (kol.ratePerRetweet || 0);
+    const spacesCost = spacesCount * (kol.ratePerSpace || 0);
+
+    const totalCents = postsCost + threadsCost + retweetsCost + spacesCost;
+    const totalDollars = totalCents / 100;
+
+    if (totalDollars > 0) {
+      setAssignedBudget(totalDollars.toFixed(2));
+    }
+  };
+
+  // Update budget when KOL or deliverables change
+  const handleKolSelect = (kolId: string) => {
+    setSelectedKol(kolId);
+    calculateBudget(kolId, requiredPosts, requiredThreads, requiredRetweets, requiredSpaces);
+  };
+
+  const handleDeliverablesChange = (type: string, value: string) => {
+    switch (type) {
+      case "posts":
+        setRequiredPosts(value);
+        calculateBudget(selectedKol, value, requiredThreads, requiredRetweets, requiredSpaces);
+        break;
+      case "threads":
+        setRequiredThreads(value);
+        calculateBudget(selectedKol, requiredPosts, value, requiredRetweets, requiredSpaces);
+        break;
+      case "retweets":
+        setRequiredRetweets(value);
+        calculateBudget(selectedKol, requiredPosts, requiredThreads, value, requiredSpaces);
+        break;
+      case "spaces":
+        setRequiredSpaces(value);
+        calculateBudget(selectedKol, requiredPosts, requiredThreads, requiredRetweets, value);
+        break;
+    }
   };
 
   const handleRemoveKol = async (kolId: string) => {
@@ -678,7 +733,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Select KOL</Label>
-              <Select value={selectedKol} onValueChange={setSelectedKol}>
+              <Select value={selectedKol} onValueChange={handleKolSelect}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a KOL" />
                 </SelectTrigger>
@@ -690,6 +745,22 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   ))}
                 </SelectContent>
               </Select>
+              {selectedKol && (() => {
+                const kol = availableKols.find(k => k.id === selectedKol);
+                if (!kol) return null;
+                const hasRates = kol.ratePerPost || kol.ratePerThread || kol.ratePerRetweet || kol.ratePerSpace;
+                if (!hasRates) return (
+                  <p className="text-xs text-amber-600 mt-1">No rates configured for this KOL</p>
+                );
+                return (
+                  <div className="text-xs text-muted-foreground mt-1 space-x-2">
+                    {kol.ratePerPost && <span>Post: ${(kol.ratePerPost / 100).toFixed(0)}</span>}
+                    {kol.ratePerThread && <span>Thread: ${(kol.ratePerThread / 100).toFixed(0)}</span>}
+                    {kol.ratePerRetweet && <span>RT: ${(kol.ratePerRetweet / 100).toFixed(0)}</span>}
+                    {kol.ratePerSpace && <span>Space: ${(kol.ratePerSpace / 100).toFixed(0)}</span>}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="space-y-2">
@@ -716,7 +787,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     type="number"
                     min="0"
                     value={requiredPosts}
-                    onChange={(e) => setRequiredPosts(e.target.value)}
+                    onChange={(e) => handleDeliverablesChange("posts", e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -726,7 +797,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     type="number"
                     min="0"
                     value={requiredThreads}
-                    onChange={(e) => setRequiredThreads(e.target.value)}
+                    onChange={(e) => handleDeliverablesChange("threads", e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -736,7 +807,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     type="number"
                     min="0"
                     value={requiredRetweets}
-                    onChange={(e) => setRequiredRetweets(e.target.value)}
+                    onChange={(e) => handleDeliverablesChange("retweets", e.target.value)}
                     placeholder="0"
                   />
                 </div>
@@ -746,7 +817,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     type="number"
                     min="0"
                     value={requiredSpaces}
-                    onChange={(e) => setRequiredSpaces(e.target.value)}
+                    onChange={(e) => handleDeliverablesChange("spaces", e.target.value)}
                     placeholder="0"
                   />
                 </div>

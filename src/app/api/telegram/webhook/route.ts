@@ -163,6 +163,18 @@ async function handleMessage(organizationId: string, botToken: string | null, me
     return;
   }
 
+  // Check for /schedule command
+  if (textContent.startsWith("/schedule")) {
+    await handleScheduleCommand(botToken, chat.id);
+    return;
+  }
+
+  // Check for /budget command
+  if (textContent.startsWith("/budget")) {
+    await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername);
+    return;
+  }
+
   // Check for /review command
   if (textContent.startsWith("/review")) {
     await handleReviewCommand(
@@ -375,6 +387,18 @@ async function handlePrivateMessage(
     return;
   }
 
+  // Check for /schedule command
+  if (textContent?.startsWith("/schedule")) {
+    await handleScheduleCommand(botToken, message.chat.id);
+    return;
+  }
+
+  // Check for /budget command
+  if (textContent?.startsWith("/budget")) {
+    await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername);
+    return;
+  }
+
   // Check for /submit command
   if (textContent?.startsWith("/submit")) {
     await handleSubmitCommand(organizationId, botToken, message, senderUsername, senderTelegramId);
@@ -538,6 +562,8 @@ async function handleHelpCommand(
 • \`/review <draft_content>\` - Submit content for agency review before posting
 
 *Other:*
+• \`/budget\` - View campaign budget breakdown
+• \`/schedule\` - Book a call with our team
 • \`/start\` - Initialize bot connection
 • \`/help\` - Show this help message
 
@@ -549,6 +575,114 @@ async function handleHelpCommand(
 Need assistance? Contact @altcoinclimber or @viperrcrypto`;
 
   await client.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
+}
+
+async function handleScheduleCommand(
+  botToken: string | null,
+  chatId: number
+) {
+  if (!botToken) return;
+
+  const client = new TelegramClient(botToken);
+  await client.sendMessage(
+    chatId,
+    `📅 *Book a Call*\n\nSchedule a meeting with our team:\nhttps://kalsync.xyz/basecamp`,
+    { parse_mode: "Markdown" }
+  );
+}
+
+async function handleBudgetCommand(
+  organizationId: string,
+  botToken: string | null,
+  chatId: number,
+  senderUsername: string | undefined
+) {
+  if (!botToken) return;
+
+  const client = new TelegramClient(botToken);
+
+  // Helper to send response
+  const sendResponse = async (message: string) => {
+    await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
+  };
+
+  if (!senderUsername) {
+    await sendResponse("Unable to identify you. Please make sure your Telegram username is set.");
+    return;
+  }
+
+  // Find KOL by telegram username
+  const kol = await db.kOL.findFirst({
+    where: {
+      organizationId,
+      telegramUsername: {
+        equals: senderUsername,
+        mode: "insensitive",
+      },
+    },
+  });
+
+  if (!kol) {
+    await sendResponse(`No KOL profile found for @${senderUsername}. Please contact your agency.`);
+    return;
+  }
+
+  // Find active campaigns for this KOL
+  const campaignKols = await db.campaignKOL.findMany({
+    where: {
+      kolId: kol.id,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      campaign: {
+        status: "ACTIVE",
+        agencyId: organizationId,
+      },
+    },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          name: true,
+          totalBudget: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (campaignKols.length === 0) {
+    await sendResponse("You're not assigned to any active campaigns.");
+    return;
+  }
+
+  // Build budget breakdown for each campaign
+  let message = `💰 *Campaign Budget Breakdown*\n\n`;
+
+  for (const ck of campaignKols) {
+    const campaign = ck.campaign;
+
+    // Get all KOL allocations for this campaign
+    const allCampaignKols = await db.campaignKOL.findMany({
+      where: { campaignId: campaign.id },
+      select: { assignedBudget: true },
+    });
+
+    const allocatedBudget = allCampaignKols.reduce((sum, k) => sum + (k.assignedBudget || 0), 0);
+    const remainingBudget = campaign.totalBudget - allocatedBudget;
+
+    // Calculate days active
+    const startDate = new Date(campaign.createdAt);
+    const now = new Date();
+    const daysActive = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    message += `*${campaign.name}*\n`;
+    message += `• Total Budget: $${(campaign.totalBudget / 100).toLocaleString()}\n`;
+    message += `• Allocated: $${(allocatedBudget / 100).toLocaleString()}\n`;
+    message += `• Remaining: $${(remainingBudget / 100).toLocaleString()}\n`;
+    message += `• Days Active: ${daysActive}\n`;
+    message += `• Your Budget: $${(ck.assignedBudget / 100).toLocaleString()}\n\n`;
+  }
+
+  await sendResponse(message.trim());
 }
 
 async function handleSubmitCommand(
