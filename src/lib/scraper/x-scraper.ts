@@ -466,12 +466,105 @@ export interface TwitterProfile {
 
 /**
  * Fetch Twitter profile data including followers count
- * Uses multiple fallback methods for reliability
+ * Uses Apify Twitter Profile scraper for reliable data
  */
 export async function fetchTwitterProfile(handle: string): Promise<TwitterProfile | null> {
   const cleanHandle = handle.replace('@', '').toLowerCase();
+  const apiKey = getApifyApiKey();
 
-  // Method 1: Try Twitter syndication API
+  // Method 1: Use Apify Twitter Profile Scraper if API key available
+  if (apiKey) {
+    try {
+      console.log(`[Profile] Fetching @${cleanHandle} via Apify...`);
+
+      // Use the tweet scraper actor to get user info from a recent tweet
+      const actorId = 'CJdippxWmn9uRfooo';
+      const input = {
+        searchTerms: [`from:${cleanHandle}`],
+        maxItems: 1,
+      };
+
+      const runResponse = await fetch(
+        `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+
+      if (runResponse.ok) {
+        const runData = await runResponse.json();
+        const runId = runData.data?.id;
+
+        if (runId) {
+          // Poll for completion (max 60 seconds)
+          const maxWait = 60000;
+          const pollInterval = 2000;
+          let elapsed = 0;
+
+          while (elapsed < maxWait) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            elapsed += pollInterval;
+
+            const statusResponse = await fetch(
+              `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+
+            if (!statusResponse.ok) continue;
+
+            const statusData = await statusResponse.json();
+            const status = statusData.data?.status;
+
+            if (status === 'SUCCEEDED') {
+              const datasetId = statusData.data?.defaultDatasetId;
+              if (datasetId) {
+                const resultsResponse = await fetch(
+                  `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}&limit=1`,
+                  { signal: AbortSignal.timeout(10000) }
+                );
+
+                if (resultsResponse.ok) {
+                  const results = await resultsResponse.json();
+                  if (Array.isArray(results) && results.length > 0) {
+                    const tweet = results[0] as Record<string, unknown>;
+                    // The tweet data includes author info
+                    const author = tweet.author as Record<string, unknown> | undefined;
+                    const followersCount = Number(author?.followers || tweet.author_followers || 0);
+                    const followingCount = Number(author?.following || tweet.author_following || 0);
+                    const avatarUrl = String(author?.profilePicture || author?.avatar || tweet.author_profile_image || '');
+                    const name = String(author?.name || tweet.author_name || cleanHandle);
+
+                    if (followersCount > 0) {
+                      console.log(`[Profile] Found via Apify for @${cleanHandle}: ${followersCount} followers`);
+                      return {
+                        screenName: cleanHandle,
+                        name,
+                        followersCount,
+                        followingCount,
+                        avatarUrl: avatarUrl || null,
+                      };
+                    }
+                  }
+                }
+              }
+              break;
+            } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+              console.log(`[Profile] Apify run ${status} for @${cleanHandle}`);
+              break;
+            }
+          }
+        }
+      }
+      console.log(`[Profile] Apify method did not return followers for @${cleanHandle}`);
+    } catch (error) {
+      console.log(`[Profile] Apify error for @${cleanHandle}:`, error);
+    }
+  }
+
+  // Method 2: Try Twitter syndication API
   try {
     const embedUrl = `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${cleanHandle}`;
     const response = await fetch(embedUrl, {
@@ -487,50 +580,23 @@ export async function fetchTwitterProfile(handle: string): Promise<TwitterProfil
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         const profile = data[0];
-        console.log(`[Profile] Found via syndication API for @${cleanHandle}: ${profile.followers_count} followers`);
-        return {
-          screenName: profile.screen_name || cleanHandle,
-          name: profile.name || cleanHandle,
-          followersCount: profile.followers_count || 0,
-          followingCount: profile.friends_count || 0,
-          avatarUrl: profile.profile_image_url_https
-            ? profile.profile_image_url_https.replace('_normal', '_400x400')
-            : null,
-        };
+        if (profile.followers_count > 0) {
+          console.log(`[Profile] Found via syndication API for @${cleanHandle}: ${profile.followers_count} followers`);
+          return {
+            screenName: profile.screen_name || cleanHandle,
+            name: profile.name || cleanHandle,
+            followersCount: profile.followers_count || 0,
+            followingCount: profile.friends_count || 0,
+            avatarUrl: profile.profile_image_url_https
+              ? profile.profile_image_url_https.replace('_normal', '_400x400')
+              : null,
+          };
+        }
       }
     }
-    console.log(`[Profile] Syndication API failed for @${cleanHandle}: HTTP ${response.status}`);
+    console.log(`[Profile] Syndication API failed for @${cleanHandle}`);
   } catch (error) {
     console.log(`[Profile] Syndication API error for @${cleanHandle}:`, error);
-  }
-
-  // Method 2: Try Twitter's guest API via tweet lookup
-  try {
-    const guestUrl = `https://api.twitter.com/1.1/users/show.json?screen_name=${cleanHandle}`;
-    const response = await fetch(guestUrl, {
-      headers: {
-        'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-        'User-Agent': 'TwitterAndroid/10.21.0',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log(`[Profile] Found via guest API for @${cleanHandle}: ${data.followers_count} followers`);
-      return {
-        screenName: data.screen_name || cleanHandle,
-        name: data.name || cleanHandle,
-        followersCount: data.followers_count || 0,
-        followingCount: data.friends_count || 0,
-        avatarUrl: data.profile_image_url_https
-          ? data.profile_image_url_https.replace('_normal', '_400x400')
-          : null,
-      };
-    }
-    console.log(`[Profile] Guest API failed for @${cleanHandle}: HTTP ${response.status}`);
-  } catch (error) {
-    console.log(`[Profile] Guest API error for @${cleanHandle}:`, error);
   }
 
   // Method 3: Return partial data with just avatar from unavatar.io
@@ -546,7 +612,7 @@ export async function fetchTwitterProfile(handle: string): Promise<TwitterProfil
       return {
         screenName: cleanHandle,
         name: cleanHandle,
-        followersCount: 0, // We'll keep existing count
+        followersCount: 0,
         followingCount: 0,
         avatarUrl: avatarUrl,
       };
