@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit } from "lucide-react";
+import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2 } from "lucide-react";
 
 interface KOL {
   id: string;
@@ -31,6 +31,7 @@ interface KOL {
   status: string;
   followersCount: number;
   avgEngagementRate: number;
+  totalEarnings: number;
   tags: { id: string; name: string; color: string }[];
   _count: {
     campaignKols: number;
@@ -41,14 +42,16 @@ interface KOL {
 interface KOLTableProps {
   kols: KOL[];
   onAddNew: () => void;
+  onRefresh: () => void;
 }
 
-export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
+export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTableProps) {
   const router = useRouter();
   const [kols, setKols] = useState(initialKols);
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filteredKols = kols.filter((kol) => {
     const matchesSearch =
@@ -72,6 +75,23 @@ export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
       }
     } catch (error) {
       console.error("Failed to delete KOL:", error);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await fetch("/api/kols/refresh-metrics", { method: "POST" });
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Refreshed ${data.updated}/${data.total} KOLs`);
+        // Reload the KOL list to show updated data
+        onRefresh();
+      }
+    } catch (error) {
+      console.error("Failed to refresh metrics:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -113,6 +133,18 @@ export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
             <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant="outline"
+          onClick={handleRefreshAll}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          {isRefreshing ? "Refreshing..." : "Refresh Metrics"}
+        </Button>
         <Button onClick={onAddNew}>
           <Plus className="h-4 w-4 mr-2" />
           Add KOL
@@ -130,6 +162,7 @@ export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
               <th className="text-right p-4 font-medium text-muted-foreground">Followers</th>
               <th className="text-right p-4 font-medium text-muted-foreground">Engagement</th>
               <th className="text-right p-4 font-medium text-muted-foreground">Campaigns</th>
+              <th className="text-right p-4 font-medium text-muted-foreground">Earnings</th>
               <th className="text-center p-4 font-medium text-muted-foreground">Tags</th>
               <th className="w-[50px]"></th>
             </tr>
@@ -137,7 +170,7 @@ export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
           <tbody>
             {filteredKols.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                <td colSpan={9} className="p-8 text-center text-muted-foreground">
                   {kols.length === 0
                     ? "No KOLs added yet. Click 'Add KOL' to get started."
                     : "No KOLs match your filters."}
@@ -199,6 +232,9 @@ export function KOLTable({ kols: initialKols, onAddNew }: KOLTableProps) {
                   </td>
                   <td className="p-4 text-right">
                     {kol._count.campaignKols}
+                  </td>
+                  <td className="p-4 text-right font-medium text-green-600">
+                    ${formatNumber(kol.totalEarnings)}
                   </td>
                   <td className="p-4">
                     <div className="flex justify-center gap-1 flex-wrap">

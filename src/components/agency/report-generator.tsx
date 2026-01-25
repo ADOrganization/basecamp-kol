@@ -140,27 +140,33 @@ export function ReportGenerator({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-teal-600" />
-            Generate Campaign Report
-          </DialogTitle>
-          <DialogDescription>
-            Create a downloadable PDF report with campaign analytics for the selected date range.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden border-0">
+        {/* Header with gradient */}
+        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white text-lg">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <FileText className="h-5 w-5" />
+              </div>
+              Generate Campaign Report
+            </DialogTitle>
+            <DialogDescription className="text-teal-100 mt-1">
+              Create a downloadable PDF report with campaign analytics
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-6 py-4">
+        <div className="px-6 py-5 space-y-5 bg-slate-50">
           {/* Quick Select Buttons */}
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Quick Select</Label>
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-slate-700">Quick Select</Label>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect(7)}
+                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
               >
                 Last 7 days
               </Button>
@@ -169,6 +175,7 @@ export function ReportGenerator({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect(30)}
+                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
               >
                 Last 30 days
               </Button>
@@ -177,6 +184,7 @@ export function ReportGenerator({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect(90)}
+                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
               >
                 Last 90 days
               </Button>
@@ -185,6 +193,7 @@ export function ReportGenerator({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect("all")}
+                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
               >
                 All time
               </Button>
@@ -194,8 +203,8 @@ export function ReportGenerator({
           {/* Date Range Inputs */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startDate" className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+              <Label htmlFor="startDate" className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <Calendar className="h-4 w-4 text-teal-600" />
                 Start Date
               </Label>
               <input
@@ -203,12 +212,12 @@ export function ReportGenerator({
                 id="startDate"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent shadow-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endDate" className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+              <Label htmlFor="endDate" className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                <Calendar className="h-4 w-4 text-teal-600" />
                 End Date
               </Label>
               <input
@@ -216,41 +225,61 @@ export function ReportGenerator({
                 id="endDate"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent shadow-sm"
               />
             </div>
           </div>
 
           {/* Report Contents Preview */}
-          <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-            <Label className="text-sm font-medium">Report will include:</Label>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Campaign overview and status</li>
-              <li>• Key performance metrics (impressions, engagement)</li>
-              <li>• KOL performance breakdown</li>
-              <li>• Complete posts listing with metrics</li>
-              <li>• KPI progress (if targets set)</li>
+          <div className="p-4 bg-white rounded-lg border border-slate-200 space-y-2 shadow-sm">
+            <Label className="text-sm font-medium text-slate-700">Report will include:</Label>
+            <ul className="text-sm text-slate-600 space-y-1.5 ml-1">
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+                Campaign overview and status
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+                Key performance metrics (impressions, engagement)
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+                KOL performance breakdown
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+                Complete posts listing with metrics
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+                KPI progress (if targets set)
+              </li>
             </ul>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              <span className="text-sm">{error}</span>
+              <span className="text-sm font-medium">{error}</span>
             </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isGenerating}>
+        <div className="flex justify-end gap-3 px-6 py-4 bg-white border-t border-slate-200">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isGenerating}
+            className="hover:bg-slate-100"
+          >
             Cancel
           </Button>
           <Button
             onClick={handleGenerate}
             disabled={isGenerating || !startDate || !endDate}
-            className="bg-teal-600 hover:bg-teal-700"
+            className="bg-teal-600 hover:bg-teal-700 shadow-sm"
           >
             {isGenerating ? (
               <>

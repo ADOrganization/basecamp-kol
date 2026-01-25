@@ -30,6 +30,11 @@ export async function GET(request: NextRequest) {
       },
       include: {
         tags: true,
+        campaignKols: {
+          select: {
+            assignedBudget: true,
+          },
+        },
         _count: {
           select: {
             campaignKols: true,
@@ -40,7 +45,18 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(kols);
+    // Calculate total earnings for each KOL (assignedBudget is in cents)
+    const kolsWithEarnings = kols.map((kol) => {
+      const totalEarningsCents = kol.campaignKols.reduce(
+        (sum, ck) => sum + (ck.assignedBudget || 0),
+        0
+      );
+      // Remove campaignKols from response to avoid exposing individual budget data
+      const { campaignKols: _, ...kolData } = kol;
+      return { ...kolData, totalEarnings: totalEarningsCents / 100 };
+    });
+
+    return NextResponse.json(kolsWithEarnings);
   } catch (error) {
     console.error("Error fetching KOLs:", error);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { fetchTwitterProfile as fetchProfile } from "@/lib/scraper/x-scraper";
 
 // Secret for protecting cron endpoint
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -245,10 +246,12 @@ async function fetchTwitterProfile(handle: string): Promise<{
   followingCount: number;
 } | null> {
   try {
-    // Use nitter or similar service for profile data
-    // For now, return null - this would need proper Twitter API integration
-    // In production, use Apify or Twitter API
-    return null;
+    const profile = await fetchProfile(handle);
+    if (!profile) return null;
+    return {
+      followersCount: profile.followersCount,
+      followingCount: profile.followingCount,
+    };
   } catch {
     return null;
   }

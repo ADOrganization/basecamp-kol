@@ -13,6 +13,7 @@ interface KOL {
   status: string;
   followersCount: number;
   avgEngagementRate: number;
+  totalEarnings: number;
   tags: { id: string; name: string; color: string }[];
   _count: {
     campaignKols: number;
@@ -60,7 +61,7 @@ export default function KOLsPage() {
         </p>
       </div>
 
-      <KOLTable kols={kols} onAddNew={() => setShowForm(true)} />
+      <KOLTable kols={kols} onAddNew={() => setShowForm(true)} onRefresh={fetchKols} />
 
       <KOLForm
         open={showForm}
