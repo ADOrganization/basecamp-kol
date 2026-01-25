@@ -631,8 +631,96 @@ export async function fetchTwitterProfile(handle: string): Promise<TwitterProfil
  */
 export async function fetchTwitterBanner(handle: string): Promise<string | null> {
   const cleanHandle = handle.replace('@', '').toLowerCase();
+  const apiKey = getApifyApiKey();
 
-  // Method 1: Try syndication API which includes user ID for banner URL
+  // Method 1: Use Apify Tweet Scraper if API key available (get user info from tweet)
+  if (apiKey) {
+    try {
+      console.log(`[Banner] Fetching @${cleanHandle} via Apify...`);
+
+      // Use the same tweet scraper actor to get user info from a recent tweet
+      const actorId = 'CJdippxWmn9uRfooo';
+      const input = {
+        searchTerms: [`from:${cleanHandle}`],
+        maxItems: 1,
+      };
+
+      const runResponse = await fetch(
+        `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+
+      if (runResponse.ok) {
+        const runData = await runResponse.json();
+        const runId = runData.data?.id;
+
+        if (runId) {
+          // Poll for completion (max 45 seconds)
+          const maxWait = 45000;
+          const pollInterval = 2000;
+          let elapsed = 0;
+
+          while (elapsed < maxWait) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            elapsed += pollInterval;
+
+            const statusResponse = await fetch(
+              `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+
+            if (!statusResponse.ok) continue;
+
+            const statusData = await statusResponse.json();
+            const status = statusData.data?.status;
+
+            if (status === 'SUCCEEDED') {
+              const datasetId = statusData.data?.defaultDatasetId;
+              if (datasetId) {
+                const resultsResponse = await fetch(
+                  `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}&limit=1`,
+                  { signal: AbortSignal.timeout(10000) }
+                );
+
+                if (resultsResponse.ok) {
+                  const results = await resultsResponse.json();
+                  if (Array.isArray(results) && results.length > 0) {
+                    const tweet = results[0] as Record<string, unknown>;
+                    const author = tweet.author as Record<string, unknown> | undefined;
+                    // Try various field names for banner URL
+                    const bannerUrl = author?.profileBannerUrl ||
+                      author?.profile_banner_url ||
+                      author?.banner_url ||
+                      author?.coverImageUrl ||
+                      tweet.author_profile_banner_url;
+
+                    if (bannerUrl && typeof bannerUrl === 'string') {
+                      console.log(`[Banner] Found via Apify for @${cleanHandle}: ${bannerUrl.slice(0, 50)}...`);
+                      return bannerUrl;
+                    }
+                  }
+                }
+              }
+              break;
+            } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+              console.log(`[Banner] Apify run ${status} for @${cleanHandle}`);
+              break;
+            }
+          }
+        }
+      }
+      console.log(`[Banner] Apify method did not return banner for @${cleanHandle}`);
+    } catch (error) {
+      console.log(`[Banner] Apify error for @${cleanHandle}:`, error);
+    }
+  }
+
+  // Method 2: Try syndication API which includes user ID for banner URL
   try {
     const embedUrl = `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${cleanHandle}`;
     const response = await fetch(embedUrl, {
@@ -672,35 +760,131 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
     console.log(`[Banner] Syndication API error for @${cleanHandle}:`, error);
   }
 
-  // Method 2: Try Twitter embed page scraping (backup)
-  try {
-    const embedHtml = `https://publish.twitter.com/oembed?url=https://twitter.com/${cleanHandle}`;
-    const response = await fetch(embedHtml, {
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      // The oembed response might include author info we can use
-      if (data.author_url) {
-        console.log(`[Banner] Got oembed data for @${cleanHandle}, but no direct banner URL`);
-      }
-    }
-  } catch (error) {
-    console.log(`[Banner] Embed scrape failed for @${cleanHandle}:`, error);
-  }
-
   console.log(`[Banner] Could not fetch banner for @${cleanHandle}`);
   return null;
 }
 
 /**
  * Fetch both Twitter avatar and banner for a given handle
+ * Uses Apify if available to get both in a single call
  */
 export async function fetchTwitterMedia(handle: string): Promise<{
   avatarUrl: string | null;
   bannerUrl: string | null;
 }> {
+  const cleanHandle = handle.replace('@', '').toLowerCase();
+  const apiKey = getApifyApiKey();
+
+  // Method 1: Use Apify to get both avatar and banner in one call
+  if (apiKey) {
+    try {
+      console.log(`[Media] Fetching @${cleanHandle} profile via Apify...`);
+
+      // Use the tweet scraper actor to get user info from a recent tweet
+      const actorId = 'CJdippxWmn9uRfooo';
+      const input = {
+        searchTerms: [`from:${cleanHandle}`],
+        maxItems: 1,
+      };
+
+      const runResponse = await fetch(
+        `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+
+      if (runResponse.ok) {
+        const runData = await runResponse.json();
+        const runId = runData.data?.id;
+
+        if (runId) {
+          // Poll for completion (max 60 seconds)
+          const maxWait = 60000;
+          const pollInterval = 2000;
+          let elapsed = 0;
+
+          while (elapsed < maxWait) {
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            elapsed += pollInterval;
+
+            const statusResponse = await fetch(
+              `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+
+            if (!statusResponse.ok) continue;
+
+            const statusData = await statusResponse.json();
+            const status = statusData.data?.status;
+
+            if (status === 'SUCCEEDED') {
+              const datasetId = statusData.data?.defaultDatasetId;
+              if (datasetId) {
+                const resultsResponse = await fetch(
+                  `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}&limit=1`,
+                  { signal: AbortSignal.timeout(10000) }
+                );
+
+                if (resultsResponse.ok) {
+                  const results = await resultsResponse.json();
+                  if (Array.isArray(results) && results.length > 0) {
+                    const tweet = results[0] as Record<string, unknown>;
+                    const author = tweet.author as Record<string, unknown> | undefined;
+
+                    // Extract avatar URL
+                    let avatarUrl: string | null = null;
+                    const profilePic = author?.profilePicture ||
+                      author?.avatar ||
+                      author?.profile_image_url_https ||
+                      tweet.author_profile_image;
+                    if (profilePic && typeof profilePic === 'string') {
+                      // Get higher resolution version
+                      avatarUrl = profilePic.replace('_normal', '_400x400');
+                      console.log(`[Media] Found avatar via Apify for @${cleanHandle}`);
+                    }
+
+                    // Extract banner URL
+                    let bannerUrl: string | null = null;
+                    const banner = author?.profileBannerUrl ||
+                      author?.profile_banner_url ||
+                      author?.banner_url ||
+                      author?.coverImageUrl ||
+                      tweet.author_profile_banner_url;
+                    if (banner && typeof banner === 'string') {
+                      bannerUrl = banner;
+                      console.log(`[Media] Found banner via Apify for @${cleanHandle}`);
+                    }
+
+                    // If we got at least one, return early (fill in missing with fallback)
+                    if (avatarUrl || bannerUrl) {
+                      // If no avatar from Apify, try unavatar
+                      if (!avatarUrl) {
+                        avatarUrl = await fetchTwitterAvatar(handle);
+                      }
+                      return { avatarUrl, bannerUrl };
+                    }
+                  }
+                }
+              }
+              break;
+            } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+              console.log(`[Media] Apify run ${status} for @${cleanHandle}`);
+              break;
+            }
+          }
+        }
+      }
+      console.log(`[Media] Apify method did not return media for @${cleanHandle}, falling back`);
+    } catch (error) {
+      console.log(`[Media] Apify error for @${cleanHandle}:`, error);
+    }
+  }
+
+  // Method 2: Fetch avatar and banner separately as fallback
   const [avatarUrl, bannerUrl] = await Promise.all([
     fetchTwitterAvatar(handle),
     fetchTwitterBanner(handle),
