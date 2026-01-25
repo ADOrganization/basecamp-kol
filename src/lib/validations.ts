@@ -90,7 +90,7 @@ export const postSchema = z.object({
 });
 
 export const postApprovalSchema = z.object({
-  status: z.enum(["APPROVED", "REJECTED"]),
+  status: z.enum(["APPROVED", "REJECTED", "CHANGES_REQUESTED"]),
   clientNotes: z.string().optional(),
 });
 

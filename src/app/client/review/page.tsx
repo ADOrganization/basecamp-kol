@@ -111,6 +111,7 @@ export default function ClientReviewPage() {
   };
 
   const pendingPosts = posts.filter(p => p.status === "PENDING_APPROVAL" || p.status === "DRAFT");
+  const reviewedPosts = posts.filter(p => p.status !== "PENDING_APPROVAL" && p.status !== "DRAFT");
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -320,20 +321,20 @@ export default function ClientReviewPage() {
         </TabsContent>
 
         <TabsContent value="reviewed" className="space-y-4">
-          {posts.length === 0 ? (
+          {reviewedPosts.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <FileText className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                <h3 className="font-semibold text-lg">No posts yet</h3>
+                <h3 className="font-semibold text-lg">No reviewed posts yet</h3>
                 <p className="text-muted-foreground mt-1">
-                  Posts from your campaigns will appear here.
+                  Posts will appear here after they have been reviewed.
                 </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} showActions={post.status === "PENDING_APPROVAL" || post.status === "DRAFT"} />
+              {reviewedPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
               ))}
             </div>
           )}
