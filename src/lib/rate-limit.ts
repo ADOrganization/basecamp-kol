@@ -1,0 +1,101 @@
+/**
+ * Rate Limiting Utility
+ *
+ * In-memory rate limiter for API protection.
+ * For production with multiple instances, consider using Redis/Upstash.
+ */
+
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+// In-memory store (per-instance, cleared on restart)
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Cleanup old entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (now > entry.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 60000); // Clean up every minute
+
+export interface RateLimitConfig {
+  // Maximum requests allowed in the window
+  limit: number;
+  // Window duration in milliseconds
+  windowMs: number;
+}
+
+export interface RateLimitResult {
+  success: boolean;
+  limit: number;
+  remaining: number;
+  reset: number;
+}
+
+/**
+ * Check rate limit for a given identifier (usually IP or user ID)
+ */
+export function checkRateLimit(
+  identifier: string,
+  config: RateLimitConfig
+): RateLimitResult {
+  const now = Date.now();
+  const key = identifier;
+
+  let entry = rateLimitStore.get(key);
+
+  // If no entry or expired, create new one
+  if (!entry || now > entry.resetTime) {
+    entry = {
+      count: 0,
+      resetTime: now + config.windowMs,
+    };
+    rateLimitStore.set(key, entry);
+  }
+
+  // Increment count
+  entry.count++;
+
+  const remaining = Math.max(0, config.limit - entry.count);
+  const reset = Math.ceil((entry.resetTime - now) / 1000);
+
+  return {
+    success: entry.count <= config.limit,
+    limit: config.limit,
+    remaining,
+    reset,
+  };
+}
+
+/**
+ * Get client identifier from request
+ * Uses X-Forwarded-For header if behind proxy, falls back to connection IP
+ */
+export function getClientIdentifier(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  // Fallback - in serverless environments this may not be available
+  return "unknown";
+}
+
+// Preset configurations for different endpoint types
+export const RATE_LIMITS = {
+  // Standard API endpoints - 100 requests per minute
+  standard: { limit: 100, windowMs: 60 * 1000 },
+
+  // Sensitive data endpoints (KOL roster) - 30 requests per minute
+  sensitive: { limit: 30, windowMs: 60 * 1000 },
+
+  // Heavy operations (refresh metrics, scraping) - 5 requests per minute
+  heavy: { limit: 5, windowMs: 60 * 1000 },
+
+  // Auth endpoints - 10 requests per minute to prevent brute force
+  auth: { limit: 10, windowMs: 60 * 1000 },
+} as const;

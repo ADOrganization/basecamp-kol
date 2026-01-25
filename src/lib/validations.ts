@@ -20,7 +20,7 @@ export const kolSchema = z.object({
   twitterHandle: z.string().min(1, "Twitter handle is required").regex(/^@?[\w]+$/, "Invalid Twitter handle"),
   telegramUsername: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
-  tier: z.enum(["SMALL", "MID", "RISING", "LARGE"]),
+  tier: z.enum(["SMALL", "MID", "LARGE", "MACRO"]),
   status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "PENDING"]),
   ratePerPost: z.number().min(0).optional(),
   ratePerThread: z.number().min(0).optional(),

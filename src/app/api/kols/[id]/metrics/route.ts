@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { fetchTwitterProfile } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,6 +11,10 @@ interface RouteParams {
 // POST - Refresh KOL metrics from Twitter and aggregate from posts
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    // SECURITY: Apply strict rate limiting for heavy operations (5 req/min)
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

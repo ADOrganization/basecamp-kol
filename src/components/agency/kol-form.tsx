@@ -254,8 +254,8 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
                   <SelectContent>
                     <SelectItem value="SMALL">Small (1-10K)</SelectItem>
                     <SelectItem value="MID">Mid (10K-20K)</SelectItem>
-                    <SelectItem value="RISING">Rising (20K-75K)</SelectItem>
-                    <SelectItem value="LARGE">Large (75K+)</SelectItem>
+                    <SelectItem value="LARGE">Large (20K-75K)</SelectItem>
+                    <SelectItem value="MACRO">Macro (75K+)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

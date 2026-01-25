@@ -72,14 +72,24 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // For clients, sanitize sensitive data
+    // SECURITY: For clients, sanitize sensitive data - hide tier and budget info
     if (!isAgency) {
       const sanitizedCampaigns = campaignsWithAllocated.map((campaign) => ({
         ...campaign,
-        // Strip sensitive per-KOL budget data
+        // Hide total budget from clients
+        totalBudget: undefined,
+        spentBudget: undefined,
+        // Strip sensitive per-KOL budget and tier data
         campaignKols: campaign.campaignKols.map((ck) => ({
           id: ck.id,
-          kol: ck.kol,
+          kol: {
+            id: ck.kol.id,
+            name: ck.kol.name,
+            twitterHandle: ck.kol.twitterHandle,
+            avatarUrl: ck.kol.avatarUrl,
+            // tier: HIDDEN - reveals pricing strategy
+            // No budget info exposed
+          },
         })),
       }));
 

@@ -40,8 +40,8 @@ async function getDashboardStats(organizationId: string) {
 
   // KOL tier distribution (handles both old and new tier values)
   const tierDistribution = {
-    LARGE: kols.filter(k => ["LARGE", "MACRO", "MEGA"].includes(k.tier)).length,
-    RISING: kols.filter(k => k.tier === "RISING").length,
+    MACRO: kols.filter(k => ["MACRO", "MEGA"].includes(k.tier)).length,
+    LARGE: kols.filter(k => ["LARGE", "RISING"].includes(k.tier)).length,
     MID: kols.filter(k => ["MID", "MICRO"].includes(k.tier)).length,
     SMALL: kols.filter(k => ["SMALL", "NANO"].includes(k.tier)).length,
   };
@@ -103,8 +103,8 @@ export default async function AgencyDashboard() {
   const stats = await getDashboardStats(session.user.organizationId);
 
   const tierChartData = [
-    { name: "Large (75K+)", value: stats.tierDistribution.LARGE, color: "#f59e0b" },
-    { name: "Rising (20K-75K)", value: stats.tierDistribution.RISING, color: "#8b5cf6" },
+    { name: "Macro (75K+)", value: stats.tierDistribution.MACRO, color: "#f59e0b" },
+    { name: "Large (20K-75K)", value: stats.tierDistribution.LARGE, color: "#8b5cf6" },
     { name: "Mid (10K-20K)", value: stats.tierDistribution.MID, color: "#3b82f6" },
     { name: "Small (1-10K)", value: stats.tierDistribution.SMALL, color: "#14b8a6" },
   ].filter(d => d.value > 0);

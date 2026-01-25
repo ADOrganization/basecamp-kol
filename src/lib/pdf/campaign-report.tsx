@@ -286,10 +286,15 @@ function truncateContent(content: string | null, maxLength: number = 80): string
 
 function getTierLabel(tier: string): string {
   const labels: Record<string, string> = {
-    LARGE: "Large (75K+)",
-    RISING: "Rising (20K-75K)",
+    MACRO: "Macro (75K+)",
+    LARGE: "Large (20K-75K)",
     MID: "Mid (10K-20K)",
     SMALL: "Small (1-10K)",
+    // Legacy
+    MEGA: "Macro (75K+)",
+    RISING: "Large (20K-75K)",
+    MICRO: "Mid (10K-20K)",
+    NANO: "Small (1-10K)",
   };
   return labels[tier] || tier;
 }

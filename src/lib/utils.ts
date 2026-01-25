@@ -82,15 +82,14 @@ export function getInitials(name: string): string {
 
 export function getTierColor(tier: string): string {
   const colors: Record<string, string> = {
-    // New tiers
     SMALL: "bg-teal-100 text-teal-700",
     MID: "bg-blue-100 text-blue-700",
-    RISING: "bg-purple-100 text-purple-700",
-    LARGE: "bg-amber-100 text-amber-700",
+    LARGE: "bg-purple-100 text-purple-700",
+    MACRO: "bg-amber-100 text-amber-700",
     // Legacy tiers (backwards compatibility)
     NANO: "bg-teal-100 text-teal-700",
     MICRO: "bg-blue-100 text-blue-700",
-    MACRO: "bg-amber-100 text-amber-700",
+    RISING: "bg-purple-100 text-purple-700",
     MEGA: "bg-amber-100 text-amber-700",
   };
   return colors[tier] || colors.SMALL;

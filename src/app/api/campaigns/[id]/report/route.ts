@@ -8,12 +8,17 @@ import {
   type PostData,
   type Metrics,
 } from "@/lib/pdf/campaign-report";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // SECURITY: Apply rate limiting for report generation (heavy operation)
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
+    if (rateLimitResponse) return rateLimitResponse;
+
     // 1. Authenticate user
     const session = await auth();
     if (!session?.user) {
@@ -136,29 +141,31 @@ export async function POST(
     };
 
     // 7. Prepare campaign data for PDF
+    // SECURITY: Hide sensitive tier and budget data from clients
     const campaignData: CampaignData = {
       id: campaign.id,
       name: campaign.name,
       description: campaign.description,
       status: campaign.status,
-      totalBudget: campaign.totalBudget,
+      totalBudget: isAgency ? campaign.totalBudget : 0, // Hide budget from clients
       startDate: campaign.startDate?.toISOString() || null,
       endDate: campaign.endDate?.toISOString() || null,
       kpis: campaign.kpis as CampaignData["kpis"],
       campaignKols: campaign.campaignKols.map((ck) => ({
         id: ck.id,
-        assignedBudget: ck.assignedBudget,
+        assignedBudget: isAgency ? ck.assignedBudget : 0, // Hide per-KOL budget from clients
         kol: {
           id: ck.kol.id,
           name: ck.kol.name,
           twitterHandle: ck.kol.twitterHandle,
-          tier: ck.kol.tier,
+          tier: isAgency ? ck.kol.tier : "N/A", // Hide tier from clients (reveals pricing)
           followersCount: ck.kol.followersCount,
         },
       })),
     };
 
     // Prepare posts data for PDF
+    // SECURITY: Hide tier data from clients
     const postsData: PostData[] = posts.map((p) => ({
       id: p.id,
       content: p.content,
@@ -174,7 +181,7 @@ export async function POST(
             id: p.kol.id,
             name: p.kol.name,
             twitterHandle: p.kol.twitterHandle,
-            tier: p.kol.tier,
+            tier: isAgency ? p.kol.tier : "N/A", // Hide tier from clients
             followersCount: p.kol.followersCount,
           }
         : null,

@@ -3,12 +3,23 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
 import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Apply rate limiting to prevent scraping (30 req/min for sensitive data)
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // SECURITY: Only agency users can access the full KOL roster
+    // Clients can only see KOLs assigned to their campaigns via /api/campaigns/[id]
+    if (session.user.organizationType !== "AGENCY") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -25,7 +36,7 @@ export async function GET(request: NextRequest) {
             { twitterHandle: { contains: search, mode: "insensitive" } },
           ],
         }),
-        ...(tier && { tier: tier as "SMALL" | "MID" | "RISING" | "LARGE" | "NANO" | "MICRO" | "MACRO" | "MEGA" }),
+        ...(tier && { tier: tier as "SMALL" | "MID" | "LARGE" | "MACRO" | "NANO" | "MICRO" | "RISING" | "MEGA" }),
         ...(status && { status: status as "ACTIVE" | "INACTIVE" | "BLACKLISTED" | "PENDING" }),
       },
       include: {
@@ -56,7 +67,9 @@ export async function GET(request: NextRequest) {
       return { ...kolData, totalEarnings: totalEarningsCents / 100 };
     });
 
-    return NextResponse.json(kolsWithEarnings);
+    // Add security headers to prevent caching of sensitive data
+    const response = NextResponse.json(kolsWithEarnings);
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error fetching KOLs:", error);
     return NextResponse.json(

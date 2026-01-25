@@ -1,11 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { fetchTwitterProfile, setApifyApiKey, clearApifyApiKey } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // POST - Refresh metrics for all KOLs in the organization
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Apply strict rate limiting for heavy operations (5 req/min)
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 
 type PeriodKey = "7d" | "14d" | "30d" | "90d" | "365d";
 
@@ -16,11 +17,21 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting to prevent scraping (30 req/min for sensitive data)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const session = await auth();
   const { id } = await params;
 
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // SECURITY: Only agency users can access KOL follower analytics
+  // This data is confidential and should not be exposed to clients
+  if (session.user.organizationType !== "AGENCY") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -97,7 +108,8 @@ export async function GET(
     // Group by day for time-series
     const dailyData = groupByDay(currentSnapshots);
 
-    return NextResponse.json({
+    // Add security headers to prevent caching of sensitive data
+    const response = NextResponse.json({
       kol: {
         id: kol.id,
         name: kol.name,
@@ -115,6 +127,7 @@ export async function GET(
       timeSeries: dailyData,
       snapshotCount: currentSnapshots.length,
     });
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error("Failed to fetch KOL follower analytics:", error);
     return NextResponse.json(

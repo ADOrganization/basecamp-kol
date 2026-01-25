@@ -3,15 +3,26 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
 import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // SECURITY: Apply rate limiting to prevent scraping (30 req/min for sensitive data)
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // SECURITY: Only agency users can access individual KOL details
+    // Clients can only see KOL data through campaign endpoints
+    if (session.user.organizationType !== "AGENCY") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -43,7 +54,9 @@ export async function GET(
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
-    return NextResponse.json(kol);
+    // Add security headers to prevent caching of sensitive data
+    const response = NextResponse.json(kol);
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error fetching KOL:", error);
     return NextResponse.json(

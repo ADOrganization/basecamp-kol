@@ -20,7 +20,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2, CheckCircle, AlertCircle, Filter, X } from "lucide-react";
 
 interface KOL {
   id: string;
@@ -54,6 +60,39 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
+  // Additional column filters
+  const [followersMin, setFollowersMin] = useState<string>("");
+  const [followersMax, setFollowersMax] = useState<string>("");
+  const [engagementMin, setEngagementMin] = useState<string>("");
+  const [engagementMax, setEngagementMax] = useState<string>("");
+  const [campaignsMin, setCampaignsMin] = useState<string>("");
+  const [earningsMin, setEarningsMin] = useState<string>("");
+  const [earningsMax, setEarningsMax] = useState<string>("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Get unique tags from all KOLs
+  const allTags = Array.from(
+    new Map(kols.flatMap(k => k.tags).map(t => [t.id, t])).values()
+  );
+
+  // Count active filters
+  const activeFilterCount = [
+    followersMin, followersMax, engagementMin, engagementMax,
+    campaignsMin, earningsMin, earningsMax
+  ].filter(Boolean).length + (selectedTagIds.length > 0 ? 1 : 0);
+
+  const clearAllFilters = () => {
+    setFollowersMin("");
+    setFollowersMax("");
+    setEngagementMin("");
+    setEngagementMax("");
+    setCampaignsMin("");
+    setEarningsMin("");
+    setEarningsMax("");
+    setSelectedTagIds([]);
+  };
+
   // Update local state when props change
   useEffect(() => {
     setKols(initialKols);
@@ -68,7 +107,32 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
     const matchesTier = tierFilter === "all" || kol.tier === tierFilter;
     const matchesStatus = statusFilter === "all" || kol.status === statusFilter;
 
-    return matchesSearch && matchesTier && matchesStatus;
+    // Followers filter
+    const minFollowers = followersMin ? parseInt(followersMin) : 0;
+    const maxFollowers = followersMax ? parseInt(followersMax) : Infinity;
+    const matchesFollowers = kol.followersCount >= minFollowers && kol.followersCount <= maxFollowers;
+
+    // Engagement filter (input is percentage, stored as decimal)
+    const minEngagement = engagementMin ? parseFloat(engagementMin) / 100 : 0;
+    const maxEngagement = engagementMax ? parseFloat(engagementMax) / 100 : Infinity;
+    const matchesEngagement = kol.avgEngagementRate >= minEngagement && kol.avgEngagementRate <= maxEngagement;
+
+    // Campaigns filter
+    const minCampaigns = campaignsMin ? parseInt(campaignsMin) : 0;
+    const matchesCampaigns = kol._count.campaignKols >= minCampaigns;
+
+    // Earnings filter
+    const minEarnings = earningsMin ? parseFloat(earningsMin) : 0;
+    const maxEarnings = earningsMax ? parseFloat(earningsMax) : Infinity;
+    const matchesEarnings = kol.totalEarnings >= minEarnings && kol.totalEarnings <= maxEarnings;
+
+    // Tags filter
+    const matchesTags = selectedTagIds.length === 0 ||
+      selectedTagIds.some(tagId => kol.tags.some(t => t.id === tagId));
+
+    return matchesSearch && matchesTier && matchesStatus &&
+           matchesFollowers && matchesEngagement && matchesCampaigns &&
+           matchesEarnings && matchesTags;
   });
 
   const handleDelete = async (id: string) => {
@@ -140,8 +204,8 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
             <SelectItem value="all">All Tiers</SelectItem>
             <SelectItem value="SMALL">Small</SelectItem>
             <SelectItem value="MID">Mid</SelectItem>
-            <SelectItem value="RISING">Rising</SelectItem>
             <SelectItem value="LARGE">Large</SelectItem>
+            <SelectItem value="MACRO">Macro</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -156,6 +220,149 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
             <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
           </SelectContent>
         </Select>
+        <Popover open={showFilters} onOpenChange={setShowFilters}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="relative">
+              <Filter className="h-4 w-4 mr-2" />
+              More Filters
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" align="start">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Filters</h4>
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="h-auto p-1 text-xs text-muted-foreground"
+                  >
+                    Clear all
+                  </Button>
+                )}
+              </div>
+
+              {/* Followers Range */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Followers</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={followersMin}
+                    onChange={(e) => setFollowersMin(e.target.value)}
+                    className="h-8"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={followersMax}
+                    onChange={(e) => setFollowersMax(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+
+              {/* Engagement Range */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Engagement Rate (%)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder="Min %"
+                    value={engagementMin}
+                    onChange={(e) => setEngagementMin(e.target.value)}
+                    className="h-8"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder="Max %"
+                    value={engagementMax}
+                    onChange={(e) => setEngagementMax(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+
+              {/* Campaigns Min */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Min Campaigns</Label>
+                <Input
+                  type="number"
+                  placeholder="Minimum campaigns"
+                  value={campaignsMin}
+                  onChange={(e) => setCampaignsMin(e.target.value)}
+                  className="h-8"
+                />
+              </div>
+
+              {/* Earnings Range */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Earnings ($)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min $"
+                    value={earningsMin}
+                    onChange={(e) => setEarningsMin(e.target.value)}
+                    className="h-8"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <Input
+                    type="number"
+                    placeholder="Max $"
+                    value={earningsMax}
+                    onChange={(e) => setEarningsMax(e.target.value)}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+
+              {/* Tags */}
+              {allTags.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tags</Label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => {
+                          if (selectedTagIds.includes(tag.id)) {
+                            setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id));
+                          } else {
+                            setSelectedTagIds([...selectedTagIds, tag.id]);
+                          }
+                        }}
+                        className={`text-xs px-2 py-1 rounded-full cursor-pointer transition-all ${
+                          selectedTagIds.includes(tag.id)
+                            ? "ring-2 ring-primary ring-offset-1"
+                            : "opacity-70 hover:opacity-100"
+                        }`}
+                        style={{
+                          backgroundColor: tag.color + "20",
+                          color: tag.color,
+                        }}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
         <Button
           variant="outline"
           onClick={handleRefreshAll}
