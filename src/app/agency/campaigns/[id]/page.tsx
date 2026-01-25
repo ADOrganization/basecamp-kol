@@ -36,6 +36,7 @@ import { PostForm } from "@/components/agency/post-form";
 import { PostDetailModal } from "@/components/agency/post-detail-modal";
 import { TweetScraper } from "@/components/agency/tweet-scraper";
 import { TweetMonitor } from "@/components/agency/tweet-monitor";
+import { ReportGenerator } from "@/components/agency/report-generator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -139,6 +140,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   // Scraper state
   const [showScraper, setShowScraper] = useState(false);
+
+  // Report generator state
+  const [showReportGenerator, setShowReportGenerator] = useState(false);
 
   // Post detail modal state
   const [selectedPost, setSelectedPost] = useState<CampaignDetails["posts"][0] | null>(null);
@@ -305,6 +309,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowReportGenerator(true)}>
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Generate Report
+          </Button>
           <Button variant="outline" onClick={() => setShowScraper(true)}>
             <FileText className="h-4 w-4 mr-2" />
             Scrape Tweets
@@ -816,6 +824,16 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         post={selectedPost}
         open={showPostDetail}
         onClose={() => setShowPostDetail(false)}
+      />
+
+      {/* Report Generator */}
+      <ReportGenerator
+        campaignId={id}
+        campaignName={campaign.name}
+        campaignStartDate={campaign.startDate}
+        campaignEndDate={campaign.endDate}
+        open={showReportGenerator}
+        onClose={() => setShowReportGenerator(false)}
       />
     </div>
   );
