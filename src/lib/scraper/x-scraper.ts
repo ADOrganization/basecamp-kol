@@ -929,11 +929,16 @@ export async function fetchTwitterMedia(handle: string): Promise<{
                       console.log(`[Media] Found banner via Apify for @${cleanHandle}`);
                     }
 
-                    // If we got at least one, return early (fill in missing with fallback)
+                    // If we got at least one, fill in missing with fallback methods
                     if (avatarUrl || bannerUrl) {
                       // If no avatar from Apify, try unavatar
                       if (!avatarUrl) {
                         avatarUrl = await fetchTwitterAvatar(handle);
+                      }
+                      // If no banner from Apify, try timeline embed method
+                      if (!bannerUrl) {
+                        console.log(`[Media] Apify returned avatar but no banner, trying timeline embed...`);
+                        bannerUrl = await fetchTwitterBanner(handle);
                       }
                       return { avatarUrl, bannerUrl };
                     }
