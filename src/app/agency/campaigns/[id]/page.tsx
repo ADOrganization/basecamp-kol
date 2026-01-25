@@ -59,12 +59,6 @@ interface CampaignDetails {
   spentBudget: number;
   startDate: string | null;
   endDate: string | null;
-  kpis: {
-    impressions?: number;
-    engagement?: number;
-    clicks?: number;
-    followers?: number;
-  } | null;
   createdAt: string;
   client: { id: string; name: string; slug: string } | null;
   agency: { id: string; name: string };
@@ -401,10 +395,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             <FileText className="h-4 w-4" />
             Posts ({campaign.posts.length})
           </TabsTrigger>
-          <TabsTrigger value="kpis" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            KPIs
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="kols" className="mt-6">
@@ -644,56 +634,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             )}
           </div>
         </TabsContent>
-
-        <TabsContent value="kpis" className="mt-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-lg border bg-card p-6">
-              <h3 className="font-semibold mb-4">Current Performance</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Impressions</span>
-                  <span className="font-medium">{formatNumber(totalImpressions)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Engagement</span>
-                  <span className="font-medium">{formatNumber(totalEngagement)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Posts</span>
-                  <span className="font-medium">{campaign.posts.length}</span>
-                </div>
-                {(campaign.keywords || []).length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Posts with Keywords</span>
-                    <span className="font-medium">{campaign.posts.filter(p => p.hasKeywordMatch).length}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-lg border bg-card p-6">
-              <h3 className="font-semibold mb-4">Target KPIs</h3>
-              {campaign.kpis ? (
-                <div className="space-y-4">
-                  {campaign.kpis.impressions && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Target Impressions</span>
-                      <span className="font-medium">{formatNumber(campaign.kpis.impressions)}</span>
-                    </div>
-                  )}
-                  {campaign.kpis.engagement && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Target Engagement %</span>
-                      <span className="font-medium">{campaign.kpis.engagement}%</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">No target KPIs set.</p>
-              )}
-            </div>
-          </div>
-        </TabsContent>
       </Tabs>
 
       {/* Edit Campaign Dialog */}
@@ -703,7 +643,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           clientId: campaign.client?.id || null,
           clientTelegramChatId: campaign.clientTelegramChatId || null,
           keywords: Array.isArray(campaign.keywords) ? campaign.keywords : [],
-          kpis: campaign.kpis || null,
         }}
         telegramChats={telegramChats}
         open={showForm}

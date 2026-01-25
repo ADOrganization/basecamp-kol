@@ -49,12 +49,6 @@ export const campaignSchema = z.object({
   status: z.enum(["DRAFT", "PENDING_APPROVAL", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  kpis: z.object({
-    impressions: z.number().optional(),
-    engagement: z.number().optional(),
-    clicks: z.number().optional(),
-    followers: z.number().optional(),
-  }).optional(),
 });
 
 export const campaignKolSchema = z.object({
