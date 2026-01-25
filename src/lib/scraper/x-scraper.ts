@@ -755,7 +755,38 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
     }
   }
 
-  // Method 2: Try syndication API which includes user ID for banner URL
+  // Method 2: Try Twitter timeline embed (most reliable - no API key needed!)
+  try {
+    console.log(`[Banner] Trying Twitter timeline embed for @${cleanHandle}...`);
+    const timelineUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${cleanHandle}`;
+    const response = await fetch(timelineUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+      // Extract profile_banner_url from the embedded JSON
+      const bannerMatch = html.match(/profile_banner_url['"]\s*:\s*['"]([^'"]+)['"]/);
+      if (bannerMatch && bannerMatch[1]) {
+        // Unescape the URL and add size suffix
+        const bannerUrl = bannerMatch[1].replace(/\\\//g, '/');
+        console.log(`[Banner] Found via timeline embed for @${cleanHandle}: ${bannerUrl}`);
+        return bannerUrl + '/1500x500';
+      } else {
+        console.log(`[Banner] Timeline embed returned no banner for @${cleanHandle}`);
+      }
+    } else {
+      console.log(`[Banner] Timeline embed failed for @${cleanHandle}: HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.log(`[Banner] Timeline embed error for @${cleanHandle}:`, error);
+  }
+
+  // Method 3: Try syndication API (fallback)
   try {
     const embedUrl = `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${cleanHandle}`;
     const response = await fetch(embedUrl, {
@@ -768,22 +799,18 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
 
     if (response.ok) {
       const text = await response.text();
-      // Handle empty response gracefully
       if (text && text.trim()) {
         try {
           const data = JSON.parse(text);
           if (Array.isArray(data) && data.length > 0) {
             const profile = data[0];
-            // Check if profile has banner URL
             if (profile.profile_banner_url) {
               console.log(`[Banner] Found via syndication API for @${cleanHandle}`);
               return profile.profile_banner_url + '/1500x500';
             }
-            // Try constructing from user ID
             if (profile.id_str || profile.id) {
               const userId = profile.id_str || profile.id;
               const bannerUrl = `https://pbs.twimg.com/profile_banners/${userId}/1500x500`;
-              // Verify the banner exists
               const bannerCheck = await fetch(bannerUrl, {
                 method: 'HEAD',
                 signal: AbortSignal.timeout(5000),
@@ -795,17 +822,15 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
             }
           }
         } catch {
-          console.log(`[Banner] Syndication API returned invalid JSON for @${cleanHandle}`);
+          // Ignore JSON parse errors
         }
-      } else {
-        console.log(`[Banner] Syndication API returned empty response for @${cleanHandle}`);
       }
     }
   } catch (error) {
     console.log(`[Banner] Syndication API error for @${cleanHandle}:`, error);
   }
 
-  console.log(`[Banner] Could not fetch banner for @${cleanHandle} (requires Apify API key)`);
+  console.log(`[Banner] Could not fetch banner for @${cleanHandle}`);
   return null;
 }
 
