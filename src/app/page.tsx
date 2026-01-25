@@ -2,16 +2,25 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 
 export default async function HomePage() {
-  const session = await auth();
+  try {
+    const session = await auth();
 
-  if (!session?.user) {
+    if (!session?.user) {
+      redirect("/login");
+    }
+
+    // Redirect based on organization type with fallback
+    const orgType = session.user?.organizationType;
+    if (orgType === "AGENCY") {
+      redirect("/agency/dashboard");
+    } else if (orgType === "CLIENT") {
+      redirect("/client/dashboard");
+    } else {
+      // Fallback if orgType is undefined
+      redirect("/login");
+    }
+  } catch (error) {
+    console.error("Home page error:", error);
     redirect("/login");
-  }
-
-  // Redirect based on organization type
-  if (session.user.organizationType === "AGENCY") {
-    redirect("/agency/dashboard");
-  } else {
-    redirect("/client/dashboard");
   }
 }

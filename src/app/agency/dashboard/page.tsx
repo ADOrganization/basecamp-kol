@@ -25,7 +25,8 @@ import { ActionItems } from "@/components/dashboard/action-items";
 import { StatsCard } from "@/components/dashboard/stats-card";
 
 async function getDashboardStats(organizationId: string) {
-  const [kols, campaigns, posts, pendingPosts] = await Promise.all([
+  try {
+    const [kols, campaigns, posts, pendingPosts] = await Promise.all([
     db.kOL.findMany({
       where: { organizationId },
       orderBy: { followersCount: "desc" },
@@ -221,16 +222,43 @@ async function getDashboardStats(organizationId: string) {
     actionItems,
     pendingPosts,
   };
+  } catch (error) {
+    console.error("getDashboardStats error:", error);
+    // Return empty/default stats on error
+    return {
+      kolCount: 0,
+      campaignCount: 0,
+      activeCampaignCount: 0,
+      totalBudget: 0,
+      totalSpent: 0,
+      totalImpressions: 0,
+      totalLikes: 0,
+      totalRetweets: 0,
+      totalReplies: 0,
+      totalPosts: 0,
+      avgEngagementRate: 0,
+      recentKols: [],
+      activeCampaigns: [],
+      tierDistribution: { MEGA: 0, MACRO: 0, MID: 0, MICRO: 0, NANO: 0 },
+      trendData: [],
+      campaignPerformance: [],
+      topPosts: [],
+      recentActivities: [],
+      actionItems: [],
+      pendingPosts: 0,
+    };
+  }
 }
 
 export default async function AgencyDashboard() {
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/login");
-  }
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      redirect("/login");
+    }
 
-  const stats = await getDashboardStats(session.user.organizationId);
-  const greeting = getTimeOfDayGreeting();
+    const stats = await getDashboardStats(session.user.organizationId);
+    const greeting = getTimeOfDayGreeting();
 
   const tierChartData = [
     { name: "Mega (1M+)", value: stats.tierDistribution.MEGA, color: "#6366f1" },
@@ -609,4 +637,8 @@ export default async function AgencyDashboard() {
       </div>
     </div>
   );
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    redirect("/login");
+  }
 }
