@@ -257,18 +257,28 @@ async function sendStatusNotification(
       select: { telegramBotToken: true },
     });
 
-    if (!org?.telegramBotToken) return;
+    if (!org?.telegramBotToken) {
+      console.log("[Post Status] No bot token configured");
+      return;
+    }
 
-    // Find a chat to send the notification to (prefer private, then any with telegramUserId)
+    // Find a chat to send the notification to
+    // Priority: 1) Group/supergroup chat (where /review was likely submitted), 2) Private chat
+    const groupChat = post.kol.telegramChatLinks.find(
+      (link) => (link.chat.type === "GROUP" || link.chat.type === "SUPERGROUP") && link.chat.status === "ACTIVE"
+    );
     const privateChat = post.kol.telegramChatLinks.find(
       (link) => link.chat.type === "PRIVATE" && link.chat.status === "ACTIVE"
     );
-    const anyChat = post.kol.telegramChatLinks.find(
-      (link) => link.telegramUserId && link.chat.status === "ACTIVE"
-    );
 
-    const targetChat = privateChat || anyChat;
-    if (!targetChat) return;
+    const targetChat = groupChat || privateChat;
+    if (!targetChat) {
+      console.log(`[Post Status] No telegram chat found for KOL ${post.kol.name}`);
+      console.log(`[Post Status] KOL has ${post.kol.telegramChatLinks.length} chat links`);
+      return;
+    }
+
+    console.log(`[Post Status] Sending to ${targetChat.chat.type} chat: ${targetChat.chat.telegramChatId}`);
 
     const client = new TelegramClient(org.telegramBotToken);
 
@@ -303,11 +313,15 @@ async function sendStatusNotification(
         return; // Don't send notifications for other status changes
     }
 
-    await client.sendMessage(targetChat.chat.telegramChatId, message, {
+    const result = await client.sendMessage(targetChat.chat.telegramChatId, message, {
       parse_mode: "Markdown",
     });
 
-    console.log(`[Post Status] Sent ${newStatus} notification to KOL ${post.kol.name}`);
+    if (result.ok) {
+      console.log(`[Post Status] Sent ${newStatus} notification to KOL ${post.kol.name} in ${targetChat.chat.type} chat`);
+    } else {
+      console.error(`[Post Status] Failed to send message: ${result.description}`);
+    }
   } catch (error) {
     console.error("Failed to send status notification:", error);
     // Don't throw - notification failure shouldn't break the status update
