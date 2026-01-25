@@ -171,7 +171,7 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Check for /budget command
   if (textContent.startsWith("/budget")) {
-    await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername);
+    await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername, chat.title || null);
     return;
   }
 
@@ -395,7 +395,7 @@ async function handlePrivateMessage(
 
   // Check for /budget command
   if (textContent?.startsWith("/budget")) {
-    await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername);
+    await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername, null);
     return;
   }
 
@@ -595,7 +595,8 @@ async function handleBudgetCommand(
   organizationId: string,
   botToken: string | null,
   chatId: number,
-  senderUsername: string | undefined
+  senderUsername: string | undefined,
+  groupTitle: string | null
 ) {
   if (!botToken) return;
 
@@ -606,83 +607,97 @@ async function handleBudgetCommand(
     await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
   };
 
-  if (!senderUsername) {
-    await sendResponse("Unable to identify you. Please make sure your Telegram username is set.");
+  // In private messages without group context, show a message
+  if (!groupTitle) {
+    await sendResponse("Please use /budget in a campaign group chat to see budget details.");
     return;
   }
 
-  // Find KOL by telegram username
-  const kol = await db.kOL.findFirst({
+  // Extract campaign name from group title
+  // Expected format: "Basecamp - Campaign Name" or similar variations
+  // Remove common prefixes like "Basecamp", "Basecamp -", "Basecamp |", etc.
+  const cleanedTitle = groupTitle
+    .replace(/^basecamp\s*[-|:]\s*/i, "")
+    .replace(/^basecamp\s+/i, "")
+    .trim();
+
+  console.log(`[Budget] Group title: "${groupTitle}", cleaned: "${cleanedTitle}"`);
+
+  // Find campaign that matches the group name
+  const campaign = await db.campaign.findFirst({
     where: {
-      organizationId,
-      telegramUsername: {
-        equals: senderUsername,
+      agencyId: organizationId,
+      status: "ACTIVE",
+      name: {
+        contains: cleanedTitle,
         mode: "insensitive",
       },
     },
+    select: {
+      id: true,
+      name: true,
+      totalBudget: true,
+      createdAt: true,
+    },
   });
 
-  if (!kol) {
-    await sendResponse(`No KOL profile found for @${senderUsername}. Please contact your agency.`);
-    return;
-  }
-
-  // Find active campaigns for this KOL
-  const campaignKols = await db.campaignKOL.findMany({
-    where: {
-      kolId: kol.id,
-      status: { in: ["PENDING", "CONFIRMED"] },
-      campaign: {
-        status: "ACTIVE",
+  if (!campaign) {
+    // Try reverse match - campaign name contains in group title
+    const allCampaigns = await db.campaign.findMany({
+      where: {
         agencyId: organizationId,
+        status: "ACTIVE",
       },
-    },
-    include: {
-      campaign: {
-        select: {
-          id: true,
-          name: true,
-          totalBudget: true,
-          createdAt: true,
-        },
+      select: {
+        id: true,
+        name: true,
+        totalBudget: true,
+        createdAt: true,
       },
-    },
-  });
-
-  if (campaignKols.length === 0) {
-    await sendResponse("You're not assigned to any active campaigns.");
-    return;
-  }
-
-  // Build budget breakdown for each campaign
-  let message = `💰 *Campaign Budget Breakdown*\n\n`;
-
-  for (const ck of campaignKols) {
-    const campaign = ck.campaign;
-
-    // Get all KOL allocations for this campaign
-    const allCampaignKols = await db.campaignKOL.findMany({
-      where: { campaignId: campaign.id },
-      select: { assignedBudget: true },
     });
 
-    const allocatedBudget = allCampaignKols.reduce((sum, k) => sum + (k.assignedBudget || 0), 0);
-    const remainingBudget = campaign.totalBudget - allocatedBudget;
+    const matchedCampaign = allCampaigns.find(c =>
+      groupTitle.toLowerCase().includes(c.name.toLowerCase())
+    );
 
-    // Calculate days active
-    const startDate = new Date(campaign.createdAt);
-    const now = new Date();
-    const daysActive = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (!matchedCampaign) {
+      await sendResponse(`Could not find a campaign matching this group: "${groupTitle}"`);
+      return;
+    }
 
-    message += `*${campaign.name}*\n`;
-    message += `• Total Budget: $${(campaign.totalBudget / 100).toLocaleString()}\n`;
-    message += `• Allocated: $${(allocatedBudget / 100).toLocaleString()}\n`;
-    message += `• Remaining: $${(remainingBudget / 100).toLocaleString()}\n`;
-    message += `• Days Active: ${daysActive}\n`;
-    message += `• Your Budget: $${(ck.assignedBudget / 100).toLocaleString()}\n\n`;
+    // Use the matched campaign
+    await showCampaignBudget(sendResponse, matchedCampaign);
+    return;
   }
 
-  await sendResponse(message.trim());
+  await showCampaignBudget(sendResponse, campaign);
+}
+
+async function showCampaignBudget(
+  sendResponse: (message: string) => Promise<void>,
+  campaign: { id: string; name: string; totalBudget: number; createdAt: Date }
+) {
+  // Get all KOL allocations for this campaign
+  const allCampaignKols = await db.campaignKOL.findMany({
+    where: { campaignId: campaign.id },
+    select: { assignedBudget: true },
+  });
+
+  const allocatedBudget = allCampaignKols.reduce((sum, k) => sum + (k.assignedBudget || 0), 0);
+  const remainingBudget = campaign.totalBudget - allocatedBudget;
+
+  // Calculate days active
+  const startDate = new Date(campaign.createdAt);
+  const now = new Date();
+  const daysActive = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  const message = `💰 *${campaign.name} Budget*\n\n` +
+    `• Total Budget: $${(campaign.totalBudget / 100).toLocaleString()}\n` +
+    `• Allocated: $${(allocatedBudget / 100).toLocaleString()}\n` +
+    `• Remaining: $${(remainingBudget / 100).toLocaleString()}\n` +
+    `• Days Active: ${daysActive}`;
+
+  await sendResponse(message);
 }
 
 async function handleSubmitCommand(
