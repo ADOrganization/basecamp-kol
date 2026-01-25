@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Clock, MessageSquare, Eye } from "lucide-react";
 import { PostReviewCard } from "@/components/agency/post-review-card";
+import { ReviewedPostsSection } from "@/components/agency/reviewed-posts-section";
 
 export default async function ContentReviewPage() {
   const session = await auth();
@@ -120,26 +121,7 @@ export default async function ContentReviewPage() {
       )}
 
       {/* Reviewed Posts */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Reviewed Posts</h2>
-        {serializedReviewedPosts.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No reviewed posts yet</h3>
-              <p className="text-muted-foreground text-center mt-1">
-                Posts will appear here after they have been reviewed
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {serializedReviewedPosts.map((post) => (
-              <PostReviewCard key={post.id} post={post} />
-            ))}
-          </div>
-        )}
-      </div>
+      <ReviewedPostsSection posts={serializedReviewedPosts} />
     </div>
   );
 }

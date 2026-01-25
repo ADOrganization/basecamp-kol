@@ -56,7 +56,7 @@ export function AgencySidebar({ user }: AgencySidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 flex flex-col justify-start gap-2 px-3 py-6">
         {navigation.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
@@ -64,7 +64,7 @@ export function AgencySidebar({ user }: AgencySidebarProps) {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-4 py-3.5 text-base font-medium transition-colors",
                 isActive
                   ? "bg-sidebar-accent text-white"
                   : "text-slate-400 hover:bg-sidebar-muted hover:text-white"
