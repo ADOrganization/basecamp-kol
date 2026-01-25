@@ -12,9 +12,11 @@ import {
   FileText,
   BarChart3,
   Filter,
+  Trophy,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AreaChart,
   Area,
@@ -37,7 +39,7 @@ interface Campaign {
   status: string;
   totalBudget: number;
   campaignKols: {
-    kol: { id: string; name: string; twitterHandle: string };
+    kol: { id: string; name: string; twitterHandle: string; avatarUrl: string | null };
   }[];
   posts: {
     id: string;
@@ -463,27 +465,45 @@ export default function ClientAnalyticsPage() {
         {/* Top KOLs */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Performing KOLs</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              Top Performing KOLs
+            </CardTitle>
             <CardDescription>KOLs with highest engagement</CardDescription>
           </CardHeader>
           <CardContent>
             {kolPerformance.length > 0 ? (
               <div className="space-y-4">
                 {kolPerformance.map((kol, index) => (
-                  <div key={kol.id} className="flex items-center gap-4">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${
+                  <div key={kol.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    {/* Rank Badge */}
+                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
                       index === 0 ? "bg-amber-500" :
                       index === 1 ? "bg-slate-400" :
                       index === 2 ? "bg-amber-700" : "bg-slate-300"
                     }`}>
                       {index + 1}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{kol.name}</p>
-                      <p className="text-sm text-muted-foreground">@{kol.twitterHandle}</p>
+
+                    {/* Profile Picture */}
+                    <Avatar className="h-10 w-10 border-2 border-muted">
+                      {kol.avatarUrl ? (
+                        <AvatarImage src={kol.avatarUrl} alt={kol.name} />
+                      ) : null}
+                      <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
+                        {kol.name?.charAt(0) || "K"}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* Name and Handle */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{kol.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">@{kol.twitterHandle}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatNumber(kol.engagement)}</p>
+
+                    {/* Engagement Stats */}
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold text-indigo-600">{formatNumber(kol.engagement)}</p>
                       <p className="text-xs text-muted-foreground">engagement</p>
                     </div>
                   </div>

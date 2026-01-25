@@ -5,6 +5,7 @@ import { formatCurrency, formatNumber } from "@/lib/utils";
 import { Users, Megaphone, TrendingUp, Eye, Heart, MessageSquare, Repeat2, ArrowUpRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DashboardCharts } from "./dashboard-charts";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 async function getDashboardStats(organizationId: string) {
   const [kols, campaigns, posts] = await Promise.all([
@@ -308,9 +309,14 @@ export default async function AgencyDashboard() {
                   <span className="text-sm font-medium text-muted-foreground w-5">
                     {index + 1}
                   </span>
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-medium">
-                    {kol.name.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar className="h-10 w-10 border-2 border-muted">
+                    {kol.avatarUrl ? (
+                      <AvatarImage src={kol.avatarUrl} alt={kol.name} />
+                    ) : null}
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
+                      {kol.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{kol.name}</p>
                     <p className="text-sm text-muted-foreground truncate">
