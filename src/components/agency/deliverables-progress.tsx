@@ -127,11 +127,20 @@ export function calculateDeliverables(
   // Only count posts that are POSTED or VERIFIED
   const countedStatuses = ["POSTED", "VERIFIED"];
 
+  // Helper to check if post matches type (null/undefined treated as POST)
+  const matchesType = (p: { type: string | null }, targetType: string) => {
+    if (targetType === "POST") {
+      // Treat null, undefined, or "POST" as POST type
+      return !p.type || p.type === "POST";
+    }
+    return p.type === targetType;
+  };
+
   const counts = {
-    POST: posts.filter(p => p.type === "POST" && p.status && countedStatuses.includes(p.status)).length,
-    THREAD: posts.filter(p => p.type === "THREAD" && p.status && countedStatuses.includes(p.status)).length,
-    RETWEET: posts.filter(p => p.type === "RETWEET" && p.status && countedStatuses.includes(p.status)).length,
-    SPACE: posts.filter(p => p.type === "SPACE" && p.status && countedStatuses.includes(p.status)).length,
+    POST: posts.filter(p => matchesType(p, "POST") && p.status && countedStatuses.includes(p.status)).length,
+    THREAD: posts.filter(p => matchesType(p, "THREAD") && p.status && countedStatuses.includes(p.status)).length,
+    RETWEET: posts.filter(p => matchesType(p, "RETWEET") && p.status && countedStatuses.includes(p.status)).length,
+    SPACE: posts.filter(p => matchesType(p, "SPACE") && p.status && countedStatuses.includes(p.status)).length,
   };
 
   return [

@@ -637,6 +637,7 @@ async function handleSubmitCommand(
     data: {
       campaignId: campaignKol.campaignId,
       kolId: kol.id,
+      type: "POST",  // Explicitly set type for deliverables tracking
       tweetId: tweet.id,
       tweetUrl: tweet.url,
       content: tweet.content,
@@ -650,7 +651,7 @@ async function handleSubmitCommand(
     },
   });
 
-  console.log(`[Submit] Post created: ${post.id}`);
+  console.log(`[Submit] Post created: ${post.id}, type: POST, status: POSTED`);
 
   // Notify client group if configured
   console.log(`[Submit] Campaign clientTelegramChatId: ${campaignKol.campaign.clientTelegramChatId || 'NOT SET'}`);
@@ -797,7 +798,9 @@ async function handleSubmitCommandFromGroup(
     return;
   }
 
-  console.log(`[Submit Group] Campaign found: ${campaignKol.campaign.name}, clientTelegramChatId: ${campaignKol.campaign.clientTelegramChatId || 'NOT SET'}`);
+  console.log(`[Submit Group] Campaign found: ${campaignKol.campaign.name}`);
+  console.log(`[Submit Group] Campaign ID: ${campaignKol.campaign.id}`);
+  console.log(`[Submit Group] Campaign clientTelegramChatId: "${campaignKol.campaign.clientTelegramChatId}" (type: ${typeof campaignKol.campaign.clientTelegramChatId})`);
 
   // Check for duplicate submission
   const existing = await db.post.findFirst({
@@ -834,6 +837,7 @@ async function handleSubmitCommandFromGroup(
     data: {
       campaignId: campaignKol.campaignId,
       kolId: kol.id,
+      type: "POST",  // Explicitly set type for deliverables tracking
       tweetId: tweet.id,
       tweetUrl: tweet.url,
       content: tweet.content,
@@ -847,16 +851,22 @@ async function handleSubmitCommandFromGroup(
     },
   });
 
-  console.log(`[Submit Group] Post created: ${post.id}`);
+  console.log(`[Submit Group] Post created: ${post.id}, type: POST, status: POSTED`);
 
   const client = botToken ? new TelegramClient(botToken) : null;
+  const clientGroupId = campaignKol.campaign.clientTelegramChatId;
+
+  console.log(`[Submit Group] Bot token available: ${!!botToken}`);
+  console.log(`[Submit Group] Client available: ${!!client}`);
+  console.log(`[Submit Group] clientGroupId value: "${clientGroupId}"`);
+  console.log(`[Submit Group] clientGroupId truthy: ${!!clientGroupId}`);
 
   // 1. Notify client's telegram group if configured
-  if (campaignKol.campaign.clientTelegramChatId && client) {
-    console.log(`[Submit Group] Attempting to notify client group: ${campaignKol.campaign.clientTelegramChatId}`);
+  if (clientGroupId && clientGroupId.trim() && client) {
+    console.log(`[Submit Group] Attempting to notify client group: ${clientGroupId}`);
     try {
       const clientNotifResult = await client.sendMessage(
-        campaignKol.campaign.clientTelegramChatId,
+        clientGroupId,
         `🚀 *New Post Submitted!*\n\n` +
         `*Campaign:* ${campaignKol.campaign.name}\n` +
         `*KOL:* @${kol.twitterHandle}\n` +
@@ -868,16 +878,17 @@ async function handleSubmitCommandFromGroup(
         `• Replies: ${tweet.metrics.replies.toLocaleString()}`,
         { parse_mode: "Markdown" }
       );
+      console.log(`[Submit Group] Telegram API response:`, JSON.stringify(clientNotifResult));
       if (clientNotifResult.ok) {
-        console.log(`[Submit Group] Notification sent to client group ${campaignKol.campaign.clientTelegramChatId}`);
+        console.log(`[Submit Group] SUCCESS: Notification sent to client group ${clientGroupId}`);
       } else {
-        console.error(`[Submit Group] Telegram API error for client group: ${clientNotifResult.description}`);
+        console.error(`[Submit Group] FAILED: Telegram API error: ${clientNotifResult.description}`);
       }
     } catch (error) {
-      console.error(`[Submit Group] Failed to notify client group:`, error);
+      console.error(`[Submit Group] EXCEPTION when notifying client group:`, error);
     }
   } else {
-    console.log(`[Submit Group] No client telegram group configured for campaign (clientTelegramChatId: ${campaignKol.campaign.clientTelegramChatId})`);
+    console.log(`[Submit Group] SKIPPED: No client telegram group - clientGroupId="${clientGroupId}", client=${!!client}`);
   }
 
   // 2. Reply success to the KOL in the group chat
