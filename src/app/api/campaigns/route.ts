@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate allocated budget (sum of assignedBudget from KOLs) for all campaigns
+    // Calculate allocated budget and posts count for all campaigns
     const campaignsWithAllocated = campaigns.map((campaign) => {
       const allocatedBudget = campaign.campaignKols.reduce(
         (sum, ck) => sum + (ck.assignedBudget || 0),
@@ -70,6 +70,11 @@ export async function GET(request: NextRequest) {
         ...campaign,
         // Use allocated budget as spent budget (allocated = committed/used)
         spentBudget: allocatedBudget,
+        // Add posts count to _count (posts array is already filtered by status)
+        _count: {
+          ...campaign._count,
+          posts: campaign.posts.length,
+        },
       };
     });
 
