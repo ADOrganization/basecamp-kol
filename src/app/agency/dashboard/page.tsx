@@ -38,12 +38,12 @@ async function getDashboardStats(organizationId: string) {
   const totalRetweets = posts.reduce((sum, p) => sum + p.retweets, 0);
   const totalReplies = posts.reduce((sum, p) => sum + p.replies, 0);
 
-  // KOL tier distribution
+  // KOL tier distribution (handles both old and new tier values)
   const tierDistribution = {
-    LARGE: kols.filter(k => k.tier === "LARGE").length,
+    LARGE: kols.filter(k => ["LARGE", "MACRO", "MEGA"].includes(k.tier)).length,
     RISING: kols.filter(k => k.tier === "RISING").length,
-    MID: kols.filter(k => k.tier === "MID").length,
-    SMALL: kols.filter(k => k.tier === "SMALL").length,
+    MID: kols.filter(k => ["MID", "MICRO"].includes(k.tier)).length,
+    SMALL: kols.filter(k => ["SMALL", "NANO"].includes(k.tier)).length,
   };
 
   // Generate trend data from actual posts

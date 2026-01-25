@@ -92,10 +92,16 @@ model OrganizationMember {
 // ============================================
 
 enum KOLTier {
+  // New tiers
   SMALL      // 1 - 10k followers
   MID        // 10,001 - 20k followers
   RISING     // 20,001 - 74,999 followers
   LARGE      // 75k+ followers
+  // Legacy tiers (for backwards compatibility during migration)
+  NANO       // Legacy: < 10k followers
+  MICRO      // Legacy: 10k - 100k
+  MACRO      // Legacy: 500k - 1M
+  MEGA       // Legacy: 1M+
 }
 
 enum KOLStatus {
