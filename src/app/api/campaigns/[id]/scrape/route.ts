@@ -131,6 +131,7 @@ export async function POST(
       }
 
       const handles = kolsToScrape.map(ck => ck.kol.twitterHandle);
+      console.log(`[Scrape API] KOLs to scrape:`, kolsToScrape.map(ck => ({ name: ck.kol.name, handle: ck.kol.twitterHandle })));
 
       if (handles.length === 0) {
         return NextResponse.json({ error: "No KOLs to scrape" }, { status: 400 });
@@ -138,6 +139,7 @@ export async function POST(
 
       // Scrape all KOLs - use filterKeywords if provided, otherwise use campaign keywords
       const keywordsToUse = filterKeywords && filterKeywords.length > 0 ? filterKeywords : campaign.keywords;
+      console.log(`[Scrape API] Scraping handles: ${handles.join(', ')}`);
       const results = await scrapeMultipleKOLs(handles, keywordsToUse, 30);
 
       // Process results
@@ -147,7 +149,7 @@ export async function POST(
 
         if (result) {
           scrapeResults.push({
-            kol: ck.kol.name,
+            kol: `${ck.kol.name} (@${ck.kol.twitterHandle})`,
             success: result.success,
             count: result.tweets.length,
             error: result.error,
