@@ -153,6 +153,7 @@ export function TweetScraper({
   const [scrapedTweets, setScrapedTweets] = useState<ScrapedTweet[]>([]);
   const [selectedTweets, setSelectedTweets] = useState<Set<string>>(new Set());
   const [showOnlyKeywordMatches, setShowOnlyKeywordMatches] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<{ apiKeyConfigured: boolean; apiKeySource: string } | null>(null);
 
   // Keyword filter state - filter BEFORE scraping
   const [filterByKeywords, setFilterByKeywords] = useState(true);
@@ -189,6 +190,7 @@ export function TweetScraper({
         console.log("[TweetScraper] Scrape response debug:", data.debug);
         setScrapeResults(data.results || []);
         setScrapedTweets(data.tweets || []);
+        setDebugInfo(data.debug || null);
 
         // Pre-select tweets with keyword matches
         const keywordMatches = new Set<string>(
@@ -610,6 +612,15 @@ export function TweetScraper({
                 {scrapeResults.length > 0 && (
                   <div className="space-y-2 p-3 rounded-lg bg-muted/50">
                     <p className="font-medium text-sm">Scrape Results</p>
+                    {debugInfo && (
+                      <div className="text-xs text-muted-foreground border-b pb-2 mb-2">
+                        API Key: {debugInfo.apiKeyConfigured ? (
+                          <span className="text-green-600">Configured ({debugInfo.apiKeySource})</span>
+                        ) : (
+                          <span className="text-amber-600">Not configured</span>
+                        )}
+                      </div>
+                    )}
                     {scrapeResults.map((result, idx) => (
                       <div key={idx} className="flex items-center justify-between text-sm">
                         <span>{result.kol}</span>
@@ -622,12 +633,17 @@ export function TweetScraper({
                           ) : (
                             <>
                               <XCircle className="h-4 w-4 text-red-600" />
-                              {result.error || "Failed"}
+                              <span className="max-w-[200px] truncate">{result.error || "Failed"}</span>
                             </>
                           )}
                         </span>
                       </div>
                     ))}
+                    {scrapeResults.some(r => !r.success) && debugInfo?.apiKeyConfigured && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Twitter API was tried. If rate limited, wait a few seconds and try again.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
