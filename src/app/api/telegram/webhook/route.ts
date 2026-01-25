@@ -607,6 +607,15 @@ async function handleBudgetCommand(
     await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
   };
 
+  // Only allow specific users to use /budget
+  const allowedUsers = ["viperrcrypto", "altcoinclimber", "helloyellow516"];
+  const normalizedUsername = senderUsername?.toLowerCase().replace("@", "");
+
+  if (!normalizedUsername || !allowedUsers.includes(normalizedUsername)) {
+    // Silently ignore unauthorized users
+    return;
+  }
+
   // In private messages without group context, show a message
   if (!groupTitle) {
     await sendResponse("Please use /budget in a campaign group chat to see budget details.");
