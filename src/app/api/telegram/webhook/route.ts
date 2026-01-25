@@ -653,24 +653,32 @@ async function handleSubmitCommand(
   console.log(`[Submit] Post created: ${post.id}`);
 
   // Notify client group if configured
+  console.log(`[Submit] Campaign clientTelegramChatId: ${campaignKol.campaign.clientTelegramChatId || 'NOT SET'}`);
   if (campaignKol.campaign.clientTelegramChatId && botToken) {
     try {
       const client = new TelegramClient(botToken);
-      await client.sendMessage(
+      const clientNotifResult = await client.sendMessage(
         campaignKol.campaign.clientTelegramChatId,
-        `New post submitted!\n\n` +
-        `Campaign: ${campaignKol.campaign.name}\n` +
-        `KOL: @${kol.twitterHandle}\n` +
-        `Tweet: ${tweet.url}\n\n` +
-        `Metrics:\n` +
-        `- Views: ${tweet.metrics.views.toLocaleString()}\n` +
-        `- Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
-        `- Retweets: ${tweet.metrics.retweets.toLocaleString()}`
+        `🚀 *New Post Submitted!*\n\n` +
+        `*Campaign:* ${campaignKol.campaign.name}\n` +
+        `*KOL:* @${kol.twitterHandle}\n` +
+        `*Tweet:* ${tweet.url}\n\n` +
+        `*Metrics:*\n` +
+        `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
+        `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
+        `• Retweets: ${tweet.metrics.retweets.toLocaleString()}`,
+        { parse_mode: "Markdown" }
       );
-      console.log(`[Submit] Notification sent to client group ${campaignKol.campaign.clientTelegramChatId}`);
+      if (clientNotifResult.ok) {
+        console.log(`[Submit] Notification sent to client group ${campaignKol.campaign.clientTelegramChatId}`);
+      } else {
+        console.error(`[Submit] Telegram API error for client group: ${clientNotifResult.description}`);
+      }
     } catch (error) {
       console.error(`[Submit] Failed to notify client group:`, error);
     }
+  } else {
+    console.log(`[Submit] No client telegram group configured or no bot token`);
   }
 
   // Reply success to KOL
@@ -789,7 +797,7 @@ async function handleSubmitCommandFromGroup(
     return;
   }
 
-  console.log(`[Submit Group] Campaign found: ${campaignKol.campaign.name}`);
+  console.log(`[Submit Group] Campaign found: ${campaignKol.campaign.name}, clientTelegramChatId: ${campaignKol.campaign.clientTelegramChatId || 'NOT SET'}`);
 
   // Check for duplicate submission
   const existing = await db.post.findFirst({
@@ -845,8 +853,9 @@ async function handleSubmitCommandFromGroup(
 
   // 1. Notify client's telegram group if configured
   if (campaignKol.campaign.clientTelegramChatId && client) {
+    console.log(`[Submit Group] Attempting to notify client group: ${campaignKol.campaign.clientTelegramChatId}`);
     try {
-      await client.sendMessage(
+      const clientNotifResult = await client.sendMessage(
         campaignKol.campaign.clientTelegramChatId,
         `🚀 *New Post Submitted!*\n\n` +
         `*Campaign:* ${campaignKol.campaign.name}\n` +
@@ -859,12 +868,16 @@ async function handleSubmitCommandFromGroup(
         `• Replies: ${tweet.metrics.replies.toLocaleString()}`,
         { parse_mode: "Markdown" }
       );
-      console.log(`[Submit Group] Notification sent to client group ${campaignKol.campaign.clientTelegramChatId}`);
+      if (clientNotifResult.ok) {
+        console.log(`[Submit Group] Notification sent to client group ${campaignKol.campaign.clientTelegramChatId}`);
+      } else {
+        console.error(`[Submit Group] Telegram API error for client group: ${clientNotifResult.description}`);
+      }
     } catch (error) {
       console.error(`[Submit Group] Failed to notify client group:`, error);
     }
   } else {
-    console.log(`[Submit Group] No client telegram group configured for campaign`);
+    console.log(`[Submit Group] No client telegram group configured for campaign (clientTelegramChatId: ${campaignKol.campaign.clientTelegramChatId})`);
   }
 
   // 2. Reply success to the KOL in the group chat
