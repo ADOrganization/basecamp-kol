@@ -4,10 +4,10 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 
 const twitterSettingsSchema = z.object({
-  twitterApiKey: z.string().optional(),
+  apifyApiKey: z.string().optional(),
 });
 
-// GET - Retrieve Twitter settings
+// GET - Retrieve Twitter/Apify settings
 export async function GET() {
   try {
     const session = await auth();
@@ -18,7 +18,7 @@ export async function GET() {
     const org = await db.organization.findUnique({
       where: { id: session.user.organizationId },
       select: {
-        twitterApiKey: true,
+        apifyApiKey: true,
       },
     });
 
@@ -27,13 +27,13 @@ export async function GET() {
     }
 
     // Mask the API key for security (show only last 4 chars)
-    const maskedKey = org.twitterApiKey
-      ? `${"*".repeat(Math.max(0, org.twitterApiKey.length - 4))}${org.twitterApiKey.slice(-4)}`
+    const maskedApifyKey = org.apifyApiKey
+      ? `${"\*".repeat(Math.max(0, org.apifyApiKey.length - 4))}${org.apifyApiKey.slice(-4)}`
       : null;
 
     return NextResponse.json({
-      hasApiKey: !!org.twitterApiKey,
-      maskedApiKey: maskedKey,
+      hasApifyKey: !!org.apifyApiKey,
+      maskedApifyKey: maskedApifyKey,
     });
   } catch (error) {
     console.error("Error getting Twitter settings:", error);
@@ -44,7 +44,7 @@ export async function GET() {
   }
 }
 
-// PUT - Update Twitter settings
+// PUT - Update Twitter/Apify settings
 export async function PUT(request: NextRequest) {
   try {
     const session = await auth();
@@ -71,11 +71,15 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = twitterSettingsSchema.parse(body);
 
+    const updateData: { apifyApiKey?: string | null } = {};
+
+    if (validatedData.apifyApiKey !== undefined) {
+      updateData.apifyApiKey = validatedData.apifyApiKey || null;
+    }
+
     await db.organization.update({
       where: { id: session.user.organizationId },
-      data: {
-        twitterApiKey: validatedData.twitterApiKey || null,
-      },
+      data: updateData,
     });
 
     return NextResponse.json({ success: true });

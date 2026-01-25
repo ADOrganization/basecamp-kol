@@ -28,7 +28,26 @@ import {
   Target,
   Copy,
   Check,
+  Pencil,
+  Trash2,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Campaign {
   id: string;
@@ -79,6 +98,22 @@ export default function ClientAccountsPage() {
     organizationName: "",
     campaignId: "",
   });
+
+  // Edit state
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    organizationName: "",
+    userName: "",
+    userEmail: "",
+    newPassword: "",
+  });
+  const [updating, setUpdating] = useState(false);
+
+  // Delete state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchClients();
@@ -178,6 +213,79 @@ export default function ClientAccountsPage() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const handleEditClick = (client: Client) => {
+    setEditingClient(client);
+    setEditFormData({
+      organizationName: client.name,
+      userName: client.members[0]?.user.name || "",
+      userEmail: client.members[0]?.user.email || "",
+      newPassword: "",
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+
+    setError("");
+    setUpdating(true);
+
+    try {
+      const response = await fetch(`/api/clients/${editingClient.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editFormData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to update client");
+        setUpdating(false);
+        return;
+      }
+
+      setShowEditDialog(false);
+      setEditingClient(null);
+      fetchClients();
+      router.refresh();
+    } catch {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteClick = (client: Client) => {
+    setDeletingClient(client);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteClient = async () => {
+    if (!deletingClient) return;
+
+    setDeleting(true);
+
+    try {
+      const response = await fetch(`/api/clients/${deletingClient.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setShowDeleteDialog(false);
+        setDeletingClient(null);
+        fetchClients();
+        fetchCampaigns();
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to delete client:", error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ACTIVE":
@@ -265,16 +373,38 @@ export default function ClientAccountsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  {client.clientCampaigns.map((campaign) => (
-                    <div key={campaign.id} className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{campaign.name}</span>
-                      <Badge className={getStatusColor(campaign.status)}>
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                  ))}
+                <div className="flex items-start gap-4">
+                  <div className="text-right">
+                    {client.clientCampaigns.map((campaign) => (
+                      <div key={campaign.id} className="flex items-center gap-2">
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{campaign.name}</span>
+                        <Badge className={getStatusColor(campaign.status)}>
+                          {campaign.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditClick(client)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(client)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -489,6 +619,112 @@ export default function ClientAccountsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Client Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Client Account</DialogTitle>
+            <DialogDescription>
+              Update client details. Leave password blank to keep the current password.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateClient} className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="editOrgName">Company/Organization Name</Label>
+              <Input
+                id="editOrgName"
+                value={editFormData.organizationName}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, organizationName: e.target.value })
+                }
+                placeholder="Acme Corp"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editUserName">Contact Name</Label>
+              <Input
+                id="editUserName"
+                value={editFormData.userName}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, userName: e.target.value })
+                }
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editUserEmail">Login Email</Label>
+              <Input
+                id="editUserEmail"
+                type="email"
+                value={editFormData.userEmail}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, userEmail: e.target.value })
+                }
+                placeholder="client@company.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editPassword">New Password (optional)</Label>
+              <Input
+                id="editPassword"
+                type="password"
+                value={editFormData.newPassword}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, newPassword: e.target.value })
+                }
+                placeholder="Leave blank to keep current"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updating}>
+                {updating ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {deletingClient?.name}? This will remove their access
+              to the platform. The associated campaign will not be deleted but will become unassigned.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteClient}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -13,7 +13,6 @@ import {
   formatNumber,
   formatDate,
   getStatusColor,
-  getTierColor,
 } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -54,6 +53,7 @@ interface CampaignDetails {
   status: string;
   totalBudget: number;
   spentBudget: number;
+  totalAllocatedBudget?: number; // For clients - sum of all KOL budgets
   startDate: string | null;
   endDate: string | null;
   kpis: {
@@ -65,7 +65,6 @@ interface CampaignDetails {
   campaignKols: {
     id: string;
     status: string;
-    assignedBudget: number;
     requiredPosts: number;
     requiredThreads: number;
     requiredRetweets: number;
@@ -74,7 +73,6 @@ interface CampaignDetails {
       id: string;
       name: string;
       twitterHandle: string;
-      tier: string;
       followersCount: number;
       avgEngagementRate: number;
     };
@@ -575,12 +573,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-lg">{ck.kol.name}</p>
-                              <Badge className={getTierColor(ck.kol.tier)} variant="secondary">
-                                {ck.kol.tier}
-                              </Badge>
-                            </div>
+                            <p className="font-semibold text-lg">{ck.kol.name}</p>
                             <p className="text-muted-foreground">@{ck.kol.twitterHandle}</p>
                           </div>
                         </div>

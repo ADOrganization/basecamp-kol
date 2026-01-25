@@ -70,6 +70,7 @@ export default async function TelegramPage() {
   const serializedKols = kols.map(kol => ({
     id: kol.id,
     name: kol.name,
+    avatarUrl: kol.avatarUrl,
     telegramUsername: kol.telegramUsername,
     messages: kol.messages.map(m => ({
       id: m.id,

@@ -16,11 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Download,
   Search,
   Loader2,
@@ -35,7 +30,6 @@ import {
   Import,
   RefreshCw,
   Settings,
-  ChevronDown,
   X,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
@@ -55,6 +49,7 @@ interface ScrapedTweet {
   postedAt: string;
   matchedKeywords: string[];
   hasKeywordMatch: boolean;
+  alreadyImported?: boolean;
   metrics: {
     likes: number;
     retweets: number;
@@ -92,60 +87,29 @@ export function TweetScraper({
 }: TweetScraperProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("scrape");
-  const [showSettings, setShowSettings] = useState(false);
 
-  // Twitter auth state - persist in localStorage
-  const [twitterApiKey, setTwitterApiKey] = useState("");
-  const [twitterCookies, setTwitterCookies] = useState("");
-  const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
+  // Apify auth state
   const [orgHasApiKey, setOrgHasApiKey] = useState(false);
 
-  // Load saved auth on mount - check org settings first, then localStorage
+  // Load saved auth on mount - check org settings first
   useEffect(() => {
     const loadAuth = async () => {
-      // Try to load from organization settings first
+      // Check organization settings for Apify key
       try {
         const response = await fetch("/api/organization/twitter");
         if (response.ok) {
           const data = await response.json();
-          if (data.hasApiKey) {
+          if (data.hasApifyKey) {
             setOrgHasApiKey(true);
-            console.log("[TweetScraper] Org has API key configured");
+            console.log("[TweetScraper] Org has Apify API key configured");
           }
         }
       } catch (error) {
         console.log("[TweetScraper] Failed to check org settings:", error);
       }
-
-      // Also load from localStorage as backup
-      const savedApiKey = localStorage.getItem("twitter_api_key");
-      const savedCookies = localStorage.getItem("twitter_cookies");
-      const savedCsrf = localStorage.getItem("twitter_csrf");
-      if (savedApiKey) setTwitterApiKey(savedApiKey);
-      if (savedCookies) setTwitterCookies(savedCookies);
-      if (savedCsrf) setTwitterCsrfToken(savedCsrf);
     };
     loadAuth();
   }, []);
-
-  // Save auth when changed
-  const saveAuth = () => {
-    if (twitterApiKey) {
-      localStorage.setItem("twitter_api_key", twitterApiKey);
-    } else {
-      localStorage.removeItem("twitter_api_key");
-    }
-    if (twitterCookies) {
-      localStorage.setItem("twitter_cookies", twitterCookies);
-    } else {
-      localStorage.removeItem("twitter_cookies");
-    }
-    if (twitterCsrfToken) {
-      localStorage.setItem("twitter_csrf", twitterCsrfToken);
-    } else {
-      localStorage.removeItem("twitter_csrf");
-    }
-  };
 
   // Scrape state
   const [selectedKols, setSelectedKols] = useState<string[]>(kols.map(k => k.id));
@@ -153,7 +117,7 @@ export function TweetScraper({
   const [scrapedTweets, setScrapedTweets] = useState<ScrapedTweet[]>([]);
   const [selectedTweets, setSelectedTweets] = useState<Set<string>>(new Set());
   const [showOnlyKeywordMatches, setShowOnlyKeywordMatches] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<{ apiKeyConfigured: boolean; apiKeySource: string } | null>(null);
+  const [debugInfo, setDebugInfo] = useState<{ apifyConfigured: boolean } | null>(null);
 
   // Keyword filter state - filter BEFORE scraping
   const [filterByKeywords, setFilterByKeywords] = useState(true);
@@ -179,9 +143,6 @@ export function TweetScraper({
           kolIds: selectedKols.length === kols.length ? undefined : selectedKols,
           autoImport: false,
           filterKeywords: filterByKeywords ? activeKeywords : undefined,
-          twitterApiKey: twitterApiKey || undefined,
-          twitterCookies: twitterCookies || undefined,
-          twitterCsrfToken: twitterCsrfToken || undefined,
         }),
       });
 
@@ -192,10 +153,10 @@ export function TweetScraper({
         setScrapedTweets(data.tweets || []);
         setDebugInfo(data.debug || null);
 
-        // Pre-select tweets with keyword matches
+        // Pre-select tweets with keyword matches (excluding already imported)
         const keywordMatches = new Set<string>(
           (data.tweets || [])
-            .filter((t: ScrapedTweet) => t.hasKeywordMatch)
+            .filter((t: ScrapedTweet) => t.hasKeywordMatch && !t.alreadyImported)
             .map((t: ScrapedTweet) => t.id)
         );
         setSelectedTweets(keywordMatches);
@@ -290,14 +251,13 @@ export function TweetScraper({
   };
 
   const toggleSelectAll = () => {
-    const visibleTweets = showOnlyKeywordMatches
-      ? scrapedTweets.filter(t => t.hasKeywordMatch)
-      : scrapedTweets;
+    // Filter out already imported tweets from selection
+    const selectableTweets = displayedTweets.filter(t => !t.alreadyImported);
 
-    if (selectedTweets.size === visibleTweets.length) {
+    if (selectedTweets.size === selectableTweets.length && selectableTweets.length > 0) {
       setSelectedTweets(new Set());
     } else {
-      setSelectedTweets(new Set(visibleTweets.map(t => t.id)));
+      setSelectedTweets(new Set(selectableTweets.map(t => t.id)));
     }
   };
 
@@ -340,93 +300,27 @@ export function TweetScraper({
             </TabsTrigger>
           </TabsList>
 
-          {/* Twitter Auth Settings */}
-          <Collapsible open={showSettings} onOpenChange={setShowSettings} className="mt-3">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-between">
-                <span className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Twitter Auth {(orgHasApiKey || twitterApiKey || twitterCookies) ? "(Configured)" : "(Not Set - Click to Configure)"}
-                </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? "rotate-180" : ""}`} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 p-3 border rounded-lg bg-muted/50">
-              <div className="space-y-4">
-                {/* Org API key status */}
-                {orgHasApiKey && (
-                  <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-700 dark:text-green-400">
-                      API key configured in Settings - scraper will use it automatically
-                    </span>
-                  </div>
-                )}
-                {/* Local auth status (only show if org doesn't have key) */}
-                {!orgHasApiKey && (twitterApiKey || twitterCookies) && (
-                  <div className="flex items-center gap-2 p-2 rounded bg-green-500/10 border border-green-500/20">
-                    <div className="h-2 w-2 rounded-full bg-green-500" />
-                    <span className="text-sm text-green-700 dark:text-green-400">
-                      {twitterApiKey ? "Using local API key" : "Using browser cookies"}
-                    </span>
-                  </div>
-                )}
-                {!orgHasApiKey && !twitterApiKey && !twitterCookies && (
-                  <div className="flex items-center gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
-                    <div className="h-2 w-2 rounded-full bg-amber-500" />
-                    <span className="text-sm text-amber-700 dark:text-amber-400">
-                      No API key configured - go to Settings → Integrations to add your twexapi.io key
-                    </span>
-                  </div>
-                )}
-
-                {/* Browser Cookies - Recommended method */}
-                <div className="space-y-2 p-3 border rounded bg-primary/5">
-                  <Label className="text-sm font-medium">Browser Cookies (Recommended)</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Open X.com → DevTools (F12) → Network → find any request → Copy as cURL → extract Cookie value
-                  </p>
-                  <Textarea
-                    placeholder='auth_token=xxx; ct0=xxx; ...'
-                    value={twitterCookies}
-                    onChange={(e) => setTwitterCookies(e.target.value)}
-                    className="h-16 text-xs font-mono"
-                  />
-                  <Input
-                    placeholder="ct0 token (also in cookies)"
-                    value={twitterCsrfToken}
-                    onChange={(e) => setTwitterCsrfToken(e.target.value)}
-                    className="text-xs font-mono"
-                  />
+          {/* Apify Status */}
+          <div className="mt-3 p-3 border rounded-lg bg-muted/50">
+            <div className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              {orgHasApiKey ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700 dark:text-green-400">
+                    Apify API key configured
+                  </span>
                 </div>
-
-                {/* API Key - Alternative */}
-                <div className="space-y-2">
-                  <Label htmlFor="apikey" className="text-sm font-medium">Twitter API Key</Label>
-                  <Input
-                    id="apikey"
-                    type="password"
-                    placeholder="Your API key (e.g., twitterx_...)..."
-                    value={twitterApiKey}
-                    onChange={(e) => setTwitterApiKey(e.target.value)}
-                    className="font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Get from twexapi.io or another Twitter API provider
-                  </p>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm text-amber-700 dark:text-amber-400">
+                    No Apify key - go to Settings → Integrations to add your key
+                  </span>
                 </div>
-
-                <div className="flex gap-2">
-                  <Button size="sm" variant="default" onClick={saveAuth}>
-                    Save Settings
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setTwitterApiKey(""); setTwitterCookies(""); setTwitterCsrfToken(""); }}>
-                    Clear All
-                  </Button>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+              )}
+            </div>
+          </div>
 
           <TabsContent value="scrape" className="flex-1 overflow-hidden flex flex-col mt-4">
             {kols.length === 0 ? (
@@ -614,10 +508,10 @@ export function TweetScraper({
                     <p className="font-medium text-sm">Scrape Results</p>
                     {debugInfo && (
                       <div className="text-xs text-muted-foreground border-b pb-2 mb-2">
-                        API Key: {debugInfo.apiKeyConfigured ? (
-                          <span className="text-green-600">Configured ({debugInfo.apiKeySource})</span>
+                        Apify: {debugInfo.apifyConfigured ? (
+                          <span className="text-green-600">Configured</span>
                         ) : (
-                          <span className="text-amber-600">Not configured</span>
+                          <span className="text-amber-600">Not configured - add key in Settings → Integrations</span>
                         )}
                       </div>
                     )}
@@ -639,9 +533,9 @@ export function TweetScraper({
                         </span>
                       </div>
                     ))}
-                    {scrapeResults.some(r => !r.success) && debugInfo?.apiKeyConfigured && (
+                    {scrapeResults.some(r => !r.success) && debugInfo?.apifyConfigured && (
                       <p className="text-xs text-muted-foreground mt-2">
-                        Twitter API was tried. If rate limited, wait a few seconds and try again.
+                        If the search returned no results, try different keywords or check that the KOL handle is correct.
                       </p>
                     )}
                   </div>
@@ -726,6 +620,7 @@ export function TweetScraper({
                         <Checkbox
                           checked={selectedTweets.has(tweet.id)}
                           onCheckedChange={() => toggleTweetSelection(tweet.id)}
+                          disabled={tweet.alreadyImported}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
@@ -734,7 +629,12 @@ export function TweetScraper({
                             <span className="text-muted-foreground text-xs">
                               {new Date(tweet.postedAt).toLocaleDateString()}
                             </span>
-                            {tweet.hasKeywordMatch && (
+                            {tweet.alreadyImported && (
+                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                                Already Imported
+                              </Badge>
+                            )}
+                            {tweet.hasKeywordMatch && !tweet.alreadyImported && (
                               <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
                                 <Hash className="h-3 w-3 mr-0.5" />
                                 Match

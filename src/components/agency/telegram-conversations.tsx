@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ interface Message {
 interface KOL {
   id: string;
   name: string;
+  avatarUrl: string | null;
   telegramUsername: string | null;
   messages: Message[];
 }
@@ -137,6 +138,7 @@ export function TelegramConversations({ kols: initialKols, unreadCount }: Telegr
                   >
                     <div className="relative">
                       <Avatar className="h-10 w-10">
+                        {kol.avatarUrl && <AvatarImage src={kol.avatarUrl} alt={kol.name} />}
                         <AvatarFallback className="bg-indigo-100 text-indigo-600">
                           {kol.name.charAt(0)}
                         </AvatarFallback>
@@ -176,6 +178,7 @@ export function TelegramConversations({ kols: initialKols, unreadCount }: Telegr
             <CardHeader className="border-b">
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
+                  {selectedKol.avatarUrl && <AvatarImage src={selectedKol.avatarUrl} alt={selectedKol.name} />}
                   <AvatarFallback className="bg-indigo-100 text-indigo-600">
                     {selectedKol.name.charAt(0)}
                   </AvatarFallback>

@@ -138,24 +138,46 @@ async function sendToKol(
 
   if (!kol.telegramUsername) {
     return NextResponse.json(
-      { error: "KOL does not have a Telegram username" },
+      { error: "KOL does not have a Telegram username set in their profile" },
       { status: 400 }
     );
   }
 
+  console.log(`[Telegram Send] Looking for KOL link: kolId=${kol.id}, username=${kol.telegramUsername}`);
+
   // First, check if we have any telegram user ID for this KOL (from groups or DMs)
-  const anyKolLink = await db.telegramChatKOL.findFirst({
+  // Prioritize private chats over group chats
+  let anyKolLink = await db.telegramChatKOL.findFirst({
     where: {
       kolId: kol.id,
       telegramUserId: { not: null },
       chat: {
         organizationId,
+        type: "PRIVATE",
       },
     },
     include: {
       chat: true,
     },
   });
+
+  // If no private chat link, try any chat type
+  if (!anyKolLink) {
+    anyKolLink = await db.telegramChatKOL.findFirst({
+      where: {
+        kolId: kol.id,
+        telegramUserId: { not: null },
+        chat: {
+          organizationId,
+        },
+      },
+      include: {
+        chat: true,
+      },
+    });
+  }
+
+  console.log(`[Telegram Send] Found KOL link:`, anyKolLink ? `chatType=${anyKolLink.chat.type}, telegramUserId=${anyKolLink.telegramUserId}` : 'null');
 
   // If we have their user ID from any source, we can send them a message
   if (anyKolLink?.telegramUserId) {

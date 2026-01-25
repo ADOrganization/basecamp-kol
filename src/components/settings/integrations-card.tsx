@@ -18,10 +18,11 @@ interface IntegrationsCardProps {
 }
 
 export function TwitterIntegrationCard() {
-  const [apiKey, setApiKey] = useState("");
-  const [hasExistingKey, setHasExistingKey] = useState(false);
-  const [maskedKey, setMaskedKey] = useState<string | null>(null);
-  const [showKey, setShowKey] = useState(false);
+  const [apifyKey, setApifyKey] = useState("");
+  const [hasApifyKey, setHasApifyKey] = useState(false);
+  const [maskedApifyKey, setMaskedApifyKey] = useState<string | null>(null);
+  const [showApifyKey, setShowApifyKey] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -35,18 +36,18 @@ export function TwitterIntegrationCard() {
       const response = await fetch("/api/organization/twitter");
       if (response.ok) {
         const data = await response.json();
-        setHasExistingKey(data.hasApiKey);
-        setMaskedKey(data.maskedApiKey);
+        setHasApifyKey(data.hasApifyKey);
+        setMaskedApifyKey(data.maskedApifyKey);
       }
     } catch (error) {
-      console.error("Failed to fetch Twitter settings:", error);
+      console.error("Failed to fetch settings:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!apiKey.trim()) return;
+  const handleSaveApify = async () => {
+    if (!apifyKey.trim()) return;
 
     setIsSaving(true);
     setMessage(null);
@@ -55,12 +56,12 @@ export function TwitterIntegrationCard() {
       const response = await fetch("/api/organization/twitter", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ twitterApiKey: apiKey }),
+        body: JSON.stringify({ apifyApiKey: apifyKey }),
       });
 
       if (response.ok) {
         setMessage({ type: "success", text: "API key saved successfully" });
-        setApiKey("");
+        setApifyKey("");
         fetchSettings();
       } else {
         const data = await response.json();
@@ -73,8 +74,8 @@ export function TwitterIntegrationCard() {
     }
   };
 
-  const handleClear = async () => {
-    if (!confirm("Remove the API key?")) return;
+  const handleClearApify = async () => {
+    if (!confirm("Remove the Apify API key?")) return;
 
     setIsSaving(true);
     setMessage(null);
@@ -83,13 +84,13 @@ export function TwitterIntegrationCard() {
       const response = await fetch("/api/organization/twitter", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ twitterApiKey: "" }),
+        body: JSON.stringify({ apifyApiKey: "" }),
       });
 
       if (response.ok) {
         setMessage({ type: "success", text: "API key removed" });
-        setHasExistingKey(false);
-        setMaskedKey(null);
+        setHasApifyKey(false);
+        setMaskedApifyKey(null);
       } else {
         setMessage({ type: "error", text: "Failed to remove" });
       }
@@ -105,22 +106,22 @@ export function TwitterIntegrationCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Twitter className="h-5 w-5" />
-          Twitter / X API
+          Twitter / X Scraping
         </CardTitle>
         <CardDescription>
-          Configure your API key for tweet scraping
+          Configure Apify for tweet scraping
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Status */}
         <div className="flex items-center gap-2">
-          {hasExistingKey ? (
+          {hasApifyKey ? (
             <>
               <CheckCircle className="h-4 w-4 text-green-600" />
               <Badge variant="secondary" className="bg-green-100 text-green-700">Connected</Badge>
-              {maskedKey && (
+              {maskedApifyKey && (
                 <span className="text-sm text-muted-foreground font-mono">
-                  {maskedKey}
+                  {maskedApifyKey}
                 </span>
               )}
             </>
@@ -132,19 +133,19 @@ export function TwitterIntegrationCard() {
           )}
         </div>
 
-        {/* API Key Input */}
+        {/* Apify API Key Input */}
         <div className="space-y-2">
-          <Label htmlFor="twitter-api-key">
-            {hasExistingKey ? "Update API Key" : "API Key"}
+          <Label htmlFor="apify-api-key">
+            {hasApifyKey ? "Update API Key" : "Apify API Key"}
           </Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
-                id="twitter-api-key"
-                type={showKey ? "text" : "password"}
-                placeholder="Enter your Twitter API key..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                id="apify-api-key"
+                type={showApifyKey ? "text" : "password"}
+                placeholder="Enter your Apify API key..."
+                value={apifyKey}
+                onChange={(e) => setApifyKey(e.target.value)}
                 className="pr-10 font-mono"
                 disabled={isLoading}
               />
@@ -153,30 +154,30 @@ export function TwitterIntegrationCard() {
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowKey(!showKey)}
+                onClick={() => setShowApifyKey(!showApifyKey)}
               >
-                {showKey ? (
+                {showApifyKey ? (
                   <EyeOff className="h-4 w-4 text-muted-foreground" />
                 ) : (
                   <Eye className="h-4 w-4 text-muted-foreground" />
                 )}
               </Button>
             </div>
-            <Button onClick={handleSave} disabled={isSaving || !apiKey.trim() || isLoading}>
+            <Button onClick={handleSaveApify} disabled={isSaving || !apifyKey.trim() || isLoading}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Supports twexapi.io, twitterapi.io, and RapidAPI keys.
+            Get your API key from apify.com/account#/integrations
           </p>
         </div>
 
         {/* Remove button */}
-        {hasExistingKey && (
+        {hasApifyKey && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleClear}
+            onClick={handleClearApify}
             disabled={isSaving}
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
           >
@@ -205,20 +206,90 @@ export function TwitterIntegrationCard() {
 }
 
 export function TelegramIntegrationCard() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
   const [botToken, setBotToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [botUsername, setBotUsername] = useState<string | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const fetchStatus = async () => {
+    try {
+      const response = await fetch("/api/organization/telegram");
+      if (response.ok) {
+        const data = await response.json();
+        setIsConnected(data.isConnected);
+        setBotUsername(data.botUsername);
+      }
+    } catch (error) {
+      console.error("Failed to fetch Telegram status:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleConnect = async () => {
-    if (!botToken) {
-      setShowInfo(true);
+    if (!botToken.trim()) {
+      setMessage({ type: "error", text: "Please enter a bot token" });
       return;
     }
 
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setShowInfo(true);
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/telegram", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botToken }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage({ type: "success", text: `Connected to @${data.botUsername}` });
+        setIsConnected(true);
+        setBotUsername(data.botUsername);
+        setBotToken("");
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to connect" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to connect to Telegram" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Disconnect Telegram bot?")) return;
+
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/telegram", {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "Telegram bot disconnected" });
+        setIsConnected(false);
+        setBotUsername(null);
+      } else {
+        setMessage({ type: "error", text: "Failed to disconnect" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to disconnect" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -233,39 +304,93 @@ export function TelegramIntegrationCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {showInfo && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Configuration Required</AlertTitle>
-            <AlertDescription>
-              Telegram integration requires a bot token from @BotFather on Telegram.
-              Create a new bot to get your token.
-            </AlertDescription>
-          </Alert>
+        {/* Status */}
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <Badge variant="secondary" className="bg-green-100 text-green-700">Connected</Badge>
+              {botUsername && (
+                <span className="text-sm text-muted-foreground">
+                  @{botUsername}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <Badge variant="secondary">Not Connected</Badge>
+            </>
+          )}
+        </div>
+
+        {/* Bot Token Input */}
+        <div className="space-y-2">
+          <Label htmlFor="telegram-token">
+            {isConnected ? "Update Bot Token" : "Bot Token"}
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                id="telegram-token"
+                type={showToken ? "text" : "password"}
+                placeholder="Enter bot token from @BotFather..."
+                value={botToken}
+                onChange={(e) => setBotToken(e.target.value)}
+                className="pr-10 font-mono"
+                disabled={isLoading}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowToken(!showToken)}
+              >
+                {showToken ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+            <Button onClick={handleConnect} disabled={isSaving || !botToken.trim() || isLoading}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get your bot token from @BotFather on Telegram
+          </p>
+        </div>
+
+        {/* Disconnect button */}
+        {isConnected && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDisconnect}
+            disabled={isSaving}
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            Disconnect Bot
+          </Button>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="telegram-token">Bot Token</Label>
-          <Input
-            id="telegram-token"
-            type="password"
-            placeholder="Enter your bot token from @BotFather"
-            value={botToken}
-            onChange={(e) => setBotToken(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Not Connected</Badge>
-            <span className="text-sm text-muted-foreground">
-              Create a bot with @BotFather to get your token
-            </span>
+        {/* Message */}
+        {message && (
+          <div
+            className={`flex items-center gap-2 text-sm ${
+              message.type === "success" ? "text-green-600" : "text-destructive"
+            }`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            {message.text}
           </div>
-          <Button onClick={handleConnect} disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isLoading ? "Connecting..." : "Save & Connect"}
-          </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
