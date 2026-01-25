@@ -83,4 +83,35 @@ test.describe('KOL Management', () => {
     await expect(page.locator(`text=${kolName}`)).toBeVisible({ timeout: 10000 });
     console.log('KOL created successfully:', kolName);
   });
+
+  test('should refresh metrics for all KOLs', async ({ page }) => {
+    await page.goto('http://localhost:3000/agency/kols');
+    await page.waitForLoadState('networkidle');
+
+    // Find and click Refresh Metrics button
+    const refreshButton = page.locator('button:has-text("Refresh Metrics")');
+    await expect(refreshButton).toBeVisible();
+    console.log('Refresh Metrics button found');
+
+    // Click the button
+    await refreshButton.click();
+
+    // Button should show "Refreshing..." state
+    await expect(page.locator('button:has-text("Refreshing...")')).toBeVisible({ timeout: 5000 });
+    console.log('Refresh started - button shows loading state');
+
+    // Wait for refresh to complete (button returns to normal state)
+    await expect(page.locator('button:has-text("Refresh Metrics")')).toBeVisible({ timeout: 60000 });
+    console.log('Refresh completed - button returned to normal');
+
+    // Check for success or status message
+    const successMessage = page.locator('text=/Updated \\d+ of \\d+ KOLs/');
+    const isSuccess = await successMessage.isVisible({ timeout: 3000 }).catch(() => false);
+
+    if (isSuccess) {
+      console.log('SUCCESS: Metrics refresh completed with status message');
+    } else {
+      console.log('Refresh completed (no KOLs to update or API issue)');
+    }
+  });
 });

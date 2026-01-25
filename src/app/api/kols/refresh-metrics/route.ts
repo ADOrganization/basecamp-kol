@@ -15,20 +15,32 @@ export async function POST() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get all KOLs for this organization
+    // Get all KOLs for this organization (exclude only BLACKLISTED)
     const kols = await db.kOL.findMany({
       where: {
         organizationId: session.user.organizationId,
-        status: { in: ["ACTIVE", "PENDING"] },
+        status: { not: "BLACKLISTED" },
       },
       select: {
         id: true,
         twitterHandle: true,
         followersCount: true,
+        status: true,
       },
     });
 
     console.log(`[Refresh All] Starting refresh for ${kols.length} KOLs`);
+
+    if (kols.length === 0) {
+      return NextResponse.json({
+        success: true,
+        total: 0,
+        updated: 0,
+        failed: 0,
+        results: [],
+        message: "No KOLs to refresh"
+      });
+    }
 
     let successCount = 0;
     let failCount = 0;

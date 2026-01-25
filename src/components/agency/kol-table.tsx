@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatNumber, getTierColor, getStatusColor } from "@/lib/utils";
@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2 } from "lucide-react";
+import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 interface KOL {
   id: string;
@@ -52,6 +52,12 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+
+  // Update local state when props change
+  useEffect(() => {
+    setKols(initialKols);
+  }, [initialKols]);
 
   const filteredKols = kols.filter((kol) => {
     const matchesSearch =
@@ -80,18 +86,36 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
 
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
+    setRefreshStatus({ type: null, message: '' });
     try {
       const response = await fetch("/api/kols/refresh-metrics", { method: "POST" });
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        console.log(`Refreshed ${data.updated}/${data.total} KOLs`);
+        console.log(`Refreshed ${data.updated}/${data.total} KOLs`, data);
+        setRefreshStatus({
+          type: 'success',
+          message: `Updated ${data.updated} of ${data.total} KOLs`
+        });
         // Reload the KOL list to show updated data
-        onRefresh();
+        await onRefresh();
+      } else {
+        console.error("Refresh failed:", data);
+        setRefreshStatus({
+          type: 'error',
+          message: data.error || 'Failed to refresh metrics'
+        });
       }
     } catch (error) {
       console.error("Failed to refresh metrics:", error);
+      setRefreshStatus({
+        type: 'error',
+        message: 'Network error - please try again'
+      });
     } finally {
       setIsRefreshing(false);
+      // Clear status after 5 seconds
+      setTimeout(() => setRefreshStatus({ type: null, message: '' }), 5000);
     }
   };
 
@@ -150,6 +174,22 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
           Add KOL
         </Button>
       </div>
+
+      {/* Refresh Status Message */}
+      {refreshStatus.type && (
+        <div className={`flex items-center gap-2 p-3 rounded-lg ${
+          refreshStatus.type === 'success'
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {refreshStatus.type === 'success' ? (
+            <CheckCircle className="h-4 w-4" />
+          ) : (
+            <AlertCircle className="h-4 w-4" />
+          )}
+          <span className="text-sm font-medium">{refreshStatus.message}</span>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border bg-card overflow-hidden">
