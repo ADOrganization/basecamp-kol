@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, Trash2, Loader2 } from "lucide-react";
+import { MessageSquare, EyeOff, Loader2 } from "lucide-react";
 import { PostReviewCard } from "./post-review-card";
 import {
   AlertDialog,
@@ -74,33 +74,32 @@ export function ReviewedPostsSection({ posts }: ReviewedPostsSectionProps) {
         {posts.length > 0 && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="text-rose-600 hover:text-rose-700">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear Reviewed
+              <Button variant="outline" size="sm">
+                <EyeOff className="h-4 w-4 mr-2" />
+                Hide from Review
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Clear all reviewed posts?</AlertDialogTitle>
+                <AlertDialogTitle>Hide reviewed posts from this page?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete {posts.length} reviewed post{posts.length !== 1 ? "s" : ""}.
-                  This action cannot be undone.
+                  This will hide {posts.length} reviewed post{posts.length !== 1 ? "s" : ""} from the review page.
+                  Posts will still be visible in their campaigns.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleClearReviewed}
-                  className="bg-rose-600 hover:bg-rose-700"
                   disabled={isClearing}
                 >
                   {isClearing ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Clearing...
+                      Hiding...
                     </>
                   ) : (
-                    "Clear All"
+                    "Hide Posts"
                   )}
                 </AlertDialogAction>
               </AlertDialogFooter>

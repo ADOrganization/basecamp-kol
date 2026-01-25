@@ -316,6 +316,9 @@ model Post {
   // Client feedback
   clientNotes  String?
 
+  // Review page visibility (soft delete for review page only)
+  hiddenFromReview Boolean @default(false)
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 

@@ -10,8 +10,8 @@ export async function DELETE() {
   }
 
   try {
-    // Delete all reviewed posts (APPROVED, POSTED, VERIFIED, REJECTED) for this agency
-    const result = await db.post.deleteMany({
+    // Hide reviewed posts from review page (soft delete - posts remain in campaigns)
+    const result = await db.post.updateMany({
       where: {
         campaign: {
           agencyId: session.user.organizationId,
@@ -19,12 +19,16 @@ export async function DELETE() {
         status: {
           in: ["APPROVED", "POSTED", "VERIFIED", "REJECTED", "CHANGES_REQUESTED"],
         },
+        hiddenFromReview: false,
+      },
+      data: {
+        hiddenFromReview: true,
       },
     });
 
     return NextResponse.json({
       success: true,
-      deletedCount: result.count
+      hiddenCount: result.count
     });
   } catch (error) {
     console.error("Failed to clear reviewed posts:", error);

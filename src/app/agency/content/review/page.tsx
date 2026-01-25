@@ -18,6 +18,7 @@ export default async function ContentReviewPage() {
       campaign: {
         agencyId: session.user.organizationId,
       },
+      hiddenFromReview: false, // Only show posts not hidden from review
     },
     include: {
       kol: true,
