@@ -8,7 +8,6 @@ import {
   CheckCircle,
   ArrowRight
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface ActionItem {
   type: "review_posts" | "campaign_ending" | "low_budget" | "milestone";

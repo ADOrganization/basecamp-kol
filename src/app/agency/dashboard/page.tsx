@@ -54,7 +54,6 @@ async function getDashboardStats(organizationId: string) {
       where: {
         campaign: { agencyId: organizationId },
         status: { in: ["PENDING_APPROVAL", "DRAFT"] },
-        hiddenFromReview: false,
       },
     }),
   ]);
