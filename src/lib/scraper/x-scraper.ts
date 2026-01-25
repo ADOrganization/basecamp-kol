@@ -29,6 +29,7 @@ let _twitterAuthToken: string | null = null; // Reserved for future auth token u
 let twitterCsrfToken: string | null = null;
 
 export function setTwitterApiKey(apiKey: string | null) {
+  console.log(`[Scraper] setTwitterApiKey called with: ${apiKey ? `${apiKey.slice(0, 12)}...` : 'null'}`);
   customTwitterApiKey = apiKey;
   twitterApiKey = apiKey; // Keep for compatibility
 }
@@ -39,7 +40,9 @@ export function clearTwitterApiKey() {
 }
 
 export function hasTwitterApiKey(): boolean {
-  return !!(customTwitterApiKey || DEFAULT_TWITTER_API_KEY);
+  const hasKey = !!(customTwitterApiKey || DEFAULT_TWITTER_API_KEY);
+  console.log(`[Scraper] hasTwitterApiKey check: customKey=${!!customTwitterApiKey}, defaultKey=${!!DEFAULT_TWITTER_API_KEY}, result=${hasKey}`);
+  return hasKey;
 }
 
 export function getDefaultApiKey(): string {

@@ -43,12 +43,17 @@ export async function POST(
         select: { twitterApiKey: true },
       });
       apiKeyToUse = org?.twitterApiKey || null;
+      console.log(`[Scrape API] Loaded org API key: ${apiKeyToUse ? `${apiKeyToUse.slice(0, 12)}...` : 'none'}`);
+    } else {
+      console.log(`[Scrape API] Using request API key: ${apiKeyToUse.slice(0, 12)}...`);
     }
 
     // Set Twitter API key if available (preferred method)
     if (apiKeyToUse) {
+      console.log(`[Scrape API] Setting Twitter API key`);
       setTwitterApiKey(apiKeyToUse);
     } else {
+      console.log(`[Scrape API] No API key available, clearing`);
       clearTwitterApiKey();
     }
 
