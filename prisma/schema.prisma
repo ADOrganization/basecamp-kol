@@ -478,6 +478,7 @@ model TelegramBroadcast {
   id               String    @id @default(cuid())
   organizationId   String
   content          String
+  targetType       String    @default("groups") // "groups" or "dms"
   filterType       String    // "all", "met_kpi", "not_met_kpi", "campaign"
   filterCampaignId String?
   targetCount      Int       @default(0)

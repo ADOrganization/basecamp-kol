@@ -295,7 +295,7 @@ async function handleReviewCommand(
     `Campaign: ${campaignKol.campaign.name}\n` +
     `KOL: ${kol.name}\n` +
     `Status: Pending Review\n\n` +
-    `Your agency will review and approve this content shortly.`
+    `Our agency will review and approve this content shortly.`
   );
 
   console.log(`[Review] Draft submitted: post ${post.id} for KOL ${kol.name} in campaign ${campaignKol.campaign.name}`);

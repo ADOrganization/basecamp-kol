@@ -69,7 +69,104 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = telegramBroadcastSchema.parse(body);
 
-    // Get target chats based on filter
+    const targetType = validatedData.targetType || "groups";
+    let targetCount = 0;
+    let sentCount = 0;
+    let failedCount = 0;
+
+    const client = new TelegramClient(org.telegramBotToken);
+
+    if (targetType === "dms") {
+      // Get KOLs with private chats for DM broadcast
+      const targetKols = await getFilteredKolsForDm(
+        session.user.organizationId,
+        validatedData.filterType,
+        validatedData.filterCampaignId
+      );
+
+      if (targetKols.length === 0) {
+        return NextResponse.json(
+          { error: "No KOLs match the selected filter or have DM access" },
+          { status: 400 }
+        );
+      }
+
+      targetCount = targetKols.length;
+
+      // Create broadcast record
+      const broadcast = await db.telegramBroadcast.create({
+        data: {
+          organizationId: session.user.organizationId,
+          content: validatedData.content,
+          targetType: "dms",
+          filterType: validatedData.filterType,
+          filterCampaignId: validatedData.filterCampaignId,
+          targetCount,
+          status: "sending",
+        },
+      });
+
+      // Send DMs to all target KOLs
+      for (const kol of targetKols) {
+        try {
+          // Find the private chat for this KOL
+          const privateChat = kol.telegramChatLinks.find(
+            (link) => link.chat.type === "PRIVATE" && link.telegramUserId
+          );
+
+          if (!privateChat) {
+            failedCount++;
+            continue;
+          }
+
+          const result = await client.sendMessage(
+            privateChat.chat.telegramChatId,
+            validatedData.content
+          );
+
+          if (result.ok) {
+            sentCount++;
+
+            // Store outbound message
+            await db.telegramMessage.create({
+              data: {
+                kolId: kol.id,
+                telegramChatId: privateChat.chat.telegramChatId,
+                telegramMessageId: result.result?.message_id?.toString(),
+                content: validatedData.content,
+                direction: "OUTBOUND",
+                timestamp: new Date(),
+              },
+            });
+          } else {
+            failedCount++;
+          }
+        } catch {
+          failedCount++;
+        }
+
+        // Small delay to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      // Update broadcast with results
+      const updatedBroadcast = await db.telegramBroadcast.update({
+        where: { id: broadcast.id },
+        data: {
+          sentCount,
+          failedCount,
+          status: "completed",
+          completedAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        broadcast: updatedBroadcast,
+      });
+    }
+
+    // Group broadcast (original logic)
     const targetChats = await getFilteredChats(
       session.user.organizationId,
       validatedData.filterType,
@@ -83,23 +180,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    targetCount = targetChats.length;
+
     // Create broadcast record
     const broadcast = await db.telegramBroadcast.create({
       data: {
         organizationId: session.user.organizationId,
         content: validatedData.content,
+        targetType: "groups",
         filterType: validatedData.filterType,
         filterCampaignId: validatedData.filterCampaignId,
-        targetCount: targetChats.length,
+        targetCount,
         status: "sending",
       },
     });
 
     // Send messages to all target chats
-    const client = new TelegramClient(org.telegramBotToken);
-    let sentCount = 0;
-    let failedCount = 0;
-
     for (const chat of targetChats) {
       try {
         const result = await client.sendMessage(chat.telegramChatId, validatedData.content);
@@ -166,11 +262,12 @@ async function getFilteredChats(
   filterType: string,
   campaignId?: string
 ) {
-  // Get all active chats
+  // Get all active group chats (exclude PRIVATE for DMs)
   const chats = await db.telegramChat.findMany({
     where: {
       organizationId,
       status: "ACTIVE",
+      type: { not: "PRIVATE" },
     },
     include: {
       kolLinks: {
@@ -257,4 +354,91 @@ async function getFilteredChats(
   }
 
   return chats;
+}
+
+async function getFilteredKolsForDm(
+  organizationId: string,
+  filterType: string,
+  campaignId?: string
+) {
+  // Get all KOLs that have a private chat link (meaning they can receive DMs)
+  const kols = await db.kOL.findMany({
+    where: {
+      organizationId,
+      telegramChatLinks: {
+        some: {
+          telegramUserId: { not: null },
+          chat: {
+            type: "PRIVATE",
+            status: "ACTIVE",
+          },
+        },
+      },
+    },
+    include: {
+      telegramChatLinks: {
+        include: {
+          chat: true,
+        },
+      },
+      campaignKols: campaignId ? { where: { campaignId } } : true,
+      posts: campaignId
+        ? { where: { campaignId, status: "VERIFIED" } }
+        : { where: { status: "VERIFIED" } },
+    },
+  });
+
+  if (filterType === "all") {
+    return kols;
+  }
+
+  if (filterType === "campaign" && campaignId) {
+    return kols.filter((kol) =>
+      kol.campaignKols.some((ck) => ck.campaignId === campaignId)
+    );
+  }
+
+  if (filterType === "met_kpi" && campaignId) {
+    return kols.filter((kol) => {
+      const campaignKol = kol.campaignKols.find(
+        (ck) => ck.campaignId === campaignId
+      );
+      if (!campaignKol) return false;
+
+      const requiredTotal =
+        campaignKol.requiredPosts +
+        campaignKol.requiredThreads +
+        campaignKol.requiredRetweets +
+        campaignKol.requiredSpaces;
+
+      const completedPosts = kol.posts.filter(
+        (p) => p.campaignId === campaignId
+      ).length;
+
+      return completedPosts >= requiredTotal;
+    });
+  }
+
+  if (filterType === "not_met_kpi" && campaignId) {
+    return kols.filter((kol) => {
+      const campaignKol = kol.campaignKols.find(
+        (ck) => ck.campaignId === campaignId
+      );
+      if (!campaignKol) return false;
+
+      const requiredTotal =
+        campaignKol.requiredPosts +
+        campaignKol.requiredThreads +
+        campaignKol.requiredRetweets +
+        campaignKol.requiredSpaces;
+
+      const completedPosts = kol.posts.filter(
+        (p) => p.campaignId === campaignId
+      ).length;
+
+      return completedPosts < requiredTotal;
+    });
+  }
+
+  return kols;
 }

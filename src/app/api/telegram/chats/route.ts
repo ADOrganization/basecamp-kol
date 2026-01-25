@@ -18,9 +18,12 @@ export async function GET(request: NextRequest) {
     const kpiStatus = searchParams.get("kpiStatus");
     const search = searchParams.get("search");
 
-    // Build where clause
+    // Build where clause - exclude PRIVATE chats (those are for 1:1 conversations)
     const where: Prisma.TelegramChatWhereInput = {
       organizationId: session.user.organizationId,
+      type: {
+        not: "PRIVATE",
+      },
     };
 
     // Filter by status

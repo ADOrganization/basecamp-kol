@@ -14,7 +14,8 @@ import {
   Repeat2,
   Eye,
   Loader2,
-  Send
+  Send,
+  Edit3
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -50,6 +51,7 @@ interface Post {
 const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   DRAFT: "secondary",
   PENDING_APPROVAL: "outline",
+  CHANGES_REQUESTED: "outline",
   APPROVED: "default",
   REJECTED: "destructive",
   SCHEDULED: "secondary",
@@ -65,9 +67,11 @@ interface PostReviewCardProps {
 
 export function PostReviewCard({ post, showActions = false, onStatusChange }: PostReviewCardProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
+  const [actionType, setActionType] = useState<"approve" | "reject" | "changes" | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showChangesDialog, setShowChangesDialog] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
+  const [changesNotes, setChangesNotes] = useState("");
   const [currentStatus, setCurrentStatus] = useState(post.status);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,12 +159,44 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
     }
   };
 
-  const isPending = currentStatus === "PENDING_APPROVAL";
+  const handleRequestChanges = async () => {
+    setIsLoading(true);
+    setActionType("changes");
+    setError(null);
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CHANGES_REQUESTED",
+          clientNotes: changesNotes || undefined,
+        }),
+      });
+      if (response.ok) {
+        setCurrentStatus("CHANGES_REQUESTED");
+        setShowChangesDialog(false);
+        setChangesNotes("");
+        onStatusChange?.(post.id, "CHANGES_REQUESTED");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Failed to request changes");
+      }
+    } catch (err) {
+      console.error("Failed to request changes:", err);
+      setError("Failed to request changes. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setActionType(null);
+    }
+  };
+
+  // Show actions for DRAFT and PENDING_APPROVAL statuses
+  const needsReview = currentStatus === "PENDING_APPROVAL" || currentStatus === "DRAFT";
   const isApproved = currentStatus === "APPROVED";
 
   return (
     <>
-      <Card className={`card-hover ${isPending ? "border-amber-200 dark:border-amber-900" : ""}`}>
+      <Card className={`card-hover ${needsReview ? "border-amber-200 dark:border-amber-900" : ""}`}>
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4 flex-1">
@@ -216,8 +252,8 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                 )}
               </div>
             </div>
-            <div className="flex gap-2 items-center">
-              {showActions && isPending && (
+            <div className="flex gap-2 items-center flex-wrap justify-end">
+              {showActions && needsReview && (
                 <>
                   <Button
                     size="sm"
@@ -232,6 +268,20 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                       <XCircle className="h-4 w-4 mr-1" />
                     )}
                     Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-amber-600 hover:text-amber-700"
+                    onClick={() => setShowChangesDialog(true)}
+                    disabled={isLoading}
+                  >
+                    {isLoading && actionType === "changes" ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Edit3 className="h-4 w-4 mr-1" />
+                    )}
+                    Request Changes
                   </Button>
                   <Button
                     size="sm"
@@ -309,6 +359,44 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
               Reject Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showChangesDialog} onOpenChange={setShowChangesDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Changes</DialogTitle>
+            <DialogDescription>
+              Provide feedback to the KOL about what changes are needed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="changes-notes">Feedback</Label>
+              <Textarea
+                id="changes-notes"
+                placeholder="Describe the changes needed..."
+                value={changesNotes}
+                onChange={(e) => setChangesNotes(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowChangesDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={handleRequestChanges}
+              disabled={isLoading || !changesNotes.trim()}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
+              Request Changes
             </Button>
           </DialogFooter>
         </DialogContent>

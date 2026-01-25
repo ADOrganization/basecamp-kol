@@ -119,6 +119,7 @@ export const telegramSendToKolSchema = z.object({
 
 export const telegramBroadcastSchema = z.object({
   content: z.string().min(1, "Message content is required").max(4096, "Message too long"),
+  targetType: z.enum(["groups", "dms"]).default("groups"),
   filterType: z.enum(["all", "met_kpi", "not_met_kpi", "campaign"]),
   filterCampaignId: z.string().optional(),
 });

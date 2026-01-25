@@ -30,6 +30,8 @@ import {
   Clock,
   Users,
   Filter,
+  MessageCircle,
+  User,
 } from "lucide-react";
 
 interface Campaign {
@@ -40,6 +42,7 @@ interface Campaign {
 interface Broadcast {
   id: string;
   content: string;
+  targetType: string;
   filterType: string;
   filterCampaignId: string | null;
   targetCount: number;
@@ -56,6 +59,7 @@ interface TelegramBroadcastProps {
 
 export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
   const [message, setMessage] = useState("");
+  const [targetType, setTargetType] = useState<string>("groups");
   const [filterType, setFilterType] = useState<string>("all");
   const [campaignId, setCampaignId] = useState<string>("");
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
@@ -63,8 +67,10 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
   const [sending, setSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [targetPreview, setTargetPreview] = useState<{
-    totalChats: number;
-    chats: Array<{ id: string; title: string | null; linkedKols: number }>;
+    totalChats?: number;
+    totalKols?: number;
+    chats?: Array<{ id: string; title: string | null; linkedKols: number }>;
+    kols?: Array<{ id: string; name: string; telegramUsername: string | null }>;
   } | null>(null);
 
   useEffect(() => {
@@ -77,7 +83,7 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
     } else {
       setTargetPreview(null);
     }
-  }, [filterType, campaignId]);
+  }, [targetType, filterType, campaignId]);
 
   const fetchBroadcasts = async () => {
     setLoading(true);
@@ -97,22 +103,24 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
   const fetchTargetPreview = async () => {
     try {
       const params = new URLSearchParams();
+      params.set("targetType", targetType);
       params.set("filterType", filterType);
       if (campaignId) params.set("campaignId", campaignId);
 
-      const response = await fetch(`/api/telegram/chats?${params}`);
+      const response = await fetch(`/api/telegram/broadcast/preview?${params}`);
       if (response.ok) {
         const data = await response.json();
-        setTargetPreview({
-          totalChats: data.total,
-          chats: data.chats.map(
-            (c: { id: string; title: string | null; kolLinks: unknown[] }) => ({
-              id: c.id,
-              title: c.title,
-              linkedKols: c.kolLinks?.length || 0,
-            })
-          ),
-        });
+        if (targetType === "dms") {
+          setTargetPreview({
+            totalKols: data.total,
+            kols: data.kols,
+          });
+        } else {
+          setTargetPreview({
+            totalChats: data.total,
+            chats: data.chats,
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to fetch preview:", error);
@@ -127,6 +135,7 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: message,
+          targetType,
           filterType,
           filterCampaignId: campaignId || undefined,
         }),
@@ -134,6 +143,7 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
 
       if (response.ok) {
         setMessage("");
+        setTargetType("groups");
         setFilterType("all");
         setCampaignId("");
         await fetchBroadcasts();
@@ -179,19 +189,22 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
     }
   };
 
-  const getFilterLabel = (type: string, campaignId: string | null) => {
-    const campaign = campaigns.find((c) => c.id === campaignId);
-    switch (type) {
+  const getFilterLabel = (broadcast: Broadcast) => {
+    const campaign = campaigns.find((c) => c.id === broadcast.filterCampaignId);
+    const isDm = broadcast.targetType === "dms";
+    const prefix = isDm ? "DM: " : "";
+
+    switch (broadcast.filterType) {
       case "all":
-        return "All Groups";
+        return prefix + (isDm ? "All KOLs" : "All Groups");
       case "met_kpi":
-        return `Met KPI${campaign ? ` (${campaign.name})` : ""}`;
+        return prefix + `Met KPI${campaign ? ` (${campaign.name})` : ""}`;
       case "not_met_kpi":
-        return `Not Met KPI${campaign ? ` (${campaign.name})` : ""}`;
+        return prefix + `Not Met KPI${campaign ? ` (${campaign.name})` : ""}`;
       case "campaign":
-        return campaign ? campaign.name : "Campaign";
+        return prefix + (campaign ? campaign.name : "Campaign");
       default:
-        return type;
+        return prefix + broadcast.filterType;
     }
   };
 
@@ -203,17 +216,44 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
           <CardTitle className="text-lg">Send Broadcast</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Target Type Selection */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Target Type</label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={targetType === "groups" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setTargetType("groups")}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Groups
+              </Button>
+              <Button
+                type="button"
+                variant={targetType === "dms" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setTargetType("dms")}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                DMs
+              </Button>
+            </div>
+          </div>
+
           {/* Filter Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-medium">Target Audience</label>
+            <label className="text-sm font-medium">Filter</label>
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger>
                 <SelectValue placeholder="Select filter" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Groups</SelectItem>
-                <SelectItem value="met_kpi">KOLs Who Met KPI</SelectItem>
-                <SelectItem value="not_met_kpi">KOLs Who Have NOT Met KPI</SelectItem>
+                <SelectItem value="all">
+                  {targetType === "dms" ? "All KOLs" : "All Groups"}
+                </SelectItem>
+                <SelectItem value="met_kpi">Met KPI</SelectItem>
+                <SelectItem value="not_met_kpi">Not Met KPI</SelectItem>
                 <SelectItem value="campaign">Specific Campaign</SelectItem>
               </SelectContent>
             </Select>
@@ -237,27 +277,56 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
           {/* Target Preview */}
           {targetPreview && (
             <div className="p-3 bg-muted rounded-lg">
-              <div className="flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{targetPreview.totalChats}</span>
-                <span className="text-muted-foreground">
-                  group{targetPreview.totalChats !== 1 ? "s" : ""} will receive
-                  this message
-                </span>
-              </div>
-              {targetPreview.totalChats > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {targetPreview.chats.slice(0, 5).map((chat) => (
-                    <Badge key={chat.id} variant="secondary" className="text-xs">
-                      {chat.title || "Unnamed"}
-                    </Badge>
-                  ))}
-                  {targetPreview.totalChats > 5 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{targetPreview.totalChats - 5} more
-                    </Badge>
+              {targetType === "dms" ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{targetPreview.totalKols || 0}</span>
+                    <span className="text-muted-foreground">
+                      KOL{(targetPreview.totalKols || 0) !== 1 ? "s" : ""} will receive
+                      this DM
+                    </span>
+                  </div>
+                  {(targetPreview.totalKols || 0) > 0 && targetPreview.kols && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {targetPreview.kols.slice(0, 5).map((kol) => (
+                        <Badge key={kol.id} variant="secondary" className="text-xs">
+                          {kol.name}
+                        </Badge>
+                      ))}
+                      {(targetPreview.totalKols || 0) > 5 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{(targetPreview.totalKols || 0) - 5} more
+                        </Badge>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{targetPreview.totalChats || 0}</span>
+                    <span className="text-muted-foreground">
+                      group{(targetPreview.totalChats || 0) !== 1 ? "s" : ""} will receive
+                      this message
+                    </span>
+                  </div>
+                  {(targetPreview.totalChats || 0) > 0 && targetPreview.chats && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {targetPreview.chats.slice(0, 5).map((chat) => (
+                        <Badge key={chat.id} variant="secondary" className="text-xs">
+                          {chat.title || "Unnamed"}
+                        </Badge>
+                      ))}
+                      {(targetPreview.totalChats || 0) > 5 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{(targetPreview.totalChats || 0) - 5} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -283,11 +352,11 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
             disabled={
               !message.trim() ||
               (filterType !== "all" && !campaignId) ||
-              !targetPreview?.totalChats
+              (targetType === "dms" ? !targetPreview?.totalKols : !targetPreview?.totalChats)
             }
           >
             <Send className="h-4 w-4 mr-2" />
-            Send Broadcast
+            Send {targetType === "dms" ? "DM Broadcast" : "Broadcast"}
           </Button>
         </CardContent>
       </Card>
@@ -327,10 +396,7 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Filter className="h-3 w-3" />
-                      {getFilterLabel(
-                        broadcast.filterType,
-                        broadcast.filterCampaignId
-                      )}
+                      {getFilterLabel(broadcast)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
@@ -366,9 +432,19 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Broadcast</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to send a message to{" "}
-              <strong>{targetPreview?.totalChats || 0}</strong> group
-              {(targetPreview?.totalChats || 0) !== 1 ? "s" : ""}.
+              {targetType === "dms" ? (
+                <>
+                  You are about to send a DM to{" "}
+                  <strong>{targetPreview?.totalKols || 0}</strong> KOL
+                  {(targetPreview?.totalKols || 0) !== 1 ? "s" : ""}.
+                </>
+              ) : (
+                <>
+                  You are about to send a message to{" "}
+                  <strong>{targetPreview?.totalChats || 0}</strong> group
+                  {(targetPreview?.totalChats || 0) !== 1 ? "s" : ""}.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="my-4 p-3 bg-muted rounded-lg text-sm">
