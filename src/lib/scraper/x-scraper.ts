@@ -1382,7 +1382,7 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
 }
 
 /**
- * Scrape multiple KOLs in parallel
+ * Scrape multiple KOLs sequentially to avoid rate limiting
  */
 export async function scrapeMultipleKOLs(
   handles: string[],
@@ -1391,31 +1391,25 @@ export async function scrapeMultipleKOLs(
 ): Promise<Map<string, ScrapeResult>> {
   const results = new Map<string, ScrapeResult>();
 
-  // Process in batches of 2 to be gentler on servers
-  const batchSize = 2;
+  // Process handles sequentially to avoid rate limiting
+  for (let i = 0; i < handles.length; i++) {
+    const handle = handles[i];
+    console.log(`[Scraper] Processing handle ${i + 1}/${handles.length}: @${handle}`);
 
-  for (let i = 0; i < handles.length; i += batchSize) {
-    const batch = handles.slice(i, i + batchSize);
-
-    const batchResults = await Promise.all(
-      batch.map(handle =>
-        scrapeTweets({
-          handle,
-          keywords,
-          maxTweets: maxTweetsPerKOL,
-          includeReplies: false,
-          includeRetweets: true,
-        })
-      )
-    );
-
-    batch.forEach((handle, index) => {
-      results.set(handle.replace('@', '').toLowerCase(), batchResults[index]);
+    const result = await scrapeTweets({
+      handle,
+      keywords,
+      maxTweets: maxTweetsPerKOL,
+      includeReplies: false,
+      includeRetweets: true,
     });
 
-    // Delay between batches
-    if (i + batchSize < handles.length) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    results.set(handle.replace('@', '').toLowerCase(), result);
+
+    // Delay between requests to avoid rate limiting
+    if (i < handles.length - 1) {
+      console.log(`[Scraper] Waiting 3s before next request...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
 
