@@ -308,6 +308,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   <span>Project: {campaign.projectTwitterHandle}</span>
                 </span>
               )}
+              {campaign.clientTelegramChatId ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <span>Telegram: Configured</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <span>Telegram: Not configured</span>
+                </span>
+              )}
             </div>
             {(campaign.keywords || []).length > 0 && (
               <div className="flex items-center gap-2 mt-2">
