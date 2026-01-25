@@ -165,7 +165,8 @@ async function handleMessage(organizationId: string, botToken: string | null, me
       chat.id,
       textContent,
       senderUsername,
-      senderName
+      senderName,
+      senderTelegramId
     );
     return;
   }
@@ -198,7 +199,8 @@ async function handleReviewCommand(
   telegramChatId: number,
   text: string,
   senderUsername: string | undefined,
-  senderName: string | null
+  senderName: string | null,
+  senderTelegramId: string | undefined
 ) {
   // Extract draft content (everything after /review)
   const draftContent = text.replace(/^\/review\s*/i, "").trim();
@@ -257,6 +259,27 @@ async function handleReviewCommand(
     );
     return;
   }
+
+  // Link KOL to this chat (upsert to avoid duplicates)
+  await db.telegramChatKOL.upsert({
+    where: {
+      chatId_kolId: {
+        chatId: chatId,
+        kolId: kol.id,
+      },
+    },
+    update: {
+      telegramUserId: senderTelegramId || null,
+    },
+    create: {
+      chatId: chatId,
+      kolId: kol.id,
+      telegramUserId: senderTelegramId || null,
+      matchedBy: "review_command",
+    },
+  });
+
+  console.log(`[Review] Linked KOL ${kol.name} to chat ${chatId}`);
 
   // Find an active campaign for this KOL
   const campaignKol = campaignKols[0];
