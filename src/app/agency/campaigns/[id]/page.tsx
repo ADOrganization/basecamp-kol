@@ -246,22 +246,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
-  const handleUpdateKolStatus = async (kolId: string, status: string) => {
-    try {
-      const response = await fetch(`/api/campaigns/${id}/kols/${kolId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-
-      if (response.ok) {
-        fetchCampaign();
-      }
-    } catch (error) {
-      console.error("Failed to update KOL status:", error);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -420,7 +404,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <th className="text-left p-4 font-medium text-muted-foreground">Tier</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Deliverables</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Budget</th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
                     <th className="w-[50px]"></th>
                   </tr>
                 </thead>
@@ -461,22 +444,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                         </td>
                         <td className="p-4 text-right font-medium">
                           {formatCurrency(ck.assignedBudget)}
-                        </td>
-                        <td className="p-4">
-                          <Select
-                            value={ck.status}
-                            onValueChange={(value) => handleUpdateKolStatus(ck.kol.id, value)}
-                          >
-                            <SelectTrigger className="w-[130px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PENDING">Pending</SelectItem>
-                              <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                              <SelectItem value="DECLINED">Declined</SelectItem>
-                              <SelectItem value="COMPLETED">Completed</SelectItem>
-                            </SelectContent>
-                          </Select>
                         </td>
                         <td className="p-4">
                           <Button
