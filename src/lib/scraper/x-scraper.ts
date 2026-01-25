@@ -158,28 +158,29 @@ interface APIEndpoint {
 }
 
 const API_ENDPOINTS: APIEndpoint[] = [
-  // twexapi.io - Primary (user's API) - uses X-API-Key header
+  // TwitterXAPI (twexapi.io) - correct base URL is api.twitterxapi.com
   {
-    name: 'twexapi-search',
+    name: 'twitterxapi-search',
     method: 'POST',
-    getUrl: () => `https://api.twexapi.io/twitter/advanced_search`,
+    getUrl: () => `https://api.twitterxapi.com/twitter/search/advanced`,
     getHeaders: (apiKey: string) => ({
-      'X-API-Key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     }),
     getBody: (handle: string) => JSON.stringify({
-      searchTerms: [`from:${handle}`],
+      query: `from:${handle}`,
+      queryType: 'Latest',
     }),
     parser: 'twexapi',
   },
-  // twexapi.io - Alternative endpoint with user timeline
+  // TwitterXAPI - user tweets endpoint
   {
-    name: 'twexapi-timeline',
+    name: 'twitterxapi-tweets',
     method: 'GET',
-    getUrl: (handle: string) => `https://api.twexapi.io/user/timeline?username=${handle}`,
+    getUrl: (handle: string) => `https://api.twitterxapi.com/twitter/user/tweets?userName=${handle}`,
     getHeaders: (apiKey: string) => ({
-      'X-API-Key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
       'Accept': 'application/json',
     }),
     parser: 'twexapi',
@@ -240,7 +241,7 @@ async function scrapeFromTwitterAPI(options: ScrapeOptions): Promise<ScrapeResul
   // Determine which endpoints to try based on API key format
   const isTwexApiKey = apiKey.startsWith('twitterx_');
   const endpointsToTry = isTwexApiKey
-    ? API_ENDPOINTS.filter(e => e.name.startsWith('twexapi'))
+    ? API_ENDPOINTS.filter(e => e.name.startsWith('twitterxapi'))
     : API_ENDPOINTS;
 
   // Helper function to wait
@@ -1429,12 +1430,12 @@ export async function fetchTwitterAvatar(handle: string): Promise<string | null>
   const apiKey = getTwitterApiKey();
   if (apiKey) {
     try {
-      // Try twexapi user endpoint
+      // Try TwitterXAPI user endpoint
       if (apiKey.startsWith('twitterx_')) {
-        const response = await fetch(`https://api.twexapi.io/user/info?username=${cleanHandle}`, {
+        const response = await fetch(`https://api.twitterxapi.com/twitter/user/info?userName=${cleanHandle}`, {
           method: 'GET',
           headers: {
-            'X-API-Key': apiKey,
+            'Authorization': `Bearer ${apiKey}`,
             'Accept': 'application/json',
           },
           signal: AbortSignal.timeout(10000),
@@ -1451,7 +1452,7 @@ export async function fetchTwitterAvatar(handle: string): Promise<string | null>
           if (avatarUrl) {
             // Get higher resolution image by replacing _normal with _400x400
             const highResUrl = avatarUrl.replace('_normal', '_400x400');
-            console.log(`[Avatar] Found via twexapi.io for @${cleanHandle}`);
+            console.log(`[Avatar] Found via TwitterXAPI for @${cleanHandle}`);
             return highResUrl;
           }
         }
