@@ -10,8 +10,11 @@ import {
   TrendingUp,
   Users,
   FileText,
+  BarChart3,
+  Filter,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   AreaChart,
   Area,
@@ -159,17 +162,38 @@ export default function ClientAnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground mt-1">
-            Track performance across your campaigns
-          </p>
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-8 text-white">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-indigo-200 mb-2">
+              <BarChart3 className="h-5 w-5" />
+              <span className="text-sm font-medium">Performance Analytics</span>
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Analytics Dashboard</h1>
+            <p className="text-indigo-100 max-w-xl">
+              Track performance metrics and insights across all your influencer campaigns.
+            </p>
+          </div>
+          <div className="hidden md:flex items-center gap-4">
+            <div className="text-center px-6 py-3 bg-white/10 rounded-xl backdrop-blur-sm">
+              <p className="text-3xl font-bold">{formatNumber(totals.impressions)}</p>
+              <p className="text-sm text-indigo-200">Total Reach</p>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Campaign Filter */}
+      <div className="flex items-center gap-3">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Filter by campaign:</span>
         <select
           value={selectedCampaign}
           onChange={(e) => setSelectedCampaign(e.target.value)}
-          className="px-4 py-2 border rounded-lg bg-white"
+          className="px-4 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         >
           <option value="all">All Campaigns</option>
           {campaigns.map(c => (
@@ -180,11 +204,12 @@ export default function ClientAnalyticsPage() {
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-teal-500 to-teal-600 text-white">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-indigo-500 to-indigo-600 text-white border-0">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10" />
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-teal-100 text-sm">Total Impressions</p>
+                <p className="text-indigo-100 text-sm">Total Impressions</p>
                 <p className="text-3xl font-bold mt-1">{formatNumber(totals.impressions)}</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -194,11 +219,12 @@ export default function ClientAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-violet-500 to-violet-600 text-white border-0">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10" />
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-indigo-100 text-sm">Total Engagement</p>
+                <p className="text-violet-100 text-sm">Total Engagement</p>
                 <p className="text-3xl font-bold mt-1">
                   {formatNumber(totals.likes + totals.retweets + totals.replies)}
                 </p>
@@ -210,11 +236,12 @@ export default function ClientAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-teal-500 to-teal-600 text-white border-0">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10" />
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-amber-100 text-sm">Engagement Rate</p>
+                <p className="text-teal-100 text-sm">Engagement Rate</p>
                 <p className="text-3xl font-bold mt-1">{engagementRate}%</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -224,11 +251,12 @@ export default function ClientAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-violet-500 to-violet-600 text-white">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10" />
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-violet-100 text-sm">Total Posts</p>
+                <p className="text-amber-100 text-sm">Total Posts</p>
                 <p className="text-3xl font-bold mt-1">{totals.posts}</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -241,11 +269,12 @@ export default function ClientAnalyticsPage() {
 
       {/* Engagement Breakdown */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-14 h-14 bg-rose-500/10 rounded-full -mr-7 -mt-7" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-lg bg-rose-100 flex items-center justify-center">
-                <ThumbsUp className="h-5 w-5 text-rose-600" />
+              <div className="h-12 w-12 rounded-xl bg-rose-100 flex items-center justify-center">
+                <ThumbsUp className="h-6 w-6 text-rose-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{formatNumber(totals.likes)}</p>
@@ -254,11 +283,12 @@ export default function ClientAnalyticsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-14 h-14 bg-teal-500/10 rounded-full -mr-7 -mt-7" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                <Repeat2 className="h-5 w-5 text-teal-600" />
+              <div className="h-12 w-12 rounded-xl bg-teal-100 flex items-center justify-center">
+                <Repeat2 className="h-6 w-6 text-teal-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{formatNumber(totals.retweets)}</p>
@@ -267,11 +297,12 @@ export default function ClientAnalyticsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-14 h-14 bg-blue-500/10 rounded-full -mr-7 -mt-7" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <MessageCircle className="h-5 w-5 text-blue-600" />
+              <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <MessageCircle className="h-6 w-6 text-blue-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{formatNumber(totals.replies)}</p>
@@ -280,11 +311,12 @@ export default function ClientAnalyticsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-14 h-14 bg-indigo-500/10 rounded-full -mr-7 -mt-7" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                <Users className="h-5 w-5 text-indigo-600" />
+              <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center">
+                <Users className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{totals.kols}</p>

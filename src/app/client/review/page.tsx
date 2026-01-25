@@ -15,7 +15,11 @@ import {
   ThumbsUp,
   MessageCircle,
   Repeat2,
-  FileText
+  FileText,
+  FileCheck,
+  Sparkles,
+  AlertCircle,
+  Search,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 
@@ -45,6 +49,7 @@ export default function ClientReviewPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchPosts();
@@ -73,11 +78,9 @@ export default function ClientReviewPage() {
         body: JSON.stringify({ action: "approve" }),
       });
       if (response.ok) {
-        // Optimistic update for immediate feedback
         setPosts(posts.map(p =>
           p.id === postId ? { ...p, status: "APPROVED" } : p
         ));
-        // Refetch to ensure server-client sync
         fetchPosts();
       }
     } catch (error) {
@@ -96,11 +99,9 @@ export default function ClientReviewPage() {
         body: JSON.stringify({ action: "reject" }),
       });
       if (response.ok) {
-        // Optimistic update for immediate feedback
         setPosts(posts.map(p =>
           p.id === postId ? { ...p, status: "REJECTED" } : p
         ));
-        // Refetch to ensure server-client sync
         fetchPosts();
       }
     } catch (error) {
@@ -112,6 +113,20 @@ export default function ClientReviewPage() {
 
   const pendingPosts = posts.filter(p => p.status === "PENDING_APPROVAL" || p.status === "DRAFT");
   const reviewedPosts = posts.filter(p => p.status !== "PENDING_APPROVAL" && p.status !== "DRAFT");
+  const approvedCount = posts.filter(p => p.status === "APPROVED" || p.status === "POSTED").length;
+  const rejectedCount = posts.filter(p => p.status === "REJECTED").length;
+
+  const filteredPendingPosts = pendingPosts.filter(p =>
+    p.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.kol.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredReviewedPosts = reviewedPosts.filter(p =>
+    p.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.kol.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -133,60 +148,74 @@ export default function ClientReviewPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
       </div>
     );
   }
 
   const PostCard = ({ post, showActions = false }: { post: Post; showActions?: boolean }) => (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarFallback className="bg-teal-100 text-teal-700">
+            <Avatar className="h-12 w-12 border-2 border-teal-100">
+              <AvatarFallback className="bg-gradient-to-br from-teal-500 to-teal-600 text-white">
                 {post.kol.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{post.kol.name}</p>
+              <p className="font-semibold">{post.kol.name}</p>
               <p className="text-sm text-muted-foreground">@{post.kol.twitterHandle}</p>
             </div>
           </div>
           {getStatusBadge(post.status)}
         </div>
 
-        <div className="bg-slate-50 rounded-lg p-4 mb-4">
-          <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 mb-4 border border-slate-200">
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{post.content}</p>
         </div>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-          <span>Campaign: {post.campaign.name}</span>
+          <span className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            {post.campaign.name}
+          </span>
           {post.scheduledFor && (
-            <span>Scheduled: {new Date(post.scheduledFor).toLocaleDateString()}</span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              {new Date(post.scheduledFor).toLocaleDateString()}
+            </span>
           )}
         </div>
 
         {post.status === "POSTED" && (
-          <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 rounded-lg mb-4">
+          <div className="grid grid-cols-4 gap-3 p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl mb-4">
             <div className="text-center">
-              <Eye className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-              <p className="text-sm font-medium">{formatNumber(post.impressions)}</p>
+              <div className="h-8 w-8 rounded-lg bg-teal-100 flex items-center justify-center mx-auto mb-1">
+                <Eye className="h-4 w-4 text-teal-600" />
+              </div>
+              <p className="text-sm font-semibold">{formatNumber(post.impressions)}</p>
               <p className="text-xs text-muted-foreground">Views</p>
             </div>
             <div className="text-center">
-              <ThumbsUp className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-              <p className="text-sm font-medium">{formatNumber(post.likes)}</p>
+              <div className="h-8 w-8 rounded-lg bg-rose-100 flex items-center justify-center mx-auto mb-1">
+                <ThumbsUp className="h-4 w-4 text-rose-600" />
+              </div>
+              <p className="text-sm font-semibold">{formatNumber(post.likes)}</p>
               <p className="text-xs text-muted-foreground">Likes</p>
             </div>
             <div className="text-center">
-              <Repeat2 className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-              <p className="text-sm font-medium">{formatNumber(post.retweets)}</p>
+              <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center mx-auto mb-1">
+                <Repeat2 className="h-4 w-4 text-blue-600" />
+              </div>
+              <p className="text-sm font-semibold">{formatNumber(post.retweets)}</p>
               <p className="text-xs text-muted-foreground">Retweets</p>
             </div>
             <div className="text-center">
-              <MessageCircle className="h-4 w-4 mx-auto text-slate-500 mb-1" />
-              <p className="text-sm font-medium">{formatNumber(post.replies)}</p>
+              <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center mx-auto mb-1">
+                <MessageCircle className="h-4 w-4 text-indigo-600" />
+              </div>
+              <p className="text-sm font-semibold">{formatNumber(post.replies)}</p>
               <p className="text-xs text-muted-foreground">Replies</p>
             </div>
           </div>
@@ -198,7 +227,7 @@ export default function ClientReviewPage() {
               href={post.tweetUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1"
+              className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1 font-medium"
             >
               <ExternalLink className="h-4 w-4" />
               View on X
@@ -211,7 +240,7 @@ export default function ClientReviewPage() {
                 size="sm"
                 onClick={() => handleReject(post.id)}
                 disabled={actionLoading === post.id}
-                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
               >
                 <XCircle className="h-4 w-4 mr-1" />
                 Reject
@@ -234,16 +263,34 @@ export default function ClientReviewPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Review Posts</h1>
-        <p className="text-muted-foreground mt-1">
-          Review and approve content from your KOL campaigns
-        </p>
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 p-8 text-white">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/20 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-teal-200 mb-2">
+              <FileCheck className="h-5 w-5" />
+              <span className="text-sm font-medium">Content Review</span>
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Review Posts</h1>
+            <p className="text-teal-100 max-w-xl">
+              Review and approve content from your KOL campaigns before it goes live.
+            </p>
+          </div>
+          {pendingPosts.length > 0 && (
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-amber-500/90 rounded-xl">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-medium">{pendingPosts.length} posts need review</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-full -mr-8 -mt-8" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -256,31 +303,31 @@ export default function ClientReviewPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-teal-500/10 rounded-full -mr-8 -mt-8" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-teal-100 flex items-center justify-center">
                 <CheckCircle2 className="h-6 w-6 text-teal-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {posts.filter(p => p.status === "APPROVED" || p.status === "POSTED").length}
-                </p>
+                <p className="text-2xl font-bold">{approvedCount}</p>
                 <p className="text-sm text-muted-foreground">Approved</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/10 rounded-full -mr-8 -mt-8" />
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-rose-100 flex items-center justify-center">
                 <XCircle className="h-6 w-6 text-rose-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {posts.filter(p => p.status === "REJECTED").length}
-                </p>
+                <p className="text-2xl font-bold">{rejectedCount}</p>
                 <p className="text-sm text-muted-foreground">Rejected</p>
               </div>
             </div>
@@ -288,32 +335,48 @@ export default function ClientReviewPage() {
         </Card>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search posts by content, KOL, or campaign..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+        />
+      </div>
+
       <Tabs defaultValue="pending" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="pending" className="gap-2">
+        <TabsList className="bg-muted/50 p-1">
+          <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-white">
             <Clock className="h-4 w-4" />
-            Pending ({pendingPosts.length})
+            Pending ({filteredPendingPosts.length})
           </TabsTrigger>
-          <TabsTrigger value="reviewed" className="gap-2">
+          <TabsTrigger value="reviewed" className="gap-2 data-[state=active]:bg-white">
             <FileText className="h-4 w-4" />
-            All Posts ({posts.length})
+            All Posts ({filteredReviewedPosts.length + filteredPendingPosts.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
-          {pendingPosts.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <CheckCircle2 className="h-12 w-12 mx-auto text-teal-500 mb-4" />
-                <h3 className="font-semibold text-lg">All caught up!</h3>
-                <p className="text-muted-foreground mt-1">
-                  No posts pending your review.
+          {filteredPendingPosts.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 text-center">
+                <div className="h-16 w-16 rounded-full bg-teal-100 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-teal-600" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">All caught up!</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  {searchQuery
+                    ? "No posts match your search criteria."
+                    : "You have no posts pending review. New content submissions will appear here."}
                 </p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {pendingPosts.map((post) => (
+            <div className="grid gap-6 md:grid-cols-2">
+              {filteredPendingPosts.map((post) => (
                 <PostCard key={post.id} post={post} showActions />
               ))}
             </div>
@@ -321,20 +384,24 @@ export default function ClientReviewPage() {
         </TabsContent>
 
         <TabsContent value="reviewed" className="space-y-4">
-          {reviewedPosts.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                <h3 className="font-semibold text-lg">No reviewed posts yet</h3>
-                <p className="text-muted-foreground mt-1">
-                  Posts will appear here after they have been reviewed.
+          {filteredReviewedPosts.length === 0 && filteredPendingPosts.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 text-center">
+                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">No posts yet</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  {searchQuery
+                    ? "No posts match your search criteria."
+                    : "Posts will appear here once KOLs start creating content for your campaigns."}
                 </p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {reviewedPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
+            <div className="grid gap-6 md:grid-cols-2">
+              {[...filteredPendingPosts, ...filteredReviewedPosts].map((post) => (
+                <PostCard key={post.id} post={post} showActions={post.status === "PENDING_APPROVAL" || post.status === "DRAFT"} />
               ))}
             </div>
           )}

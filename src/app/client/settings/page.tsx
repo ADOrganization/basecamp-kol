@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Users, Bell, Shield, FileText } from "lucide-react";
+import { Building2, User, Users, Bell, Shield, FileText, Settings } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { PasswordForm } from "@/components/settings/password-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
@@ -39,28 +39,37 @@ export default async function ClientSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your account and organization settings
-        </p>
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 p-8 text-white">
+        <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-600/20 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="relative">
+          <div className="flex items-center gap-2 text-slate-300 mb-2">
+            <Settings className="h-5 w-5" />
+            <span className="text-sm font-medium">Account Management</span>
+          </div>
+          <h1 className="text-3xl font-bold mb-2">Settings</h1>
+          <p className="text-slate-300 max-w-xl">
+            Manage your account, organization details, team members, and notification preferences.
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="profile" className="gap-2">
+        <TabsList className="bg-muted/50 p-1">
+          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-white">
             <User className="h-4 w-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="organization" className="gap-2">
+          <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-white">
             <Building2 className="h-4 w-4" />
             Organization
           </TabsTrigger>
-          <TabsTrigger value="team" className="gap-2">
+          <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-white">
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
+          <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-white">
             <Bell className="h-4 w-4" />
             Notifications
           </TabsTrigger>
