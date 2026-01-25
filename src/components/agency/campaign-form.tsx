@@ -109,13 +109,12 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
           <DialogTitle>{campaign ? "Edit Campaign" : "Create New Campaign"}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto pr-2">
-          <form id="campaign-form" onSubmit={handleSubmit} className="space-y-6">
+        <form id="campaign-form" onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
                 {error}
@@ -158,7 +157,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
                   <SelectTrigger id="clientTelegramChatId">
                     <SelectValue placeholder="Select Telegram group" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" sideOffset={4}>
                     {telegramChats.length === 0 ? (
                       <SelectItem value="" disabled>
                         No groups available - add bot to a group first
@@ -230,18 +229,17 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
                 </div>
               </div>
             </div>
-          </form>
-        </div>
 
-        {/* Actions - Fixed at bottom */}
-        <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="campaign-form" disabled={isLoading}>
-            {isLoading ? "Saving..." : campaign ? "Save Changes" : "Create Campaign"}
-          </Button>
-        </div>
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Saving..." : campaign ? "Save Changes" : "Create Campaign"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
