@@ -75,7 +75,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
       {/* Budget Progress */}
       <div className="mt-4">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-muted-foreground">Budget Used</span>
+          <span className="text-muted-foreground">Budget Allocated</span>
           <span className="font-medium">
             {formatCurrency(campaign.spentBudget)} / {formatCurrency(campaign.totalBudget)}
           </span>

@@ -55,7 +55,35 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(campaigns);
+    // Calculate allocated budget (sum of assignedBudget from KOLs) for all campaigns
+    const campaignsWithAllocated = campaigns.map((campaign) => {
+      const allocatedBudget = campaign.campaignKols.reduce(
+        (sum, ck) => sum + (ck.assignedBudget || 0),
+        0
+      );
+
+      return {
+        ...campaign,
+        // Use allocated budget as spent budget (allocated = committed/used)
+        spentBudget: allocatedBudget,
+      };
+    });
+
+    // For clients, sanitize sensitive data
+    if (!isAgency) {
+      const sanitizedCampaigns = campaignsWithAllocated.map((campaign) => ({
+        ...campaign,
+        // Strip sensitive per-KOL budget data
+        campaignKols: campaign.campaignKols.map((ck) => ({
+          id: ck.id,
+          kol: ck.kol,
+        })),
+      }));
+
+      return NextResponse.json(sanitizedCampaigns);
+    }
+
+    return NextResponse.json(campaignsWithAllocated);
   } catch (error) {
     console.error("Error fetching campaigns:", error);
     return NextResponse.json(

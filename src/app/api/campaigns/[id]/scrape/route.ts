@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scrapeMultipleKOLs, scrapeSingleTweet, setTwitterAuth, clearTwitterAuth, setTwitterApiKey, clearTwitterApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
+import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -33,35 +33,22 @@ export async function POST(
 
     const { id: campaignId } = await params;
     const body = await request.json();
-    const { mode = "all", kolIds, tweetUrls, autoImport = false, filterKeywords, twitterCookies, twitterCsrfToken, twitterApiKey } = body;
+    const { mode = "all", kolIds, tweetUrls, autoImport = false, filterKeywords } = body;
 
-    // Load organization's saved Twitter API key if not provided in request
-    let apiKeyToUse = twitterApiKey;
-    if (!apiKeyToUse) {
-      const org = await db.organization.findUnique({
-        where: { id: session.user.organizationId },
-        select: { twitterApiKey: true },
-      });
-      apiKeyToUse = org?.twitterApiKey || null;
-      console.log(`[Scrape API] Loaded org API key: ${apiKeyToUse ? `${apiKeyToUse.slice(0, 12)}...` : 'none'}`);
-    } else {
-      console.log(`[Scrape API] Using request API key: ${apiKeyToUse.slice(0, 12)}...`);
-    }
+    // Load organization's Apify API key
+    const org = await db.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { apifyApiKey: true },
+    });
 
-    // Set Twitter API key if available (preferred method)
-    if (apiKeyToUse) {
-      console.log(`[Scrape API] Setting Twitter API key`);
-      setTwitterApiKey(apiKeyToUse);
-    } else {
-      console.log(`[Scrape API] No API key available, clearing`);
-      clearTwitterApiKey();
-    }
+    const apifyKeyToUse = org?.apifyApiKey || null;
+    console.log(`[Scrape API] Apify key: ${apifyKeyToUse ? `${apifyKeyToUse.slice(0, 8)}...` : 'none'}`);
 
-    // Set Twitter cookies as fallback
-    if (twitterCookies) {
-      setTwitterAuth(twitterCookies, undefined, twitterCsrfToken);
+    // Set Apify API key
+    if (apifyKeyToUse) {
+      setApifyApiKey(apifyKeyToUse);
     } else {
-      clearTwitterAuth();
+      clearApifyApiKey();
     }
 
     // Get campaign with KOLs
@@ -140,7 +127,7 @@ export async function POST(
       // Scrape all KOLs - use filterKeywords if provided, otherwise use campaign keywords
       const keywordsToUse = filterKeywords && filterKeywords.length > 0 ? filterKeywords : campaign.keywords;
       console.log(`[Scrape API] Scraping handles: ${handles.join(', ')}`);
-      const results = await scrapeMultipleKOLs(handles, keywordsToUse, 30);
+      const results = await scrapeMultipleKOLs(handles, keywordsToUse, 100);
 
       // Process results
       for (const ck of kolsToScrape) {
@@ -156,17 +143,16 @@ export async function POST(
           });
 
           if (result.success) {
-            // Add KOL ID to tweets and filter out existing
-            const newTweets = result.tweets
-              .filter(t => !existingTweetUrls.has(t.id))
-              .map(t => ({
-                ...t,
-                kolId: ck.kol.id,
-                kolName: ck.kol.name,
-                kolHandle: ck.kol.twitterHandle,
-              }));
+            // Add KOL ID to tweets and mark if already imported
+            const tweetsWithMeta = result.tweets.map(t => ({
+              ...t,
+              kolId: ck.kol.id,
+              kolName: ck.kol.name,
+              kolHandle: ck.kol.twitterHandle,
+              alreadyImported: existingTweetUrls.has(t.id),
+            }));
 
-            scrapedTweets.push(...newTweets);
+            scrapedTweets.push(...tweetsWithMeta);
           }
         }
       }
@@ -229,8 +215,7 @@ export async function POST(
       imported: importedCount,
       keywords: campaign.keywords,
       debug: {
-        apiKeyConfigured: !!apiKeyToUse,
-        apiKeySource: twitterApiKey ? 'request' : (apiKeyToUse ? 'organization' : 'none'),
+        apifyConfigured: !!apifyKeyToUse,
       },
     });
   } catch (error) {

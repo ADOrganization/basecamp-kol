@@ -1,8 +1,11 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TelegramConversations } from "@/components/agency/telegram-conversations";
+import { TelegramGroups } from "@/components/agency/telegram-groups";
+import { TelegramBroadcast } from "@/components/agency/telegram-broadcast";
+import { Users, MessageSquare, Send } from "lucide-react";
 
 export default async function TelegramPage() {
   const session = await auth();
@@ -40,6 +43,27 @@ export default async function TelegramPage() {
     take: 50,
   });
 
+  // Get campaigns for filters
+  const campaigns = await db.campaign.findMany({
+    where: {
+      agencyId: session.user.organizationId,
+      status: { in: ["ACTIVE", "PAUSED"] },
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
+  // Get group chat count
+  const groupChatCount = await db.telegramChat.count({
+    where: {
+      organizationId: session.user.organizationId,
+      status: "ACTIVE",
+    },
+  });
+
   const unreadCount = messages.filter((m) => !m.isRead && m.direction === "INBOUND").length;
 
   // Transform kols to serializable format
@@ -61,49 +85,48 @@ export default async function TelegramPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Telegram</h1>
         <p className="text-muted-foreground mt-1">
-          Communicate with KOLs via Telegram
+          Manage group chats and communicate with KOLs via Telegram
         </p>
       </div>
 
-      <TelegramConversations kols={serializedKols} unreadCount={unreadCount} />
+      <Tabs defaultValue="groups" className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="groups" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Groups
+            {groupChatCount > 0 && (
+              <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                {groupChatCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="conversations" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            1:1 Chats
+            {unreadCount > 0 && (
+              <span className="ml-1 text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="broadcast" className="flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            Broadcast
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Setup Instructions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Telegram Integration Setup</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-medium">
-                1
-              </div>
-              <h4 className="font-medium">Create a Bot</h4>
-              <p className="text-sm text-muted-foreground">
-                Message @BotFather on Telegram and create a new bot to get your API token
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-medium">
-                2
-              </div>
-              <h4 className="font-medium">Add Token in Settings</h4>
-              <p className="text-sm text-muted-foreground">
-                Go to Settings and add your Telegram Bot token to enable messaging
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-medium">
-                3
-              </div>
-              <h4 className="font-medium">Connect KOLs</h4>
-              <p className="text-sm text-muted-foreground">
-                Add Telegram usernames to your KOLs to start conversations
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="groups">
+          <TelegramGroups campaigns={campaigns} />
+        </TabsContent>
+
+        <TabsContent value="conversations">
+          <TelegramConversations kols={serializedKols} unreadCount={unreadCount} />
+        </TabsContent>
+
+        <TabsContent value="broadcast">
+          <TelegramBroadcast campaigns={campaigns} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

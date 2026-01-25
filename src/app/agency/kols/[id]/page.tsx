@@ -21,6 +21,7 @@ import {
   Twitter,
   Mail,
   Wallet,
+  RefreshCw,
 } from "lucide-react";
 
 interface KOLDetails {
@@ -82,6 +83,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
   const [kol, setKol] = useState<KOLDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchKol = async () => {
     try {
@@ -103,6 +105,25 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
     fetchKol();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const refreshMetrics = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await fetch(`/api/kols/${id}/metrics`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.kol) {
+          setKol((prev) => (prev ? { ...prev, ...data.kol } : prev));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to refresh metrics:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -170,10 +191,16 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={refreshMetrics} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+            {isRefreshing ? "Refreshing..." : "Refresh Metrics"}
+          </Button>
+          <Button onClick={() => setShowForm(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -184,7 +211,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-sm text-muted-foreground">Avg Engagement</p>
-          <p className="text-2xl font-bold">{(kol.avgEngagementRate * 100).toFixed(2)}%</p>
+          <p className="text-2xl font-bold">{kol.avgEngagementRate.toFixed(2)}%</p>
         </div>
         <div className="rounded-lg border bg-card p-4">
           <p className="text-sm text-muted-foreground">Campaigns</p>
@@ -195,6 +222,11 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
           <p className="text-2xl font-bold">{formatCurrency(totalEarnings)}</p>
         </div>
       </div>
+      {kol.lastMetricsUpdate && (
+        <p className="text-sm text-muted-foreground">
+          Metrics last updated: {formatDate(kol.lastMetricsUpdate)}
+        </p>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="overview">

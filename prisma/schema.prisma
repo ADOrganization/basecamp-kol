@@ -36,14 +36,22 @@ model Organization {
   updatedAt DateTime         @updatedAt
 
   // Twitter/X API credentials for scraping
-  twitterApiKey    String?  // RapidAPI key
+  twitterApiKey    String?  // twexapi.io or RapidAPI key
   twitterCookies   String?  // Browser cookies for direct API access
   twitterCsrfToken String?  // CSRF token for direct API
+  apifyApiKey      String?  // Apify API key for Twitter scraping
 
-  members          OrganizationMember[]
-  agencyCampaigns  Campaign[]           @relation("AgencyCampaigns")
-  clientCampaigns  Campaign[]           @relation("ClientCampaigns")
-  kols             KOL[]
+  // Telegram bot integration
+  telegramBotToken String?  // Bot token from @BotFather
+  telegramBotUsername String?  // Bot username (e.g., @MyBot)
+  telegramWebhookSecret String?  // Secret for verifying webhook calls
+
+  members            OrganizationMember[]
+  agencyCampaigns    Campaign[]           @relation("AgencyCampaigns")
+  clientCampaigns    Campaign[]           @relation("ClientCampaigns")
+  kols               KOL[]
+  telegramChats      TelegramChat[]
+  telegramBroadcasts TelegramBroadcast[]
 
   @@map("organizations")
 }
@@ -135,12 +143,13 @@ model KOL {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tags          KOLTag[]       @relation("KOLTags")
-  campaignKols  CampaignKOL[]
-  posts         Post[]
-  payments      Payment[]
-  messages      TelegramMessage[]
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags              KOLTag[]           @relation("KOLTags")
+  campaignKols      CampaignKOL[]
+  posts             Post[]
+  payments          Payment[]
+  messages          TelegramMessage[]
+  telegramChatLinks TelegramChatKOL[]
 
   @@unique([organizationId, twitterHandle])
   @@map("kols")
@@ -390,4 +399,95 @@ model TelegramMessage {
   kol KOL @relation(fields: [kolId], references: [id], onDelete: Cascade)
 
   @@map("telegram_messages")
+}
+
+// ============================================
+// TELEGRAM GROUP CHAT TRACKING
+// ============================================
+
+enum TelegramChatType {
+  PRIVATE
+  GROUP
+  SUPERGROUP
+  CHANNEL
+}
+
+enum TelegramChatStatus {
+  ACTIVE
+  LEFT
+  KICKED
+}
+
+model TelegramChat {
+  id                String             @id @default(cuid())
+  organizationId    String
+  telegramChatId    String             // Telegram's chat ID (can be negative for groups)
+  title             String?            // Group name
+  type              TelegramChatType   @default(GROUP)
+  username          String?            // @groupname if public
+  status            TelegramChatStatus @default(ACTIVE)
+  memberCount       Int                @default(0)
+  botJoinedAt       DateTime           @default(now())
+  botLeftAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kolLinks          TelegramChatKOL[]
+  messages          TelegramGroupMessage[]
+
+  @@unique([organizationId, telegramChatId])
+  @@map("telegram_chats")
+}
+
+model TelegramChatKOL {
+  id             String   @id @default(cuid())
+  chatId         String   // FK to TelegramChat.id
+  kolId          String
+  telegramUserId String?  // Their Telegram user ID if captured
+  matchedBy      String   @default("username") // "username" or "manual"
+  createdAt      DateTime @default(now())
+
+  chat           TelegramChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  kol            KOL          @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, kolId])
+  @@map("telegram_chat_kols")
+}
+
+model TelegramGroupMessage {
+  id                String           @id @default(cuid())
+  chatId            String           // FK to TelegramChat.id
+  telegramMessageId String?
+  content           String
+  direction         MessageDirection
+  senderTelegramId  String?
+  senderUsername    String?
+  senderName        String?
+  replyToMessageId  String?
+  timestamp         DateTime         @default(now())
+  createdAt         DateTime         @default(now())
+
+  chat              TelegramChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, timestamp])
+  @@map("telegram_group_messages")
+}
+
+model TelegramBroadcast {
+  id               String    @id @default(cuid())
+  organizationId   String
+  content          String
+  filterType       String    // "all", "met_kpi", "not_met_kpi", "campaign"
+  filterCampaignId String?
+  targetCount      Int       @default(0)
+  sentCount        Int       @default(0)
+  failedCount      Int       @default(0)
+  status           String    @default("pending") // "pending", "sending", "completed", "failed"
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_broadcasts")
 }

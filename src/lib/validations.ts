@@ -106,6 +106,31 @@ export const paymentSchema = z.object({
   notes: z.string().optional(),
 });
 
+// Telegram validations
+export const telegramSendMessageSchema = z.object({
+  chatId: z.string().min(1, "Chat ID is required"),
+  content: z.string().min(1, "Message content is required").max(4096, "Message too long"),
+});
+
+export const telegramSendToKolSchema = z.object({
+  kolId: z.string().min(1, "KOL ID is required"),
+  content: z.string().min(1, "Message content is required").max(4096, "Message too long"),
+});
+
+export const telegramBroadcastSchema = z.object({
+  content: z.string().min(1, "Message content is required").max(4096, "Message too long"),
+  filterType: z.enum(["all", "met_kpi", "not_met_kpi", "campaign"]),
+  filterCampaignId: z.string().optional(),
+});
+
+export const telegramChatFilterSchema = z.object({
+  status: z.enum(["ACTIVE", "LEFT", "KICKED", "all"]).optional(),
+  hasKol: z.boolean().optional(),
+  campaignId: z.string().optional(),
+  kpiStatus: z.enum(["met", "not_met", "any"]).optional(),
+  search: z.string().optional(),
+});
+
 // Type exports
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -116,3 +141,7 @@ export type CampaignKOLInput = z.infer<typeof campaignKolSchema>;
 export type PostInput = z.infer<typeof postSchema>;
 export type PostApprovalInput = z.infer<typeof postApprovalSchema>;
 export type PaymentInput = z.infer<typeof paymentSchema>;
+export type TelegramSendMessageInput = z.infer<typeof telegramSendMessageSchema>;
+export type TelegramSendToKolInput = z.infer<typeof telegramSendToKolSchema>;
+export type TelegramBroadcastInput = z.infer<typeof telegramBroadcastSchema>;
+export type TelegramChatFilterInput = z.infer<typeof telegramChatFilterSchema>;

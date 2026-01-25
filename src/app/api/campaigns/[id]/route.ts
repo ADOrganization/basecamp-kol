@@ -59,7 +59,48 @@ export async function GET(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
-    return NextResponse.json(campaign);
+    // Calculate total allocated budget (sum of all KOL budgets)
+    const allocatedBudget = campaign.campaignKols.reduce(
+      (sum, ck) => sum + (ck.assignedBudget || 0),
+      0
+    );
+
+    // For clients, hide sensitive data like per-KOL budget allocations
+    if (!isAgency) {
+      // Strip sensitive data from KOL assignments
+      const sanitizedCampaignKols = campaign.campaignKols.map((ck) => ({
+        id: ck.id,
+        status: ck.status,
+        // Hide individual budget allocation
+        // assignedBudget: HIDDEN
+        requiredPosts: ck.requiredPosts,
+        requiredThreads: ck.requiredThreads,
+        requiredRetweets: ck.requiredRetweets,
+        requiredSpaces: ck.requiredSpaces,
+        kol: {
+          id: ck.kol.id,
+          name: ck.kol.name,
+          twitterHandle: ck.kol.twitterHandle,
+          // Hide tier - reveals pricing strategy
+          // tier: HIDDEN
+          followersCount: ck.kol.followersCount,
+          avgEngagementRate: ck.kol.avgEngagementRate,
+        },
+      }));
+
+      return NextResponse.json({
+        ...campaign,
+        // Use allocated budget as spent budget (allocated = committed/used)
+        spentBudget: allocatedBudget,
+        campaignKols: sanitizedCampaignKols,
+      });
+    }
+
+    return NextResponse.json({
+      ...campaign,
+      // Use allocated budget as spent budget (allocated = committed/used)
+      spentBudget: allocatedBudget,
+    });
   } catch (error) {
     console.error("Error fetching campaign:", error);
     return NextResponse.json(

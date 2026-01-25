@@ -6,19 +6,22 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Search, Circle, Send } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MessageSquare, Search, Circle, Send, AlertCircle } from "lucide-react";
+
+interface Message {
+  id: string;
+  content: string;
+  direction: string;
+  isRead: boolean;
+  timestamp: Date;
+}
 
 interface KOL {
   id: string;
   name: string;
   telegramUsername: string | null;
-  messages: {
-    id: string;
-    content: string;
-    direction: string;
-    isRead: boolean;
-    timestamp: Date;
-  }[];
+  messages: Message[];
 }
 
 interface TelegramConversationsProps {
@@ -26,11 +29,13 @@ interface TelegramConversationsProps {
   unreadCount: number;
 }
 
-export function TelegramConversations({ kols, unreadCount }: TelegramConversationsProps) {
+export function TelegramConversations({ kols: initialKols, unreadCount }: TelegramConversationsProps) {
+  const [kols, setKols] = useState<KOL[]>(initialKols);
   const [selectedKol, setSelectedKol] = useState<KOL | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const filteredKols = kols.filter(kol =>
     kol.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -41,6 +46,8 @@ export function TelegramConversations({ kols, unreadCount }: TelegramConversatio
     if (!selectedKol || !newMessage.trim()) return;
 
     setIsSending(true);
+    setError(null);
+
     try {
       const response = await fetch("/api/telegram/send", {
         method: "POST",
@@ -51,12 +58,35 @@ export function TelegramConversations({ kols, unreadCount }: TelegramConversatio
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Add the new message to the UI
+        const newMsg: Message = {
+          id: data.message.id,
+          content: newMessage.trim(),
+          direction: "OUTBOUND",
+          isRead: true,
+          timestamp: new Date(),
+        };
+
+        // Update the selected KOL's messages
+        const updatedKol = {
+          ...selectedKol,
+          messages: [newMsg, ...selectedKol.messages],
+        };
+        setSelectedKol(updatedKol);
+
+        // Update the kols list
+        setKols(kols.map(k => k.id === selectedKol.id ? updatedKol : k));
+
         setNewMessage("");
-        // In a real app, we would update the messages list here
+      } else {
+        setError(data.error || "Failed to send message");
       }
-    } catch (error) {
-      console.error("Failed to send message:", error);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      setError("Failed to send message. Please try again.");
     } finally {
       setIsSending(false);
     }
@@ -160,11 +190,12 @@ export function TelegramConversations({ kols, unreadCount }: TelegramConversatio
             {/* Messages */}
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
               {selectedKol.messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="flex flex-col items-center justify-center h-full text-center px-4">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No messages yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Start the conversation by sending a message
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                    The KOL needs to message your bot first before you can send them messages.
+                    Share your bot link: <span className="font-mono text-xs">t.me/YourBotUsername</span>
                   </p>
                 </div>
               ) : (
@@ -193,12 +224,21 @@ export function TelegramConversations({ kols, unreadCount }: TelegramConversatio
             </CardContent>
 
             {/* Input */}
-            <div className="border-t p-4">
+            <div className="border-t p-4 space-y-2">
+              {error && (
+                <Alert variant="destructive" className="py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               <div className="flex gap-2">
                 <Input
                   placeholder="Type a message..."
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    setError(null);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -222,11 +262,6 @@ export function TelegramConversations({ kols, unreadCount }: TelegramConversatio
                 <h3 className="text-lg font-medium">Select a conversation</h3>
                 <p className="text-muted-foreground mt-1">
                   Choose a KOL from the list to view messages
-                </p>
-              </div>
-              <div className="pt-4">
-                <p className="text-sm text-muted-foreground">
-                  To connect Telegram, add your Telegram Bot token in Settings
                 </p>
               </div>
             </div>
