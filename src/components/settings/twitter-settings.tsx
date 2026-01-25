@@ -173,14 +173,14 @@ export function TwitterSettings() {
           <p className="text-xs text-muted-foreground">
             Get your API key from{" "}
             <a
-              href="https://rapidapi.com/search/twitter"
+              href="https://twexapi.io"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              rapidapi.com
+              twexapi.io
             </a>
-            . Subscribe to a Twitter API endpoint (e.g., twitter154).
+            {" "}(recommended) or another Twitter API provider.
           </p>
         </div>
 
