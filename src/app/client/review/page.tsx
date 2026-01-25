@@ -110,10 +110,12 @@ export default function ClientReviewPage() {
     }
   };
 
-  const pendingPosts = posts.filter(p => p.status === "PENDING_APPROVAL");
+  const pendingPosts = posts.filter(p => p.status === "PENDING_APPROVAL" || p.status === "DRAFT");
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case "DRAFT":
+        return <Badge className="bg-slate-100 text-slate-700"><FileText className="h-3 w-3 mr-1" />Draft</Badge>;
       case "PENDING_APPROVAL":
         return <Badge className="bg-amber-100 text-amber-700"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
       case "APPROVED":
@@ -201,7 +203,7 @@ export default function ClientReviewPage() {
               View on X
             </a>
           )}
-          {showActions && post.status === "PENDING_APPROVAL" && (
+          {showActions && (post.status === "PENDING_APPROVAL" || post.status === "DRAFT") && (
             <div className="flex gap-2 ml-auto">
               <Button
                 variant="outline"
@@ -331,7 +333,7 @@ export default function ClientReviewPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {posts.map((post) => (
-                <PostCard key={post.id} post={post} showActions={post.status === "PENDING_APPROVAL"} />
+                <PostCard key={post.id} post={post} showActions={post.status === "PENDING_APPROVAL" || post.status === "DRAFT"} />
               ))}
             </div>
           )}

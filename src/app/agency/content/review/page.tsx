@@ -51,7 +51,7 @@ export default async function ContentReviewPage() {
     },
   }));
 
-  const serializedPendingPosts = serializedPosts.filter((p) => p.status === "PENDING_APPROVAL");
+  const serializedPendingPosts = serializedPosts.filter((p) => p.status === "PENDING_APPROVAL" || p.status === "DRAFT");
 
   return (
     <div className="space-y-8">
@@ -106,10 +106,10 @@ export default async function ContentReviewPage() {
         </Card>
       </div>
 
-      {/* Pending Approval Section */}
+      {/* Needs Review Section (Pending Approval + Drafts) */}
       {serializedPendingPosts.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Pending Approval</h2>
+          <h2 className="text-xl font-semibold">Needs Review</h2>
           <div className="grid gap-4">
             {serializedPendingPosts.map((post) => (
               <PostReviewCard key={post.id} post={post} showActions />
@@ -134,7 +134,7 @@ export default async function ContentReviewPage() {
         ) : (
           <div className="grid gap-4">
             {serializedPosts.map((post) => (
-              <PostReviewCard key={post.id} post={post} />
+              <PostReviewCard key={post.id} post={post} showActions={post.status === "PENDING_APPROVAL" || post.status === "DRAFT"} />
             ))}
           </div>
         )}

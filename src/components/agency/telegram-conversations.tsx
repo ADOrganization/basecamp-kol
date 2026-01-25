@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MessageSquare, Search, Circle, Send, AlertCircle } from "lucide-react";
+import { MessageSquare, Search, Send, AlertCircle } from "lucide-react";
 
 interface Message {
   id: string;
@@ -30,13 +30,52 @@ interface TelegramConversationsProps {
   unreadCount: number;
 }
 
-export function TelegramConversations({ kols: initialKols, unreadCount }: TelegramConversationsProps) {
+export function TelegramConversations({ kols: initialKols, unreadCount: initialUnreadCount }: TelegramConversationsProps) {
   const [kols, setKols] = useState<KOL[]>(initialKols);
   const [selectedKol, setSelectedKol] = useState<KOL | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+
+  // Helper function to count unread messages for a KOL
+  const getUnreadCount = (kol: KOL) => {
+    return kol.messages.filter(m => !m.isRead && m.direction === "INBOUND").length;
+  };
+
+  // Mark messages as read when selecting a KOL
+  const handleSelectKol = async (kol: KOL) => {
+    setSelectedKol(kol);
+
+    const kolUnreadCount = getUnreadCount(kol);
+    if (kolUnreadCount > 0) {
+      try {
+        const response = await fetch("/api/telegram/messages/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kolId: kol.id }),
+        });
+
+        if (response.ok) {
+          // Update local state to mark all messages as read for this KOL
+          const updatedMessages = kol.messages.map(m => ({
+            ...m,
+            isRead: m.direction === "INBOUND" ? true : m.isRead,
+          }));
+
+          const updatedKol = { ...kol, messages: updatedMessages };
+          setSelectedKol(updatedKol);
+          setKols(prevKols => prevKols.map(k => k.id === kol.id ? updatedKol : k));
+
+          // Update total unread count
+          setUnreadCount(prev => Math.max(0, prev - kolUnreadCount));
+        }
+      } catch (err) {
+        console.error("Failed to mark messages as read:", err);
+      }
+    }
+  };
 
   const filteredKols = kols.filter(kol =>
     kol.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -126,12 +165,13 @@ export function TelegramConversations({ kols: initialKols, unreadCount }: Telegr
             <div className="divide-y max-h-[500px] overflow-y-auto">
               {filteredKols.map((kol) => {
                 const lastMessage = kol.messages[0];
-                const hasUnread = lastMessage && !lastMessage.isRead && lastMessage.direction === "INBOUND";
+                const kolUnreadCount = getUnreadCount(kol);
+                const hasUnread = kolUnreadCount > 0;
 
                 return (
                   <button
                     key={kol.id}
-                    onClick={() => setSelectedKol(kol)}
+                    onClick={() => handleSelectKol(kol)}
                     className={`w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left ${
                       selectedKol?.id === kol.id ? "bg-muted" : ""
                     }`}
@@ -144,7 +184,9 @@ export function TelegramConversations({ kols: initialKols, unreadCount }: Telegr
                         </AvatarFallback>
                       </Avatar>
                       {hasUnread && (
-                        <Circle className="absolute -top-0.5 -right-0.5 h-3 w-3 fill-indigo-500 text-indigo-500" />
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-medium text-white">
+                          {kolUnreadCount > 9 ? "9+" : kolUnreadCount}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
