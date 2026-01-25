@@ -274,7 +274,7 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
             <CollapsibleContent className="space-y-4 pt-4">
               <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Enter metrics from Twitter Analytics or the tweet detail view.
+                  Enter metrics from X Analytics or the post detail view.
                 </p>
 
                 <div className="space-y-2">

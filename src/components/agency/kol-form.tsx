@@ -231,7 +231,7 @@ export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="twitterHandle">Twitter Handle *</Label>
+                <Label htmlFor="twitterHandle">X Handle *</Label>
                 <Input
                   id="twitterHandle"
                   value={formData.twitterHandle}

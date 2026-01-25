@@ -58,7 +58,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
 
     // Validate required fields
     if (!formData.projectTwitterHandle.trim()) {
-      setError("Project Twitter handle is required");
+      setError("Project X handle is required");
       return;
     }
 
@@ -134,7 +134,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="projectTwitterHandle">Project Twitter Handle *</Label>
+                <Label htmlFor="projectTwitterHandle">Project X Handle *</Label>
                 <Input
                   id="projectTwitterHandle"
                   value={formData.projectTwitterHandle}
@@ -143,7 +143,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  The Twitter/X handle for the project being promoted
+                  The X handle for the project being promoted
                 </p>
               </div>
 

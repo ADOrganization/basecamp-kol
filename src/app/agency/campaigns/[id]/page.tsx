@@ -75,6 +75,7 @@ interface CampaignDetails {
       id: string;
       name: string;
       twitterHandle: string;
+      avatarUrl: string | null;
       tier: string;
       followersCount: number;
       avgEngagementRate: number;
@@ -453,9 +454,17 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                             href={`/agency/kols/${ck.kol.id}`}
                             className="flex items-center gap-3 hover:text-primary"
                           >
-                            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-medium">
-                              {ck.kol.name.charAt(0)}
-                            </div>
+                            {ck.kol.avatarUrl ? (
+                              <img
+                                src={ck.kol.avatarUrl}
+                                alt={ck.kol.name}
+                                className="h-8 w-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-medium">
+                                {ck.kol.name.charAt(0)}
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium">{ck.kol.name}</p>
                               <p className="text-sm text-muted-foreground">@{ck.kol.twitterHandle}</p>

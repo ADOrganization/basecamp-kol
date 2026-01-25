@@ -531,8 +531,8 @@ async function handleHelpCommand(
   const helpMessage = `📚 *Available Commands*
 
 *Content Submission:*
-• \`/submit <tweet_url>\` - Submit a posted tweet
-• \`/submit <campaign> <tweet_url>\` - Submit to a specific campaign (if you have multiple)
+• \`/submit <post_url>\` - Submit a posted X post
+• \`/submit <campaign> <post_url>\` - Submit to a specific campaign (if you have multiple)
 
 *Content Review:*
 • \`/review <draft_content>\` - Submit content for agency review before posting
@@ -546,7 +546,7 @@ async function handleHelpCommand(
 \`/submit Zeus https://x.com/user/status/123456789\`
 \`/review Check out @ProjectHandle - amazing DeFi protocol! #crypto\`
 
-Need assistance? Contact your agency.`;
+Need assistance? Contact @altcoinclimber or @viperrcrypto`;
 
   await client.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
 }
@@ -588,10 +588,10 @@ async function handleSubmitCommand(
 
   if (!tweetUrl) {
     await sendResponse(
-      "Please provide a valid Twitter/X URL.\n\n" +
+      "Please provide a valid X post URL.\n\n" +
       "Usage:\n" +
-      "/submit <tweet_url> - Submit to your only active campaign\n" +
-      "/submit <campaign_name> <tweet_url> - Submit to a specific campaign\n\n" +
+      "/submit <post_url> - Submit to your only active campaign\n" +
+      "/submit <campaign_name> <post_url> - Submit to a specific campaign\n\n" +
       "Example:\n/submit https://x.com/handle/status/123456789"
     );
     return;
@@ -601,7 +601,7 @@ async function handleSubmitCommand(
   const tweetIdMatch = tweetUrl.match(/status\/(\d+)/);
   if (!tweetIdMatch) {
     await sendResponse(
-      "Could not parse tweet ID from URL. Please provide a valid Twitter/X URL."
+      "Could not parse post ID from URL. Please provide a valid X post URL."
     );
     return;
   }
@@ -683,7 +683,7 @@ async function handleSubmitCommand(
       await sendResponse(
         `No campaign found matching "${campaignNameFilter}".\n\n` +
         `Your active campaigns:\n${campaignList}\n\n` +
-        `Usage: /submit <campaign_name> <tweet_url>`
+        `Usage: /submit <campaign_name> <post_url>`
       );
       return;
     }
@@ -692,7 +692,7 @@ async function handleSubmitCommand(
     await sendResponse(
       `You're assigned to multiple active campaigns. Please specify which one:\n\n` +
       `${campaignList}\n\n` +
-      `Usage: /submit <campaign_name> <tweet_url>\n\n` +
+      `Usage: /submit <campaign_name> <post_url>\n\n` +
       `Example:\n/submit ${allCampaignKols[0].campaign.name} ${tweetUrl}`
     );
     return;
@@ -707,7 +707,7 @@ async function handleSubmitCommand(
 
   if (existing) {
     await sendResponse(
-      "This tweet was already submitted."
+      "This post was already submitted."
     );
     return;
   }
@@ -723,7 +723,7 @@ async function handleSubmitCommand(
 
   if (!tweet) {
     await sendResponse(
-      "Couldn't fetch tweet details. Please check the URL and try again."
+      "Couldn't fetch post details. Please check the URL and try again."
     );
     return;
   }
@@ -761,7 +761,7 @@ async function handleSubmitCommand(
         `🚀 *New Post Submitted!*\n\n` +
         `*Campaign:* ${campaignKol.campaign.name}\n` +
         `*KOL:* @${kol.twitterHandle}\n` +
-        `*Tweet:* ${tweet.url}\n\n` +
+        `*Post:* ${tweet.url}\n\n` +
         `*Metrics:*\n` +
         `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
         `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
@@ -782,9 +782,9 @@ async function handleSubmitCommand(
 
   // Reply success to KOL
   await sendResponse(
-    `Tweet submitted successfully!\n\n` +
+    `Post submitted successfully!\n\n` +
     `Campaign: ${campaignKol.campaign.name}\n` +
-    `Tweet: ${tweet.url}\n\n` +
+    `Post: ${tweet.url}\n\n` +
     `Current metrics:\n` +
     `- Views: ${tweet.metrics.views.toLocaleString()}\n` +
     `- Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
@@ -831,10 +831,10 @@ async function handleSubmitCommandFromGroup(
 
   if (!tweetUrl) {
     await sendResponse(
-      "Please provide a valid Twitter/X URL.\n\n" +
+      "Please provide a valid X post URL.\n\n" +
       "Usage:\n" +
-      "/submit <tweet_url> - Submit to your only active campaign\n" +
-      "/submit <campaign_name> <tweet_url> - Submit to a specific campaign\n\n" +
+      "/submit <post_url> - Submit to your only active campaign\n" +
+      "/submit <campaign_name> <post_url> - Submit to a specific campaign\n\n" +
       "Example:\n/submit https://x.com/handle/status/123456789\n" +
       "/submit Zeus https://x.com/handle/status/123456789"
     );
@@ -845,7 +845,7 @@ async function handleSubmitCommandFromGroup(
   const tweetIdMatch = tweetUrl.match(/status\/(\d+)/);
   if (!tweetIdMatch) {
     await sendResponse(
-      "Could not parse tweet ID from URL. Please provide a valid Twitter/X URL."
+      "Could not parse post ID from URL. Please provide a valid X post URL."
     );
     return;
   }
@@ -953,7 +953,7 @@ async function handleSubmitCommandFromGroup(
       await sendResponse(
         `No campaign found matching "${campaignNameFilter}".\n\n` +
         `Your active campaigns:\n${campaignList}\n\n` +
-        `Usage: /submit <campaign_name> <tweet_url>`
+        `Usage: /submit <campaign_name> <post_url>`
       );
       return;
     }
@@ -963,7 +963,7 @@ async function handleSubmitCommandFromGroup(
     await sendResponse(
       `You're assigned to multiple active campaigns. Please specify which one:\n\n` +
       `${campaignList}\n\n` +
-      `Usage: /submit <campaign_name> <tweet_url>\n\n` +
+      `Usage: /submit <campaign_name> <post_url>\n\n` +
       `Example:\n/submit ${allCampaignKols[0].campaign.name} ${tweetUrl}`
     );
     return;
@@ -980,7 +980,7 @@ async function handleSubmitCommandFromGroup(
 
   if (existing) {
     await sendResponse(
-      "This tweet was already submitted."
+      "This post was already submitted."
     );
     return;
   }
@@ -996,7 +996,7 @@ async function handleSubmitCommandFromGroup(
 
   if (!tweet) {
     await sendResponse(
-      "Couldn't fetch tweet details. Please check the URL and try again."
+      "Couldn't fetch post details. Please check the URL and try again."
     );
     return;
   }
@@ -1044,7 +1044,7 @@ async function handleSubmitCommandFromGroup(
         `🚀 *New Post Submitted!*\n\n` +
         `*Campaign:* ${campaignKol.campaign.name}\n` +
         `*KOL:* @${kol.twitterHandle}\n` +
-        `*Tweet:* ${tweet.url}\n\n` +
+        `*Post:* ${tweet.url}\n\n` +
         `*Current Metrics:*\n` +
         `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
         `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
@@ -1070,9 +1070,9 @@ async function handleSubmitCommandFromGroup(
   }
 
   // 2. Reply success to the KOL in the group chat
-  let responseMessage = `✅ Tweet submitted successfully!\n\n` +
+  let responseMessage = `✅ Post submitted successfully!\n\n` +
     `Campaign: ${campaignKol.campaign.name} (ID: ${campaignKol.campaign.id.slice(-6)})\n` +
-    `Tweet: ${tweet.url}\n\n` +
+    `Post: ${tweet.url}\n\n` +
     `Current metrics:\n` +
     `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
     `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +

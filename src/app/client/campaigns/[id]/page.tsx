@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import {
   formatNumber,
@@ -73,6 +73,7 @@ interface CampaignDetails {
       id: string;
       name: string;
       twitterHandle: string;
+      avatarUrl: string | null;
       followersCount: number;
       avgEngagementRate: number;
     };
@@ -568,6 +569,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-4">
                           <Avatar className="h-14 w-14">
+                            {ck.kol.avatarUrl && <AvatarImage src={ck.kol.avatarUrl} alt={ck.kol.name} />}
                             <AvatarFallback className="bg-teal-100 text-teal-700 text-lg">
                               {ck.kol.name?.charAt(0) || "K"}
                             </AvatarFallback>

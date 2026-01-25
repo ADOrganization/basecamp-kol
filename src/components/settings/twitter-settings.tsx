@@ -107,9 +107,9 @@ export function TwitterSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Twitter/X API</CardTitle>
+        <CardTitle>X API</CardTitle>
         <CardDescription>
-          Configure your Twitter API key (twexapi.io or other provider) for reliable tweet scraping
+          Configure your X API key (twexapi.io or other provider) for reliable post scraping
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -136,7 +136,7 @@ export function TwitterSettings() {
         {/* Input */}
         <div className="space-y-2">
           <Label htmlFor="apiKey">
-            {hasExistingKey ? "Update API Key" : "Twitter API Key"}
+            {hasExistingKey ? "Update API Key" : "X API Key"}
           </Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -180,7 +180,7 @@ export function TwitterSettings() {
             >
               twexapi.io
             </a>
-            {" "}(recommended) or another Twitter API provider.
+            {" "}(recommended) or another X API provider.
           </p>
         </div>
 

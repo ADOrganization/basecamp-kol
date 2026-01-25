@@ -281,7 +281,7 @@ export function TweetScraper({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
-            X/Twitter Scraper
+            X Post Scraper
           </DialogTitle>
           <DialogDescription>
             Scrape posts from KOLs without API limits. Uses Nitter and other free methods.
@@ -328,7 +328,7 @@ export function TweetScraper({
                 <Search className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="font-semibold text-lg mb-2">No KOLs Assigned</h3>
                 <p className="text-muted-foreground max-w-md">
-                  Add KOLs to this campaign first before you can scrape their tweets.
+                  Add KOLs to this campaign first before you can scrape their posts.
                   Go to the KOLs tab and click &quot;Add KOL&quot; to assign influencers to this campaign.
                 </p>
               </div>
@@ -408,7 +408,7 @@ export function TweetScraper({
                   {filterByKeywords && (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Only scrape tweets containing these keywords:
+                        Only scrape posts containing these keywords:
                       </p>
 
                       {/* Add keyword input */}
@@ -445,7 +445,7 @@ export function TweetScraper({
                       <div className="flex flex-wrap gap-2">
                         {activeKeywords.length === 0 ? (
                           <p className="text-sm text-muted-foreground italic">
-                            No keywords set. Add keywords above or disable filter to scrape all tweets.
+                            No keywords set. Add keywords above or disable filter to scrape all posts.
                           </p>
                         ) : (
                           activeKeywords.map((kw) => (
@@ -467,7 +467,7 @@ export function TweetScraper({
 
                   {!filterByKeywords && (
                     <p className="text-sm text-amber-600 dark:text-amber-400">
-                      Filter disabled - will scrape ALL tweets from selected KOLs
+                      Filter disabled - will scrape ALL posts from selected KOLs
                     </p>
                   )}
                 </div>
@@ -476,7 +476,7 @@ export function TweetScraper({
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</span>
-                    Scrape Tweets
+                    Scrape Posts
                   </Label>
                   <Button
                     onClick={handleScrape}
@@ -487,7 +487,7 @@ export function TweetScraper({
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Scraping tweets from {selectedKols.length} KOL{selectedKols.length !== 1 ? "s" : ""}...
+                        Scraping posts from {selectedKols.length} KOL{selectedKols.length !== 1 ? "s" : ""}...
                       </>
                     ) : (
                       <>
@@ -522,7 +522,7 @@ export function TweetScraper({
                           {result.success ? (
                             <>
                               <CheckCircle className="h-4 w-4 text-green-600" />
-                              {result.count} tweets
+                              {result.count} posts
                             </>
                           ) : (
                             <>
@@ -547,10 +547,10 @@ export function TweetScraper({
                 <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">4</span>
-                    <span className="font-semibold">Select & Import Tweets</span>
+                    <span className="font-semibold">Select & Import Posts</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Found <strong>{displayedTweets.length}</strong> tweets. Select the ones you want to track, then click <strong>Import</strong> to add them to your campaign&apos;s Posts.
+                    Found <strong>{displayedTweets.length}</strong> posts. Select the ones you want to track, then click <strong>Import</strong> to add them to your campaign&apos;s Posts.
                   </p>
                 </div>
 
@@ -692,16 +692,16 @@ export function TweetScraper({
           <TabsContent value="manual" className="flex-1 overflow-hidden flex flex-col mt-4">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Tweet URLs</Label>
+                <Label>Post URLs</Label>
                 <Textarea
                   value={manualUrls}
                   onChange={(e) => setManualUrls(e.target.value)}
-                  placeholder="Paste tweet URLs, one per line...&#10;https://twitter.com/user/status/123456&#10;https://x.com/user/status/789012"
+                  placeholder="Paste post URLs, one per line...&#10;https://twitter.com/user/status/123456&#10;https://x.com/user/status/789012"
                   rows={6}
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter Twitter/X URLs to fetch tweet data and metrics
+                  Enter X post URLs to fetch post data and metrics
                 </p>
               </div>
 
@@ -718,7 +718,7 @@ export function TweetScraper({
                 ) : (
                   <>
                     <Download className="h-4 w-4 mr-2" />
-                    Fetch Tweet Data
+                    Fetch Post Data
                   </>
                 )}
               </Button>
@@ -726,7 +726,7 @@ export function TweetScraper({
               {/* Manual Results */}
               {manualResults.length > 0 && (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  <p className="font-medium text-sm">Fetched Tweets</p>
+                  <p className="font-medium text-sm">Fetched Posts</p>
                   {manualResults.map((tweet) => (
                     <div key={tweet.id} className="p-3 rounded-lg border">
                       <div className="flex items-center gap-2 mb-1">

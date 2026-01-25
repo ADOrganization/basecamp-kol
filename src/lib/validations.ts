@@ -17,7 +17,7 @@ export const registerSchema = z.object({
 // KOL validations
 export const kolSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  twitterHandle: z.string().min(1, "Twitter handle is required").regex(/^@?[\w]+$/, "Invalid Twitter handle"),
+  twitterHandle: z.string().min(1, "X handle is required").regex(/^@?[\w]+$/, "Invalid X handle"),
   telegramUsername: z.string().optional(),
   telegramGroupId: z.string().min(1, "Telegram group is required"),
   email: z.string().email().optional().or(z.literal("")),
@@ -43,7 +43,7 @@ export const campaignSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters"),
   description: z.string().optional(),
   clientId: z.string().optional(),
-  projectTwitterHandle: z.string().min(1, "Project Twitter handle is required"),
+  projectTwitterHandle: z.string().min(1, "Project X handle is required"),
   clientTelegramChatId: z.string().min(1, "Client Telegram group is required"),
   keywords: z.array(z.string()).optional(),
   totalBudget: z.number().min(0, "Budget must be positive").default(0),

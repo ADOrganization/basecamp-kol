@@ -38,6 +38,7 @@ export async function GET(
                 id: true,
                 name: true,
                 twitterHandle: true,
+                avatarUrl: true,
                 tier: true,
                 followersCount: true,
                 avgEngagementRate: true,
@@ -86,6 +87,7 @@ export async function GET(
           id: ck.kol.id,
           name: ck.kol.name,
           twitterHandle: ck.kol.twitterHandle,
+          avatarUrl: ck.kol.avatarUrl,
           // Hide tier - reveals pricing strategy
           // tier: HIDDEN
           followersCount: ck.kol.followersCount,

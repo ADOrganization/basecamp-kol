@@ -177,7 +177,7 @@ export function PostDetailModal({ post, open, onClose }: PostDetailModalProps) {
             </span>
           </div>
 
-          {/* View on Twitter Button */}
+          {/* View on X Button */}
           {post.tweetUrl && (
             <Button
               variant="outline"
@@ -185,7 +185,7 @@ export function PostDetailModal({ post, open, onClose }: PostDetailModalProps) {
               onClick={() => window.open(post.tweetUrl!, "_blank")}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
-              View on Twitter
+              View on X
             </Button>
           )}
         </div>

@@ -448,7 +448,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                       <div>
                         <p className="font-medium">{kol.name}</p>
                         <a
-                          href={`https://twitter.com/${kol.twitterHandle}`}
+                          href={`https://x.com/${kol.twitterHandle}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"

@@ -196,7 +196,7 @@ export function TweetMonitor({
       setLastCheck(new Date());
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to check tweets");
+      setError(err instanceof Error ? err.message : "Failed to check posts");
     } finally {
       setIsLoading(false);
     }
@@ -280,7 +280,7 @@ export function TweetMonitor({
               Keyword Monitor
             </CardTitle>
             <CardDescription>
-              Auto-detect when KOLs tweet about your keywords
+              Auto-detect when KOLs post about your keywords
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -482,7 +482,7 @@ export function TweetMonitor({
         {monitoredTweets.length === 0 && keywords.length > 0 && !isLoading && (
           <div className="text-center py-6 text-muted-foreground">
             <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No matching tweets yet</p>
+            <p>No matching posts yet</p>
             <p className="text-xs">Start monitoring or run a manual check</p>
           </div>
         )}
