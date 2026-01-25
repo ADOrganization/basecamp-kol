@@ -640,7 +640,6 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       <CampaignForm
         campaign={{
           ...campaign,
-          clientId: campaign.client?.id || null,
           clientTelegramChatId: campaign.clientTelegramChatId || null,
           keywords: Array.isArray(campaign.keywords) ? campaign.keywords : [],
         }}
