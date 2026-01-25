@@ -306,8 +306,19 @@ async function scrapeFromTwitterAPI(options: ScrapeOptions): Promise<ScrapeResul
         }
 
         const data = await response.json();
+        console.log(`[Scraper] ${endpoint.name} response code:`, (data as Record<string, unknown>)?.code, 'msg:', (data as Record<string, unknown>)?.msg);
 
-        // Check for API error responses
+        // Check for API error responses - twexapi uses code field
+        const responseCode = (data as Record<string, unknown>)?.code;
+        const responseMsg = (data as Record<string, unknown>)?.msg;
+
+        if (responseCode && responseCode !== 200) {
+          const errorMsg = `API returned code ${responseCode}: ${responseMsg || 'Unknown error'}`;
+          errors.push(`${endpoint.name}: ${errorMsg}`);
+          console.log(`[Scraper] ${endpoint.name} API error:`, errorMsg);
+          break; // Move to next endpoint
+        }
+
         if (data.error || data.errors || (data.message && typeof data.message === 'string' && data.message.toLowerCase().includes('error'))) {
           const errorMsg = data.error || data.errors?.[0]?.message || data.message || 'API returned error';
           errors.push(`${endpoint.name}: ${errorMsg}`);
@@ -318,8 +329,15 @@ async function scrapeFromTwitterAPI(options: ScrapeOptions): Promise<ScrapeResul
         const tweets = parseAPIResponse(data, cleanHandle, endpoint.parser);
 
         if (tweets.length === 0) {
-          errors.push(`${endpoint.name}: No tweets parsed from response`);
-          console.log(`[Scraper] ${endpoint.name}: No tweets parsed. Response:`, JSON.stringify(data).slice(0, 500));
+          // Check if the data array exists but is empty (valid user with no tweets)
+          const dataArray = (data as Record<string, unknown>)?.data;
+          if (Array.isArray(dataArray) && dataArray.length === 0) {
+            errors.push(`${endpoint.name}: User has no tweets`);
+            console.log(`[Scraper] ${endpoint.name}: User @${cleanHandle} has no tweets`);
+          } else {
+            errors.push(`${endpoint.name}: No tweets parsed from response`);
+            console.log(`[Scraper] ${endpoint.name}: No tweets parsed. Response:`, JSON.stringify(data).slice(0, 500));
+          }
           break; // Move to next endpoint
         }
 
