@@ -82,13 +82,12 @@ export function getInitials(name: string): string {
 
 export function getTierColor(tier: string): string {
   const colors: Record<string, string> = {
-    NANO: "bg-slate-100 text-slate-700",
-    MICRO: "bg-blue-100 text-blue-700",
-    MID: "bg-purple-100 text-purple-700",
-    MACRO: "bg-amber-100 text-amber-700",
-    MEGA: "bg-rose-100 text-rose-700",
+    SMALL: "bg-teal-100 text-teal-700",
+    MID: "bg-blue-100 text-blue-700",
+    RISING: "bg-purple-100 text-purple-700",
+    LARGE: "bg-amber-100 text-amber-700",
   };
-  return colors[tier] || colors.MICRO;
+  return colors[tier] || colors.SMALL;
 }
 
 export function getStatusColor(status: string): string {

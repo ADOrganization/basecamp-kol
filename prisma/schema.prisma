@@ -92,11 +92,10 @@ model OrganizationMember {
 // ============================================
 
 enum KOLTier {
-  NANO       // < 10k followers
-  MICRO      // 10k - 100k
-  MID        // 100k - 500k
-  MACRO      // 500k - 1M
-  MEGA       // 1M+
+  SMALL      // 1 - 10k followers
+  MID        // 10,001 - 20k followers
+  RISING     // 20,001 - 74,999 followers
+  LARGE      // 75k+ followers
 }
 
 enum KOLStatus {
@@ -115,7 +114,7 @@ model KOL {
   avatarUrl         String?
   telegramUsername  String?
   email             String?
-  tier              KOLTier   @default(MICRO)
+  tier              KOLTier   @default(SMALL)
   status            KOLStatus @default(ACTIVE)
 
   // Rates (stored as cents/smallest unit)

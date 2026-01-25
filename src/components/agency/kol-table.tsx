@@ -138,11 +138,10 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="NANO">Nano</SelectItem>
-            <SelectItem value="MICRO">Micro</SelectItem>
+            <SelectItem value="SMALL">Small</SelectItem>
             <SelectItem value="MID">Mid</SelectItem>
-            <SelectItem value="MACRO">Macro</SelectItem>
-            <SelectItem value="MEGA">Mega</SelectItem>
+            <SelectItem value="RISING">Rising</SelectItem>
+            <SelectItem value="LARGE">Large</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>

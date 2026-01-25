@@ -74,7 +74,7 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
     twitterHandle: kol?.twitterHandle || "",
     telegramUsername: kol?.telegramUsername || "",
     email: kol?.email || "",
-    tier: kol?.tier || "MICRO",
+    tier: kol?.tier || "SMALL",
     status: kol?.status || "ACTIVE",
     ratePerPost: kol?.ratePerPost ? kol.ratePerPost / 100 : "",
     ratePerThread: kol?.ratePerThread ? kol.ratePerThread / 100 : "",
@@ -252,11 +252,10 @@ export function KOLForm({ kol, open, onClose }: KOLFormProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="NANO">Nano (&lt;10K)</SelectItem>
-                    <SelectItem value="MICRO">Micro (10K-100K)</SelectItem>
-                    <SelectItem value="MID">Mid (100K-500K)</SelectItem>
-                    <SelectItem value="MACRO">Macro (500K-1M)</SelectItem>
-                    <SelectItem value="MEGA">Mega (1M+)</SelectItem>
+                    <SelectItem value="SMALL">Small (1-10K)</SelectItem>
+                    <SelectItem value="MID">Mid (10K-20K)</SelectItem>
+                    <SelectItem value="RISING">Rising (20K-75K)</SelectItem>
+                    <SelectItem value="LARGE">Large (75K+)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

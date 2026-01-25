@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
             { twitterHandle: { contains: search, mode: "insensitive" } },
           ],
         }),
-        ...(tier && { tier: tier as "NANO" | "MICRO" | "MID" | "MACRO" | "MEGA" }),
+        ...(tier && { tier: tier as "SMALL" | "MID" | "RISING" | "LARGE" }),
         ...(status && { status: status as "ACTIVE" | "INACTIVE" | "BLACKLISTED" | "PENDING" }),
       },
       include: {
