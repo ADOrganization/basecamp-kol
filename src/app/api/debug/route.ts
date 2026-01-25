@@ -15,9 +15,15 @@ export async function GET() {
   try {
     // Test auth
     const session = await auth();
-    debugInfo.session = session ? { userId: session.user?.id, email: session.user?.email } : null;
+    debugInfo.session = session ? {
+      userId: session.user?.id,
+      email: session.user?.email,
+      name: session.user?.name,
+      organizationId: session.user?.organizationId,
+      organizationType: session.user?.organizationType,
+    } : null;
   } catch (e) {
-    debugInfo.authError = e instanceof Error ? e.message : String(e);
+    debugInfo.authError = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
   }
 
   try {
@@ -26,7 +32,7 @@ export async function GET() {
     debugInfo.dbConnected = true;
     debugInfo.orgCount = orgCount;
   } catch (e) {
-    debugInfo.dbError = e instanceof Error ? e.message : String(e);
+    debugInfo.dbError = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
   }
 
   try {
@@ -36,7 +42,22 @@ export async function GET() {
     });
     debugInfo.postCountWithHiddenFilter = postCount;
   } catch (e) {
-    debugInfo.postQueryError = e instanceof Error ? e.message : String(e);
+    debugInfo.postQueryError = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+  }
+
+  // Test dashboard data fetch simulation
+  try {
+    const testOrg = await db.organization.findFirst({ where: { type: "AGENCY" } });
+    if (testOrg) {
+      const kols = await db.kOL.count({ where: { organizationId: testOrg.id } });
+      const campaigns = await db.campaign.count({ where: { agencyId: testOrg.id } });
+      const posts = await db.post.count({
+        where: { campaign: { agencyId: testOrg.id } },
+      });
+      debugInfo.dashboardTest = { orgId: testOrg.id, kols, campaigns, posts };
+    }
+  } catch (e) {
+    debugInfo.dashboardTestError = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
   }
 
   return NextResponse.json(debugInfo);
