@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { fetchTwitterMedia } from "@/lib/scraper/x-scraper";
+import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey } from "@/lib/scraper/x-scraper";
 
 // POST - Refresh avatars and banners for all campaigns with Twitter handles
 export async function POST() {
@@ -13,6 +13,20 @@ export async function POST() {
 
     if (session.user.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Load organization's Apify API key for media fetching
+    const org = await db.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { apifyApiKey: true },
+    });
+
+    if (org?.apifyApiKey) {
+      setApifyApiKey(org.apifyApiKey);
+      console.log(`[Refresh Avatars] Apify key configured`);
+    } else {
+      clearApifyApiKey();
+      console.log(`[Refresh Avatars] No Apify key, using fallback methods`);
     }
 
     // Get campaigns with Twitter handles but missing avatars or banners

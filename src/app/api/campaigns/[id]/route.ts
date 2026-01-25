@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
-import { fetchTwitterMedia } from "@/lib/scraper/x-scraper";
+import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey } from "@/lib/scraper/x-scraper";
 
 export async function GET(
   request: NextRequest,
@@ -145,6 +145,18 @@ export async function PUT(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
+    // Load organization's Apify API key for media fetching
+    const org = await db.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { apifyApiKey: true },
+    });
+
+    if (org?.apifyApiKey) {
+      setApifyApiKey(org.apifyApiKey);
+    } else {
+      clearApifyApiKey();
+    }
+
     // Fetch project avatar and banner if Twitter handle changed or media is missing
     let projectAvatarUrl = existingCampaign.projectAvatarUrl;
     let projectBannerUrl = existingCampaign.projectBannerUrl;
@@ -153,9 +165,11 @@ export async function PUT(
 
     if (newHandle && (newHandle !== oldHandle || !projectAvatarUrl || !projectBannerUrl)) {
       try {
+        console.log(`[Campaign Update] Fetching media for @${newHandle}, Apify key: ${org?.apifyApiKey ? 'configured' : 'not configured'}`);
         const media = await fetchTwitterMedia(newHandle);
         projectAvatarUrl = media.avatarUrl;
         projectBannerUrl = media.bannerUrl;
+        console.log(`[Campaign Update] Media result: avatar=${!!projectAvatarUrl}, banner=${!!projectBannerUrl}`);
       } catch (error) {
         console.log("Failed to fetch project Twitter media:", error);
       }

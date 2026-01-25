@@ -732,35 +732,45 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
     });
 
     if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const profile = data[0];
-        // Check if profile has banner URL
-        if (profile.profile_banner_url) {
-          console.log(`[Banner] Found via syndication API for @${cleanHandle}`);
-          return profile.profile_banner_url + '/1500x500';
-        }
-        // Try constructing from user ID
-        if (profile.id_str || profile.id) {
-          const userId = profile.id_str || profile.id;
-          const bannerUrl = `https://pbs.twimg.com/profile_banners/${userId}/1500x500`;
-          // Verify the banner exists
-          const bannerCheck = await fetch(bannerUrl, {
-            method: 'HEAD',
-            signal: AbortSignal.timeout(5000),
-          });
-          if (bannerCheck.ok) {
-            console.log(`[Banner] Constructed from user ID for @${cleanHandle}`);
-            return bannerUrl;
+      const text = await response.text();
+      // Handle empty response gracefully
+      if (text && text.trim()) {
+        try {
+          const data = JSON.parse(text);
+          if (Array.isArray(data) && data.length > 0) {
+            const profile = data[0];
+            // Check if profile has banner URL
+            if (profile.profile_banner_url) {
+              console.log(`[Banner] Found via syndication API for @${cleanHandle}`);
+              return profile.profile_banner_url + '/1500x500';
+            }
+            // Try constructing from user ID
+            if (profile.id_str || profile.id) {
+              const userId = profile.id_str || profile.id;
+              const bannerUrl = `https://pbs.twimg.com/profile_banners/${userId}/1500x500`;
+              // Verify the banner exists
+              const bannerCheck = await fetch(bannerUrl, {
+                method: 'HEAD',
+                signal: AbortSignal.timeout(5000),
+              });
+              if (bannerCheck.ok) {
+                console.log(`[Banner] Constructed from user ID for @${cleanHandle}`);
+                return bannerUrl;
+              }
+            }
           }
+        } catch {
+          console.log(`[Banner] Syndication API returned invalid JSON for @${cleanHandle}`);
         }
+      } else {
+        console.log(`[Banner] Syndication API returned empty response for @${cleanHandle}`);
       }
     }
   } catch (error) {
     console.log(`[Banner] Syndication API error for @${cleanHandle}:`, error);
   }
 
-  console.log(`[Banner] Could not fetch banner for @${cleanHandle}`);
+  console.log(`[Banner] Could not fetch banner for @${cleanHandle} (requires Apify API key)`);
   return null;
 }
 
