@@ -158,30 +158,31 @@ interface APIEndpoint {
 }
 
 const API_ENDPOINTS: APIEndpoint[] = [
-  // TwitterXAPI (twexapi.io) - correct base URL is api.twitterxapi.com
+  // TwitterXAPI (twexapi.io) - base URL: api.twexapi.io
+  // User tweets endpoint: GET /twitter/{screen_name}/tweets-replies/{count}
   {
-    name: 'twitterxapi-search',
-    method: 'POST',
-    getUrl: () => `https://api.twitterxapi.com/twitter/search/advanced`,
+    name: 'twexapi-tweets',
+    method: 'GET',
+    getUrl: (handle: string, count: number) => `https://api.twexapi.io/twitter/${handle}/tweets-replies/${count}`,
     getHeaders: (apiKey: string) => ({
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    }),
-    getBody: (handle: string) => JSON.stringify({
-      query: `from:${handle}`,
-      queryType: 'Latest',
     }),
     parser: 'twexapi',
   },
-  // TwitterXAPI - user tweets endpoint
+  // TwitterXAPI - advanced search endpoint: POST /twitter/advanced_search
   {
-    name: 'twitterxapi-tweets',
-    method: 'GET',
-    getUrl: (handle: string) => `https://api.twitterxapi.com/twitter/user/tweets?userName=${handle}`,
+    name: 'twexapi-search',
+    method: 'POST',
+    getUrl: () => `https://api.twexapi.io/twitter/advanced_search`,
     getHeaders: (apiKey: string) => ({
       'Authorization': `Bearer ${apiKey}`,
-      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    }),
+    getBody: (handle: string, count: number) => JSON.stringify({
+      searchTerms: [`from:${handle}`],
+      maxItems: count,
+      sortBy: 'Latest',
     }),
     parser: 'twexapi',
   },
@@ -241,7 +242,7 @@ async function scrapeFromTwitterAPI(options: ScrapeOptions): Promise<ScrapeResul
   // Determine which endpoints to try based on API key format
   const isTwexApiKey = apiKey.startsWith('twitterx_');
   const endpointsToTry = isTwexApiKey
-    ? API_ENDPOINTS.filter(e => e.name.startsWith('twitterxapi'))
+    ? API_ENDPOINTS.filter(e => e.name.startsWith('twexapi'))
     : API_ENDPOINTS;
 
   // Helper function to wait
@@ -1430,13 +1431,13 @@ export async function fetchTwitterAvatar(handle: string): Promise<string | null>
   const apiKey = getTwitterApiKey();
   if (apiKey) {
     try {
-      // Try TwitterXAPI user endpoint
+      // Try TwitterXAPI user endpoint - uses /twitter/{screen_name}/tweets-replies/1 to get user info
       if (apiKey.startsWith('twitterx_')) {
-        const response = await fetch(`https://api.twitterxapi.com/twitter/user/info?userName=${cleanHandle}`, {
+        const response = await fetch(`https://api.twexapi.io/twitter/${cleanHandle}/tweets-replies/1`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
-            'Accept': 'application/json',
+            'Content-Type': 'application/json',
           },
           signal: AbortSignal.timeout(10000),
         });
