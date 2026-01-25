@@ -526,15 +526,40 @@ async function handleSubmitCommand(
     await client.sendMessage(chatId, text);
   };
 
-  // Extract tweet URL from message
-  const tweetUrl = textContent.replace(/^\/submit\s*/i, "").trim();
+  // Parse command: /submit [campaign_name] <tweet_url>
+  const commandContent = textContent.replace(/^\/submit\s*/i, "").trim();
+  const parts = commandContent.split(/\s+/);
+
+  let campaignNameFilter: string | null = null;
+  let tweetUrl: string | null = null;
+
+  // Find the tweet URL (contains "status/")
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].includes("status/")) {
+      tweetUrl = parts[i];
+      if (i > 0) {
+        campaignNameFilter = parts.slice(0, i).join(" ");
+      }
+      break;
+    }
+  }
+
+  if (!tweetUrl) {
+    await sendResponse(
+      "Please provide a valid Twitter/X URL.\n\n" +
+      "Usage:\n" +
+      "/submit <tweet_url> - Submit to your only active campaign\n" +
+      "/submit <campaign_name> <tweet_url> - Submit to a specific campaign\n\n" +
+      "Example:\n/submit https://x.com/handle/status/123456789"
+    );
+    return;
+  }
 
   // Parse tweet URL - extract tweet ID
   const tweetIdMatch = tweetUrl.match(/status\/(\d+)/);
   if (!tweetIdMatch) {
     await sendResponse(
-      "Please provide a valid Twitter/X URL.\n\n" +
-      "Example:\n/submit https://x.com/handle/status/123456789"
+      "Could not parse tweet ID from URL. Please provide a valid Twitter/X URL."
     );
     return;
   }
@@ -578,8 +603,8 @@ async function handleSubmitCommand(
 
   console.log(`[Submit] KOL identified: ${kol.name} (@${kol.twitterHandle})`);
 
-  // Find active campaign KOL is assigned to
-  const campaignKol = await db.campaignKOL.findFirst({
+  // Find ALL active campaigns KOL is assigned to
+  const allCampaignKols = await db.campaignKOL.findMany({
     where: {
       kolId: kol.id,
       status: { in: ["PENDING", "CONFIRMED"] },
@@ -593,14 +618,45 @@ async function handleSubmitCommand(
     },
   });
 
-  if (!campaignKol) {
+  if (allCampaignKols.length === 0) {
     await sendResponse(
       "You're not assigned to any active campaign. Please contact your agency."
     );
     return;
   }
 
-  console.log(`[Submit] Campaign found: ${campaignKol.campaign.name}`);
+  // Determine which campaign to use
+  let campaignKol: typeof allCampaignKols[0] | null = null;
+
+  if (allCampaignKols.length === 1) {
+    campaignKol = allCampaignKols[0];
+  } else if (campaignNameFilter) {
+    const filterLower = campaignNameFilter.toLowerCase();
+    campaignKol = allCampaignKols.find(ck =>
+      ck.campaign.name.toLowerCase().includes(filterLower)
+    ) || null;
+
+    if (!campaignKol) {
+      const campaignList = allCampaignKols.map(ck => `• ${ck.campaign.name}`).join("\n");
+      await sendResponse(
+        `No campaign found matching "${campaignNameFilter}".\n\n` +
+        `Your active campaigns:\n${campaignList}\n\n` +
+        `Usage: /submit <campaign_name> <tweet_url>`
+      );
+      return;
+    }
+  } else {
+    const campaignList = allCampaignKols.map(ck => `• ${ck.campaign.name}`).join("\n");
+    await sendResponse(
+      `You're assigned to multiple active campaigns. Please specify which one:\n\n` +
+      `${campaignList}\n\n` +
+      `Usage: /submit <campaign_name> <tweet_url>\n\n` +
+      `Example:\n/submit ${allCampaignKols[0].campaign.name} ${tweetUrl}`
+    );
+    return;
+  }
+
+  console.log(`[Submit] Campaign selected: ${campaignKol.campaign.name}`);
 
   // Check for duplicate submission
   const existing = await db.post.findFirst({
@@ -711,15 +767,43 @@ async function handleSubmitCommandFromGroup(
     await client.sendMessage(telegramChatId, message);
   };
 
-  // Extract tweet URL from message
-  const tweetUrl = text.replace(/^\/submit\s*/i, "").trim();
+  // Parse command: /submit [campaign_name] <tweet_url>
+  // The tweet URL always contains "status/" so we can identify it
+  const commandContent = text.replace(/^\/submit\s*/i, "").trim();
+  const parts = commandContent.split(/\s+/);
+
+  let campaignNameFilter: string | null = null;
+  let tweetUrl: string | null = null;
+
+  // Find the tweet URL (contains "status/")
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].includes("status/")) {
+      tweetUrl = parts[i];
+      // Everything before the URL is the campaign name
+      if (i > 0) {
+        campaignNameFilter = parts.slice(0, i).join(" ");
+      }
+      break;
+    }
+  }
+
+  if (!tweetUrl) {
+    await sendResponse(
+      "Please provide a valid Twitter/X URL.\n\n" +
+      "Usage:\n" +
+      "/submit <tweet_url> - Submit to your only active campaign\n" +
+      "/submit <campaign_name> <tweet_url> - Submit to a specific campaign\n\n" +
+      "Example:\n/submit https://x.com/handle/status/123456789\n" +
+      "/submit Zeus https://x.com/handle/status/123456789"
+    );
+    return;
+  }
 
   // Parse tweet URL - extract tweet ID
   const tweetIdMatch = tweetUrl.match(/status\/(\d+)/);
   if (!tweetIdMatch) {
     await sendResponse(
-      "Please provide a valid Twitter/X URL.\n\n" +
-      "Example:\n/submit https://x.com/handle/status/123456789"
+      "Could not parse tweet ID from URL. Please provide a valid Twitter/X URL."
     );
     return;
   }
@@ -775,9 +859,10 @@ async function handleSubmitCommandFromGroup(
   });
 
   console.log(`[Submit Group] KOL identified: ${kol.name} (@${kol.twitterHandle}), updated telegramGroupId to ${telegramChatId}`);
+  console.log(`[Submit Group] Campaign filter: "${campaignNameFilter || 'none'}"`);
 
-  // Find active campaign KOL is assigned to - explicitly select clientTelegramChatId
-  const campaignKol = await db.campaignKOL.findFirst({
+  // Find ALL active campaigns KOL is assigned to
+  const allCampaignKols = await db.campaignKOL.findMany({
     where: {
       kolId: kol.id,
       status: { in: ["PENDING", "CONFIRMED"] },
@@ -799,15 +884,51 @@ async function handleSubmitCommandFromGroup(
     },
   });
 
-  if (!campaignKol) {
+  if (allCampaignKols.length === 0) {
     await sendResponse(
       "You're not assigned to any active campaign. Please contact your agency."
     );
     return;
   }
 
-  // Log full campaign object for debugging
-  console.log(`[Submit Group] Campaign found:`, JSON.stringify(campaignKol.campaign));
+  console.log(`[Submit Group] Found ${allCampaignKols.length} active campaign(s) for KOL`);
+
+  // Determine which campaign to use
+  let campaignKol: typeof allCampaignKols[0] | null = null;
+
+  if (allCampaignKols.length === 1) {
+    // Only one campaign - use it
+    campaignKol = allCampaignKols[0];
+  } else if (campaignNameFilter) {
+    // Multiple campaigns - find by name (case insensitive partial match)
+    const filterLower = campaignNameFilter.toLowerCase();
+    campaignKol = allCampaignKols.find(ck =>
+      ck.campaign.name.toLowerCase().includes(filterLower)
+    ) || null;
+
+    if (!campaignKol) {
+      const campaignList = allCampaignKols.map(ck => `• ${ck.campaign.name}`).join("\n");
+      await sendResponse(
+        `No campaign found matching "${campaignNameFilter}".\n\n` +
+        `Your active campaigns:\n${campaignList}\n\n` +
+        `Usage: /submit <campaign_name> <tweet_url>`
+      );
+      return;
+    }
+  } else {
+    // Multiple campaigns but no filter specified - ask user to specify
+    const campaignList = allCampaignKols.map(ck => `• ${ck.campaign.name}`).join("\n");
+    await sendResponse(
+      `You're assigned to multiple active campaigns. Please specify which one:\n\n` +
+      `${campaignList}\n\n` +
+      `Usage: /submit <campaign_name> <tweet_url>\n\n` +
+      `Example:\n/submit ${allCampaignKols[0].campaign.name} ${tweetUrl}`
+    );
+    return;
+  }
+
+  // Log selected campaign
+  console.log(`[Submit Group] Selected campaign:`, JSON.stringify(campaignKol.campaign));
   console.log(`[Submit Group] Campaign clientTelegramChatId: "${campaignKol.campaign.clientTelegramChatId}" (type: ${typeof campaignKol.campaign.clientTelegramChatId})`);
 
   // Check for duplicate submission
