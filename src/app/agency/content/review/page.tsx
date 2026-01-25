@@ -18,8 +18,7 @@ export default async function ContentReviewPage() {
       campaign: {
         agencyId: session.user.organizationId,
       },
-      // hiddenFromReview filter temporarily disabled for migration
-      // hiddenFromReview: false,
+      hiddenFromReview: false,
     },
     include: {
       kol: true,
