@@ -293,7 +293,13 @@ async function handleReviewCommand(
     },
   });
 
-  console.log(`[Review] Linked KOL ${kol.name} to chat ${chatId}`);
+  // Update KOL's telegramGroupId to this group so notifications go to the right place
+  await db.kOL.update({
+    where: { id: kol.id },
+    data: { telegramGroupId: telegramChatId.toString() },
+  });
+
+  console.log(`[Review] Linked KOL ${kol.name} to chat ${chatId}, updated telegramGroupId to ${telegramChatId}`);
 
   // Find an active campaign for this KOL
   const campaignKol = campaignKols[0];
@@ -753,7 +759,13 @@ async function handleSubmitCommandFromGroup(
     return;
   }
 
-  console.log(`[Submit Group] KOL identified: ${kol.name} (@${kol.twitterHandle})`);
+  // Update KOL's telegramGroupId to this group so future notifications go here
+  await db.kOL.update({
+    where: { id: kol.id },
+    data: { telegramGroupId: telegramChatId.toString() },
+  });
+
+  console.log(`[Submit Group] KOL identified: ${kol.name} (@${kol.twitterHandle}), updated telegramGroupId to ${telegramChatId}`);
 
   // Find active campaign KOL is assigned to
   const campaignKol = await db.campaignKOL.findFirst({
