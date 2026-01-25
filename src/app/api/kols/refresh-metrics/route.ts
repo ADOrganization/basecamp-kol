@@ -54,23 +54,22 @@ export async function POST() {
       await Promise.all(
         batch.map(async (kol) => {
           try {
-            // Fetch Twitter profile data
+            // Fetch Twitter profile data (may return partial data)
             const profile = await fetchTwitterProfile(kol.twitterHandle);
 
-            if (!profile) {
-              console.log(`[Refresh All] Failed to fetch profile for @${kol.twitterHandle}`);
-              failCount++;
-              results.push({ id: kol.id, handle: kol.twitterHandle, success: false });
-              return;
-            }
-
-            // Get aggregate metrics from posts
+            // Get aggregate metrics from posts in database
             const postMetrics = await db.post.aggregate({
               where: {
                 kolId: kol.id,
-                status: "POSTED",
+                status: { in: ["POSTED", "VERIFIED"] },
               },
               _avg: {
+                likes: true,
+                retweets: true,
+                replies: true,
+                impressions: true,
+              },
+              _sum: {
                 likes: true,
                 retweets: true,
                 replies: true,
@@ -79,42 +78,69 @@ export async function POST() {
               _count: true,
             });
 
-            // Calculate engagement rate
+            // Calculate metrics
             const avgLikes = Math.round(postMetrics._avg?.likes || 0);
             const avgRetweets = Math.round(postMetrics._avg?.retweets || 0);
             const avgReplies = Math.round(postMetrics._avg?.replies || 0);
             const avgImpressions = postMetrics._avg?.impressions || 0;
-            const followersCount = profile.followersCount || kol.followersCount || 1;
 
+            // Use new followers count if available, otherwise keep existing
+            const newFollowersCount = (profile?.followersCount && profile.followersCount > 0)
+              ? profile.followersCount
+              : kol.followersCount;
+
+            const followersForCalc = newFollowersCount || 1;
+
+            // Calculate engagement rate
             let avgEngagementRate = 0;
             if (avgImpressions > 0) {
               avgEngagementRate = ((avgLikes + avgRetweets + avgReplies) / avgImpressions) * 100;
-            } else if (followersCount > 0) {
-              avgEngagementRate = ((avgLikes + avgRetweets + avgReplies) / followersCount) * 100;
+            } else if (followersForCalc > 0 && (avgLikes + avgRetweets + avgReplies) > 0) {
+              avgEngagementRate = ((avgLikes + avgRetweets + avgReplies) / followersForCalc) * 100;
+            }
+
+            // Prepare update data
+            const updateData: Record<string, unknown> = {
+              avgLikes,
+              avgRetweets,
+              avgReplies,
+              avgEngagementRate: Math.round(avgEngagementRate * 100) / 100,
+              lastMetricsUpdate: new Date(),
+            };
+
+            // Only update followers if we got new data
+            if (profile?.followersCount && profile.followersCount > 0) {
+              updateData.followersCount = profile.followersCount;
+            }
+            if (profile?.followingCount && profile.followingCount > 0) {
+              updateData.followingCount = profile.followingCount;
+            }
+            if (profile?.avatarUrl) {
+              updateData.avatarUrl = profile.avatarUrl;
             }
 
             // Update KOL with new metrics
             await db.kOL.update({
               where: { id: kol.id },
-              data: {
-                followersCount: profile.followersCount,
-                followingCount: profile.followingCount,
-                avatarUrl: profile.avatarUrl ?? undefined,
-                avgLikes,
-                avgRetweets,
-                avgReplies,
-                avgEngagementRate: Math.round(avgEngagementRate * 100) / 100,
-                lastMetricsUpdate: new Date(),
-              },
+              data: updateData,
             });
 
-            console.log(`[Refresh All] Updated @${kol.twitterHandle}: ${profile.followersCount} followers`);
+            const updateDetails = [];
+            if (profile?.followersCount && profile.followersCount > 0) {
+              updateDetails.push(`${profile.followersCount} followers`);
+            }
+            if (postMetrics._count > 0) {
+              updateDetails.push(`${postMetrics._count} posts analyzed`);
+            }
+            updateDetails.push(`${avgEngagementRate.toFixed(2)}% engagement`);
+
+            console.log(`[Refresh All] Updated @${kol.twitterHandle}: ${updateDetails.join(', ')}`);
             successCount++;
             results.push({
               id: kol.id,
               handle: kol.twitterHandle,
               success: true,
-              followersCount: profile.followersCount,
+              followersCount: newFollowersCount,
             });
           } catch (error) {
             console.error(`[Refresh All] Error updating @${kol.twitterHandle}:`, error);

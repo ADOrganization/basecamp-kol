@@ -466,47 +466,97 @@ export interface TwitterProfile {
 
 /**
  * Fetch Twitter profile data including followers count
- * Uses the syndication API which doesn't require authentication
+ * Uses multiple fallback methods for reliability
  */
 export async function fetchTwitterProfile(handle: string): Promise<TwitterProfile | null> {
   const cleanHandle = handle.replace('@', '').toLowerCase();
 
+  // Method 1: Try Twitter syndication API
   try {
     const embedUrl = `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${cleanHandle}`;
     const response = await fetch(embedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://twitter.com/',
       },
       signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) {
-      console.log(`[Profile] Syndication API failed: HTTP ${response.status}`);
-      return null;
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const profile = data[0];
+        console.log(`[Profile] Found via syndication API for @${cleanHandle}: ${profile.followers_count} followers`);
+        return {
+          screenName: profile.screen_name || cleanHandle,
+          name: profile.name || cleanHandle,
+          followersCount: profile.followers_count || 0,
+          followingCount: profile.friends_count || 0,
+          avatarUrl: profile.profile_image_url_https
+            ? profile.profile_image_url_https.replace('_normal', '_400x400')
+            : null,
+        };
+      }
     }
-
-    const data = await response.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      console.log(`[Profile] No profile data returned for @${cleanHandle}`);
-      return null;
-    }
-
-    const profile = data[0];
-    console.log(`[Profile] Found profile for @${cleanHandle}: ${profile.followers_count} followers`);
-
-    return {
-      screenName: profile.screen_name || cleanHandle,
-      name: profile.name || cleanHandle,
-      followersCount: profile.followers_count || 0,
-      followingCount: profile.friends_count || 0,
-      avatarUrl: profile.profile_image_url_https
-        ? profile.profile_image_url_https.replace('_normal', '_400x400')
-        : null,
-    };
+    console.log(`[Profile] Syndication API failed for @${cleanHandle}: HTTP ${response.status}`);
   } catch (error) {
-    console.log(`[Profile] Error fetching profile for @${cleanHandle}:`, error);
-    return null;
+    console.log(`[Profile] Syndication API error for @${cleanHandle}:`, error);
   }
+
+  // Method 2: Try Twitter's guest API via tweet lookup
+  try {
+    const guestUrl = `https://api.twitter.com/1.1/users/show.json?screen_name=${cleanHandle}`;
+    const response = await fetch(guestUrl, {
+      headers: {
+        'Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+        'User-Agent': 'TwitterAndroid/10.21.0',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`[Profile] Found via guest API for @${cleanHandle}: ${data.followers_count} followers`);
+      return {
+        screenName: data.screen_name || cleanHandle,
+        name: data.name || cleanHandle,
+        followersCount: data.followers_count || 0,
+        followingCount: data.friends_count || 0,
+        avatarUrl: data.profile_image_url_https
+          ? data.profile_image_url_https.replace('_normal', '_400x400')
+          : null,
+      };
+    }
+    console.log(`[Profile] Guest API failed for @${cleanHandle}: HTTP ${response.status}`);
+  } catch (error) {
+    console.log(`[Profile] Guest API error for @${cleanHandle}:`, error);
+  }
+
+  // Method 3: Return partial data with just avatar from unavatar.io
+  try {
+    const avatarUrl = `https://unavatar.io/twitter/${cleanHandle}`;
+    const response = await fetch(avatarUrl, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (response.ok) {
+      console.log(`[Profile] Got avatar only for @${cleanHandle} via unavatar.io`);
+      return {
+        screenName: cleanHandle,
+        name: cleanHandle,
+        followersCount: 0, // We'll keep existing count
+        followingCount: 0,
+        avatarUrl: avatarUrl,
+      };
+    }
+  } catch (error) {
+    console.log(`[Profile] Unavatar failed for @${cleanHandle}:`, error);
+  }
+
+  console.log(`[Profile] All methods failed for @${cleanHandle}`);
+  return null;
 }
 
 /**
