@@ -861,6 +861,9 @@ async function handleSubmitCommandFromGroup(
   console.log(`[Submit Group] clientGroupId value: "${clientGroupId}"`);
   console.log(`[Submit Group] clientGroupId truthy: ${!!clientGroupId}`);
 
+  let clientNotified = false;
+  let clientNotifyError = "";
+
   // 1. Notify client's telegram group if configured
   if (clientGroupId && clientGroupId.trim() && client) {
     console.log(`[Submit Group] Attempting to notify client group: ${clientGroupId}`);
@@ -881,27 +884,37 @@ async function handleSubmitCommandFromGroup(
       console.log(`[Submit Group] Telegram API response:`, JSON.stringify(clientNotifResult));
       if (clientNotifResult.ok) {
         console.log(`[Submit Group] SUCCESS: Notification sent to client group ${clientGroupId}`);
+        clientNotified = true;
       } else {
         console.error(`[Submit Group] FAILED: Telegram API error: ${clientNotifResult.description}`);
+        clientNotifyError = clientNotifResult.description || "Unknown error";
       }
     } catch (error) {
       console.error(`[Submit Group] EXCEPTION when notifying client group:`, error);
+      clientNotifyError = error instanceof Error ? error.message : "Exception occurred";
     }
   } else {
     console.log(`[Submit Group] SKIPPED: No client telegram group - clientGroupId="${clientGroupId}", client=${!!client}`);
+    clientNotifyError = "No client group configured for this campaign";
   }
 
   // 2. Reply success to the KOL in the group chat
-  await sendResponse(
-    `✅ Tweet submitted successfully!\n\n` +
+  let responseMessage = `✅ Tweet submitted successfully!\n\n` +
     `Campaign: ${campaignKol.campaign.name}\n` +
     `Tweet: ${tweet.url}\n\n` +
     `Current metrics:\n` +
     `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
     `• Likes: ${tweet.metrics.likes.toLocaleString()}\n` +
     `• Retweets: ${tweet.metrics.retweets.toLocaleString()}\n\n` +
-    `This post has been added to your deliverables.`
-  );
+    `This post has been added to your deliverables.`;
+
+  if (clientNotified) {
+    responseMessage += `\n\n📣 Client group has been notified.`;
+  } else if (clientNotifyError) {
+    responseMessage += `\n\n⚠️ Could not notify client group: ${clientNotifyError}`;
+  }
+
+  await sendResponse(responseMessage);
 
   console.log(`[Submit Group] Completed for KOL ${kol.name}, post ${post.id}`);
 }
