@@ -583,7 +583,7 @@ function filterTweets(
   return {
     success: true,
     tweets: filtered.slice(0, options.maxTweets || 50),
-    method: 'rapidapi',
+    method: 'twitter-api',
   };
 }
 
