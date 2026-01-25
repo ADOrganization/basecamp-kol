@@ -158,18 +158,29 @@ interface APIEndpoint {
 }
 
 const API_ENDPOINTS: APIEndpoint[] = [
-  // twexapi.io - Primary (user's API) - uses Bearer token auth
+  // twexapi.io - Primary (user's API) - uses X-API-Key header
   {
     name: 'twexapi-search',
     method: 'POST',
     getUrl: () => `https://api.twexapi.io/twitter/advanced_search`,
     getHeaders: (apiKey: string) => ({
-      'Authorization': `Bearer ${apiKey}`,
+      'X-API-Key': apiKey,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     }),
     getBody: (handle: string) => JSON.stringify({
       searchTerms: [`from:${handle}`],
+    }),
+    parser: 'twexapi',
+  },
+  // twexapi.io - Alternative endpoint with user timeline
+  {
+    name: 'twexapi-timeline',
+    method: 'GET',
+    getUrl: (handle: string) => `https://api.twexapi.io/user/timeline?username=${handle}`,
+    getHeaders: (apiKey: string) => ({
+      'X-API-Key': apiKey,
+      'Accept': 'application/json',
     }),
     parser: 'twexapi',
   },
@@ -1180,11 +1191,14 @@ function parseNitterRSS(xml: string, handle: string): ScrapedTweet[] {
  */
 export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult> {
   console.log(`[Scraper] Starting scrape for @${options.handle}`);
+  console.log(`[Scraper] Current API key state: customKey=${customTwitterApiKey ? 'SET' : 'NULL'}, value=${customTwitterApiKey ? customTwitterApiKey.slice(0,12) + '...' : 'none'}`);
 
   const errors: string[] = [];
+  const hasKey = hasTwitterApiKey();
+  console.log(`[Scraper] hasTwitterApiKey() returned: ${hasKey}`);
 
   // Try Twitter API first if API key is configured
-  if (hasTwitterApiKey()) {
+  if (hasKey) {
     console.log(`[Scraper] Trying Twitter API...`);
     const apiResult = await scrapeFromTwitterAPI(options);
     if (apiResult.success && apiResult.tweets.length > 0) {
@@ -1195,6 +1209,8 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
     if (apiResult.error) {
       errors.push(apiResult.error);
     }
+  } else {
+    console.log(`[Scraper] Skipping Twitter API - no API key configured`);
   }
 
   // Try direct Twitter API if cookies are set
