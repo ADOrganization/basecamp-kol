@@ -633,36 +633,52 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
   const cleanHandle = handle.replace('@', '').toLowerCase();
   const apiKey = getApifyApiKey();
 
-  // Method 1: Use Apify Tweet Scraper if API key available (get user info from tweet)
+  // Method 1: Use Apify Profile Scraper if API key available
   if (apiKey) {
     try {
-      console.log(`[Banner] Fetching @${cleanHandle} via Apify...`);
+      console.log(`[Banner] Fetching @${cleanHandle} profile via Apify...`);
 
-      // Use the same tweet scraper actor to get user info from a recent tweet
-      const actorId = 'CJdippxWmn9uRfooo';
-      const input = {
-        searchTerms: [`from:${cleanHandle}`],
-        maxItems: 1,
-      };
+      // Use a dedicated Twitter profile scraper that returns banner data
+      // Try multiple profile scraper actors
+      const profileActors = [
+        'apidojo~twitter-profile-scraper',
+        'epctex~twitter-profile-scraper',
+        'microworlds~twitter-profile-scraper',
+      ];
 
-      const runResponse = await fetch(
-        `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
-          signal: AbortSignal.timeout(30000),
-        }
-      );
+      for (const actorId of profileActors) {
+        try {
+          console.log(`[Banner] Trying actor: ${actorId}`);
 
-      if (runResponse.ok) {
-        const runData = await runResponse.json();
-        const runId = runData.data?.id;
+          // Input format for profile scrapers
+          const input = {
+            handles: [cleanHandle],
+            proxyConfiguration: { useApifyProxy: true },
+          };
 
-        if (runId) {
-          // Poll for completion (max 45 seconds)
-          const maxWait = 45000;
-          const pollInterval = 2000;
+          const runResponse = await fetch(
+            `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(input),
+              signal: AbortSignal.timeout(30000),
+            }
+          );
+
+          if (!runResponse.ok) {
+            console.log(`[Banner] Actor ${actorId} not available: HTTP ${runResponse.status}`);
+            continue;
+          }
+
+          const runData = await runResponse.json();
+          const runId = runData.data?.id;
+
+          if (!runId) continue;
+
+          // Poll for completion (max 60 seconds)
+          const maxWait = 60000;
+          const pollInterval = 3000;
           let elapsed = 0;
 
           while (elapsed < maxWait) {
@@ -689,32 +705,51 @@ export async function fetchTwitterBanner(handle: string): Promise<string | null>
 
                 if (resultsResponse.ok) {
                   const results = await resultsResponse.json();
+                  console.log(`[Banner] Actor ${actorId} returned:`, JSON.stringify(results).slice(0, 500));
+
                   if (Array.isArray(results) && results.length > 0) {
-                    const tweet = results[0] as Record<string, unknown>;
-                    const author = tweet.author as Record<string, unknown> | undefined;
-                    // Try various field names for banner URL
-                    const bannerUrl = author?.profileBannerUrl ||
-                      author?.profile_banner_url ||
-                      author?.banner_url ||
-                      author?.coverImageUrl ||
-                      tweet.author_profile_banner_url;
+                    const profile = results[0] as Record<string, unknown>;
+                    // Try various field names for banner URL from profile data
+                    const bannerUrl = profile.profileBannerUrl ||
+                      profile.profile_banner_url ||
+                      profile.bannerUrl ||
+                      profile.banner_url ||
+                      profile.coverImageUrl ||
+                      profile.cover_image_url ||
+                      profile.headerImageUrl ||
+                      profile.header_image_url ||
+                      profile.profileBanner;
 
                     if (bannerUrl && typeof bannerUrl === 'string') {
-                      console.log(`[Banner] Found via Apify for @${cleanHandle}: ${bannerUrl.slice(0, 50)}...`);
+                      console.log(`[Banner] Found via ${actorId} for @${cleanHandle}: ${bannerUrl.slice(0, 80)}...`);
                       return bannerUrl;
+                    }
+
+                    // Also check if there's a nested user object
+                    const user = profile.user as Record<string, unknown> | undefined;
+                    if (user) {
+                      const userBanner = user.profile_banner_url || user.profileBannerUrl;
+                      if (userBanner && typeof userBanner === 'string') {
+                        console.log(`[Banner] Found in user object via ${actorId} for @${cleanHandle}`);
+                        return userBanner;
+                      }
                     }
                   }
                 }
               }
               break;
             } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
-              console.log(`[Banner] Apify run ${status} for @${cleanHandle}`);
+              console.log(`[Banner] Apify run ${status} for @${cleanHandle} with ${actorId}`);
               break;
             }
           }
+        } catch (actorError) {
+          console.log(`[Banner] Actor ${actorId} error:`, actorError);
+          continue;
         }
       }
-      console.log(`[Banner] Apify method did not return banner for @${cleanHandle}`);
+
+      console.log(`[Banner] No Apify profile actors returned banner for @${cleanHandle}`);
     } catch (error) {
       console.log(`[Banner] Apify error for @${cleanHandle}:`, error);
     }
