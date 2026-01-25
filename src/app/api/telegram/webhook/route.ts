@@ -569,7 +569,7 @@ async function handleHelpCommand(
 
 *Examples:*
 \`/submit https://x.com/user/status/123456789\`
-\`/submit Zeus https://x.com/user/status/123456789\`
+\`/submit MyCampaign https://x.com/user/status/123456789\`
 \`/review Check out @ProjectHandle - amazing DeFi protocol! #crypto\`
 
 Need assistance? Contact @altcoinclimber or @viperrcrypto`;
@@ -986,7 +986,7 @@ async function handleSubmitCommandFromGroup(
       "/submit <post_url> - Submit to your only active campaign\n" +
       "/submit <campaign_name> <post_url> - Submit to a specific campaign\n\n" +
       "Example:\n/submit https://x.com/handle/status/123456789\n" +
-      "/submit Zeus https://x.com/handle/status/123456789"
+      "/submit MyCampaign https://x.com/handle/status/123456789"
     );
     return;
   }
