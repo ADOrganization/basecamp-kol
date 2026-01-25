@@ -52,6 +52,7 @@ interface CampaignDetails {
   name: string;
   description: string | null;
   projectTwitterHandle: string | null;
+  clientTelegramChatId: string | null;
   keywords: string[];
   status: string;
   totalBudget: number;
@@ -117,6 +118,12 @@ interface AvailableKOL {
   followersCount: number;
 }
 
+interface TelegramChat {
+  id: string;
+  telegramChatId: string;
+  title: string | null;
+}
+
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -126,6 +133,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [showAddKol, setShowAddKol] = useState(false);
   const [showAddPost, setShowAddPost] = useState(false);
   const [availableKols, setAvailableKols] = useState<AvailableKOL[]>([]);
+  const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
   const [selectedKol, setSelectedKol] = useState("");
   const [assignedBudget, setAssignedBudget] = useState("");
   const [requiredPosts, setRequiredPosts] = useState("");
@@ -181,8 +189,21 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     fetchCampaign();
+    fetchTelegramChats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const fetchTelegramChats = async () => {
+    try {
+      const response = await fetch("/api/telegram/chats");
+      if (response.ok) {
+        const data = await response.json();
+        setTelegramChats(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch telegram chats:", error);
+    }
+  };
 
   const fetchAvailableKols = async () => {
     try {
@@ -680,9 +701,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         campaign={{
           ...campaign,
           clientId: campaign.client?.id || null,
+          clientTelegramChatId: campaign.clientTelegramChatId || null,
           keywords: Array.isArray(campaign.keywords) ? campaign.keywords : [],
           kpis: campaign.kpis || null,
         }}
+        telegramChats={telegramChats}
         open={showForm}
         onClose={() => {
           setShowForm(false);

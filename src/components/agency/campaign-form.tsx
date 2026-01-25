@@ -33,6 +33,7 @@ interface CampaignFormProps {
     description: string | null;
     clientId: string | null;
     projectTwitterHandle: string | null;
+    clientTelegramChatId: string | null;
     keywords: string[];
     totalBudget: number;
     status: string;
@@ -46,6 +47,7 @@ interface CampaignFormProps {
     } | null;
   };
   clients?: { id: string; name: string }[];
+  telegramChats?: { id: string; telegramChatId: string; title: string | null }[];
   open: boolean;
   onClose: () => void;
 }
@@ -59,7 +61,7 @@ function generatePassword(length: number = 12): string {
   return password;
 }
 
-export function CampaignForm({ campaign, clients = [], open, onClose }: CampaignFormProps) {
+export function CampaignForm({ campaign, clients = [], telegramChats = [], open, onClose }: CampaignFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -68,6 +70,7 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
     description: campaign?.description || "",
     clientId: campaign?.clientId || "",
     projectTwitterHandle: campaign?.projectTwitterHandle || "",
+    clientTelegramChatId: campaign?.clientTelegramChatId || "",
     keywords: Array.isArray(campaign?.keywords) ? campaign.keywords : [],
     totalBudget: campaign?.totalBudget ? campaign.totalBudget / 100 : "",
     status: campaign?.status || "DRAFT",
@@ -110,6 +113,18 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Validate required fields
+    if (!formData.projectTwitterHandle.trim()) {
+      setError("Project Twitter handle is required");
+      return;
+    }
+
+    if (!formData.clientTelegramChatId) {
+      setError("Client Telegram group is required");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -117,7 +132,8 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
         name: formData.name,
         description: formData.description || undefined,
         clientId: formData.clientId || undefined,
-        projectTwitterHandle: formData.projectTwitterHandle || undefined,
+        projectTwitterHandle: formData.projectTwitterHandle,
+        clientTelegramChatId: formData.clientTelegramChatId,
         keywords: formData.keywords,
         totalBudget: formData.totalBudget ? Math.round(Number(formData.totalBudget) * 100) : 0,
         status: formData.status,
@@ -297,12 +313,13 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="projectTwitterHandle">Project Twitter Handle</Label>
+              <Label htmlFor="projectTwitterHandle">Project Twitter Handle *</Label>
               <Input
                 id="projectTwitterHandle"
                 value={formData.projectTwitterHandle}
                 onChange={(e) => setFormData({ ...formData, projectTwitterHandle: e.target.value })}
                 placeholder="@ProjectHandle"
+                required
               />
               <p className="text-xs text-muted-foreground">
                 The Twitter/X handle for the project being promoted
@@ -368,6 +385,35 @@ export function CampaignForm({ campaign, clients = [], open, onClose }: Campaign
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="clientTelegramChatId">Client Telegram Group *</Label>
+              <Select
+                value={formData.clientTelegramChatId || ""}
+                onValueChange={(value) => setFormData({ ...formData, clientTelegramChatId: value })}
+                required
+              >
+                <SelectTrigger id="clientTelegramChatId">
+                  <SelectValue placeholder="Select Telegram group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {telegramChats.length === 0 ? (
+                    <SelectItem value="" disabled>
+                      No groups available - add bot to a group first
+                    </SelectItem>
+                  ) : (
+                    telegramChats.map((chat) => (
+                      <SelectItem key={chat.id} value={chat.telegramChatId}>
+                        {chat.title || `Chat ${chat.telegramChatId}`}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Telegram group where post notifications will be sent. Add your bot to a group if none appear.
+              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">

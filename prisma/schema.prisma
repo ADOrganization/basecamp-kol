@@ -201,6 +201,9 @@ model Campaign {
   // Keywords for post tracking (e.g., ["$TOKEN", "#launch", "DEMO"])
   keywords    String[]
 
+  // Client notification Telegram group chat ID
+  clientTelegramChatId  String?
+
   // Budget (stored in cents)
   totalBudget Int            @default(0)
   spentBudget Int            @default(0)

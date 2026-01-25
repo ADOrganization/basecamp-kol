@@ -32,14 +32,22 @@ interface Campaign {
   };
 }
 
+interface TelegramChat {
+  id: string;
+  telegramChatId: string;
+  title: string | null;
+}
+
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
     fetchCampaigns();
+    fetchTelegramChats();
   }, []);
 
   const fetchCampaigns = async () => {
@@ -53,6 +61,18 @@ export default function CampaignsPage() {
       console.error("Failed to fetch campaigns:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchTelegramChats = async () => {
+    try {
+      const response = await fetch("/api/telegram/chats");
+      if (response.ok) {
+        const data = await response.json();
+        setTelegramChats(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch telegram chats:", error);
     }
   };
 
@@ -127,6 +147,7 @@ export default function CampaignsPage() {
       )}
 
       <CampaignForm
+        telegramChats={telegramChats}
         open={showForm}
         onClose={() => {
           setShowForm(false);
