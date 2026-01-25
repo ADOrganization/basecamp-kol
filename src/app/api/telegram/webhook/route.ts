@@ -908,7 +908,7 @@ async function handleSubmitCommandFromGroup(
 
   // 2. Reply success to the KOL in the group chat
   let responseMessage = `✅ Tweet submitted successfully!\n\n` +
-    `Campaign: ${campaignKol.campaign.name}\n` +
+    `Campaign: ${campaignKol.campaign.name} (ID: ${campaignKol.campaign.id.slice(-6)})\n` +
     `Tweet: ${tweet.url}\n\n` +
     `Current metrics:\n` +
     `• Views: ${tweet.metrics.views.toLocaleString()}\n` +
@@ -919,7 +919,7 @@ async function handleSubmitCommandFromGroup(
   if (clientNotified) {
     responseMessage += `\n\n📣 Client group has been notified.`;
   } else if (clientNotifyError) {
-    responseMessage += `\n\n⚠️ Could not notify client group: ${clientNotifyError}`;
+    responseMessage += `\n\n⚠️ ${clientNotifyError}`;
   }
 
   await sendResponse(responseMessage);
