@@ -104,6 +104,91 @@ export async function POST(
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.organizationType !== "AGENCY") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id: campaignId } = await params;
+    const body = await request.json();
+    const { kolId, assignedBudget, requiredPosts, requiredThreads, requiredRetweets, requiredSpaces } = body;
+
+    if (!kolId) {
+      return NextResponse.json({ error: "KOL ID is required" }, { status: 400 });
+    }
+
+    // Check if campaign exists and belongs to user's org
+    const campaign = await db.campaign.findFirst({
+      where: {
+        id: campaignId,
+        agencyId: session.user.organizationId,
+      },
+    });
+
+    if (!campaign) {
+      return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+    }
+
+    // Check if assignment exists
+    const existingAssignment = await db.campaignKOL.findUnique({
+      where: {
+        campaignId_kolId: {
+          campaignId,
+          kolId,
+        },
+      },
+    });
+
+    if (!existingAssignment) {
+      return NextResponse.json({ error: "KOL is not assigned to this campaign" }, { status: 404 });
+    }
+
+    // Update the assignment
+    const updatedCampaignKol = await db.campaignKOL.update({
+      where: {
+        campaignId_kolId: {
+          campaignId,
+          kolId,
+        },
+      },
+      data: {
+        ...(assignedBudget !== undefined && { assignedBudget }),
+        ...(requiredPosts !== undefined && { requiredPosts }),
+        ...(requiredThreads !== undefined && { requiredThreads }),
+        ...(requiredRetweets !== undefined && { requiredRetweets }),
+        ...(requiredSpaces !== undefined && { requiredSpaces }),
+      },
+      include: {
+        kol: {
+          select: {
+            id: true,
+            name: true,
+            twitterHandle: true,
+            tier: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(updatedCampaignKol);
+  } catch (error) {
+    console.error("Error updating KOL assignment:", error);
+    return NextResponse.json(
+      { error: "Failed to update KOL assignment" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

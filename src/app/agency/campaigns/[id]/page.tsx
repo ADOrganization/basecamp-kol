@@ -141,6 +141,16 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [requiredSpaces, setRequiredSpaces] = useState("");
   const [isAddingKol, setIsAddingKol] = useState(false);
 
+  // Edit KOL state
+  const [showEditKol, setShowEditKol] = useState(false);
+  const [editingKol, setEditingKol] = useState<CampaignDetails["campaignKols"][0] | null>(null);
+  const [editBudget, setEditBudget] = useState("");
+  const [editPosts, setEditPosts] = useState("");
+  const [editThreads, setEditThreads] = useState("");
+  const [editRetweets, setEditRetweets] = useState("");
+  const [editSpaces, setEditSpaces] = useState("");
+  const [isUpdatingKol, setIsUpdatingKol] = useState(false);
+
   // Filtering state
   const [showKeywordMatchesOnly, setShowKeywordMatchesOnly] = useState(false);
   const [filterByKol, setFilterByKol] = useState("all");
@@ -321,6 +331,46 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  const handleEditKol = (ck: CampaignDetails["campaignKols"][0]) => {
+    setEditingKol(ck);
+    setEditBudget((ck.assignedBudget / 100).toString());
+    setEditPosts(ck.requiredPosts.toString());
+    setEditThreads(ck.requiredThreads.toString());
+    setEditRetweets(ck.requiredRetweets.toString());
+    setEditSpaces(ck.requiredSpaces.toString());
+    setShowEditKol(true);
+  };
+
+  const handleUpdateKol = async () => {
+    if (!editingKol) return;
+    setIsUpdatingKol(true);
+
+    try {
+      const response = await fetch(`/api/campaigns/${id}/kols`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kolId: editingKol.kol.id,
+          assignedBudget: editBudget ? Math.round(Number(editBudget) * 100) : 0,
+          requiredPosts: editPosts ? Number(editPosts) : 0,
+          requiredThreads: editThreads ? Number(editThreads) : 0,
+          requiredRetweets: editRetweets ? Number(editRetweets) : 0,
+          requiredSpaces: editSpaces ? Number(editSpaces) : 0,
+        }),
+      });
+
+      if (response.ok) {
+        setShowEditKol(false);
+        setEditingKol(null);
+        fetchCampaign();
+      }
+    } catch (error) {
+      console.error("Failed to update KOL:", error);
+    } finally {
+      setIsUpdatingKol(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -488,7 +538,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <th className="text-left p-4 font-medium text-muted-foreground">Tier</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Deliverables</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Budget</th>
-                    <th className="w-[50px]"></th>
+                    <th className="w-[100px]"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -538,13 +588,24 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           {formatCurrency(ck.assignedBudget)}
                         </td>
                         <td className="p-4">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveKol(ck.kol.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditKol(ck)}
+                              title="Edit deliverables"
+                            >
+                              <Edit className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveKol(ck.kol.id)}
+                              title="Remove from campaign"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -833,6 +894,106 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit KOL Dialog */}
+      <Dialog open={showEditKol} onOpenChange={setShowEditKol}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit KOL Deliverables</DialogTitle>
+          </DialogHeader>
+          {editingKol && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                {editingKol.kol.avatarUrl ? (
+                  <img
+                    src={editingKol.kol.avatarUrl}
+                    alt={editingKol.kol.name}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
+                    {editingKol.kol.name.charAt(0)}
+                  </div>
+                )}
+                <div>
+                  <p className="font-medium">{editingKol.kol.name}</p>
+                  <p className="text-sm text-muted-foreground">@{editingKol.kol.twitterHandle}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assigned Budget (USD)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editBudget}
+                  onChange={(e) => setEditBudget(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="pt-2 border-t">
+                <Label className="text-sm font-medium">Required Deliverables</Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Update the number of each content type this KOL should deliver
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Posts</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editPosts}
+                      onChange={(e) => setEditPosts(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Threads</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editThreads}
+                      onChange={(e) => setEditThreads(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Retweets</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editRetweets}
+                      onChange={(e) => setEditRetweets(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Spaces</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={editSpaces}
+                      onChange={(e) => setEditSpaces(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => setShowEditKol(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateKol} disabled={isUpdatingKol}>
+                  {isUpdatingKol ? "Updating..." : "Update"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
