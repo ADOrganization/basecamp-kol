@@ -252,7 +252,7 @@ export default async function AgencyDashboard() {
               <span className="text-sm font-medium">{greeting}</span>
             </div>
             <h1 className="text-3xl font-bold mb-2">
-              {session.user.name || session.user.email.split("@")[0]}
+              {session.user.name || session.user.email?.split("@")[0] || "User"}
             </h1>
             <p className="text-indigo-200 max-w-xl">
               You have{" "}
