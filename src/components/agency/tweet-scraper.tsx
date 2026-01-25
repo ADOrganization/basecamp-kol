@@ -98,15 +98,34 @@ export function TweetScraper({
   const [twitterApiKey, setTwitterApiKey] = useState("");
   const [twitterCookies, setTwitterCookies] = useState("");
   const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
+  const [orgHasApiKey, setOrgHasApiKey] = useState(false);
 
-  // Load saved auth on mount
+  // Load saved auth on mount - check org settings first, then localStorage
   useEffect(() => {
-    const savedApiKey = localStorage.getItem("twitter_api_key");
-    const savedCookies = localStorage.getItem("twitter_cookies");
-    const savedCsrf = localStorage.getItem("twitter_csrf");
-    if (savedApiKey) setTwitterApiKey(savedApiKey);
-    if (savedCookies) setTwitterCookies(savedCookies);
-    if (savedCsrf) setTwitterCsrfToken(savedCsrf);
+    const loadAuth = async () => {
+      // Try to load from organization settings first
+      try {
+        const response = await fetch("/api/organization/twitter");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.hasApiKey) {
+            setOrgHasApiKey(true);
+            console.log("[TweetScraper] Org has API key configured");
+          }
+        }
+      } catch (error) {
+        console.log("[TweetScraper] Failed to check org settings:", error);
+      }
+
+      // Also load from localStorage as backup
+      const savedApiKey = localStorage.getItem("twitter_api_key");
+      const savedCookies = localStorage.getItem("twitter_cookies");
+      const savedCsrf = localStorage.getItem("twitter_csrf");
+      if (savedApiKey) setTwitterApiKey(savedApiKey);
+      if (savedCookies) setTwitterCookies(savedCookies);
+      if (savedCsrf) setTwitterCsrfToken(savedCsrf);
+    };
+    loadAuth();
   }, []);
 
   // Save auth when changed
@@ -324,26 +343,36 @@ export function TweetScraper({
               <Button variant="ghost" size="sm" className="w-full justify-between">
                 <span className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
-                  Twitter Auth {(twitterApiKey || twitterCookies) ? "(Configured)" : "(Not Set - Click to Configure)"}
+                  Twitter Auth {(orgHasApiKey || twitterApiKey || twitterCookies) ? "(Configured)" : "(Not Set - Click to Configure)"}
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? "rotate-180" : ""}`} />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 p-3 border rounded-lg bg-muted/50">
               <div className="space-y-4">
-                {/* Auth status */}
-                {(twitterApiKey || twitterCookies) ? (
+                {/* Org API key status */}
+                {orgHasApiKey && (
+                  <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-700 dark:text-green-400">
+                      API key configured in Settings - scraper will use it automatically
+                    </span>
+                  </div>
+                )}
+                {/* Local auth status (only show if org doesn't have key) */}
+                {!orgHasApiKey && (twitterApiKey || twitterCookies) && (
                   <div className="flex items-center gap-2 p-2 rounded bg-green-500/10 border border-green-500/20">
                     <div className="h-2 w-2 rounded-full bg-green-500" />
                     <span className="text-sm text-green-700 dark:text-green-400">
-                      {twitterApiKey ? "Using API key" : "Using browser cookies"}
+                      {twitterApiKey ? "Using local API key" : "Using browser cookies"}
                     </span>
                   </div>
-                ) : (
+                )}
+                {!orgHasApiKey && !twitterApiKey && !twitterCookies && (
                   <div className="flex items-center gap-2 p-2 rounded bg-amber-500/10 border border-amber-500/20">
                     <div className="h-2 w-2 rounded-full bg-amber-500" />
                     <span className="text-sm text-amber-700 dark:text-amber-400">
-                      No auth configured - set up cookies below for scraping to work
+                      No API key configured - go to Settings → Integrations to add your twexapi.io key
                     </span>
                   </div>
                 )}
