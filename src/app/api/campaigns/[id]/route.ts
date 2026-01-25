@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
+import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
 
 export async function GET(
   request: NextRequest,
@@ -144,6 +145,21 @@ export async function PUT(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
+    // Fetch project avatar if Twitter handle changed or avatar is missing
+    let projectAvatarUrl = existingCampaign.projectAvatarUrl;
+    const newHandle = validatedData.projectTwitterHandle?.replace('@', '') || null;
+    const oldHandle = existingCampaign.projectTwitterHandle?.replace('@', '') || null;
+
+    if (newHandle && (newHandle !== oldHandle || !projectAvatarUrl)) {
+      try {
+        projectAvatarUrl = await fetchTwitterAvatar(newHandle);
+      } catch (error) {
+        console.log("Failed to fetch project Twitter avatar:", error);
+      }
+    } else if (!newHandle) {
+      projectAvatarUrl = null;
+    }
+
     const campaign = await db.campaign.update({
       where: { id },
       data: {
@@ -151,6 +167,7 @@ export async function PUT(
         name: validatedData.name,
         description: validatedData.description || null,
         projectTwitterHandle: validatedData.projectTwitterHandle || null,
+        projectAvatarUrl,
         keywords: validatedData.keywords || [],
         totalBudget: validatedData.totalBudget || 0,
         status: validatedData.status,

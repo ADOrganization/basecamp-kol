@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
-import { Calendar, Users, FileText, DollarSign } from "lucide-react";
+import { Calendar, Users, FileText, DollarSign, Twitter } from "lucide-react";
 
 interface CampaignCardProps {
   campaign: {
@@ -13,6 +13,8 @@ interface CampaignCardProps {
     spentBudget: number;
     startDate: string | null;
     endDate: string | null;
+    projectTwitterHandle: string | null;
+    projectAvatarUrl: string | null;
     client: { id: string; name: string } | null;
     _count: {
       campaignKols: number;
@@ -29,62 +31,99 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
   return (
     <Link
       href={`/agency/campaigns/${campaign.id}`}
-      className="block rounded-lg border bg-card p-6 hover:border-primary/50 transition-colors"
+      className="block rounded-lg border bg-card overflow-hidden hover:border-primary/50 transition-colors"
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-lg">{campaign.name}</h3>
-          {campaign.client && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Client: {campaign.client.name}
-            </p>
-          )}
+      {/* Project Avatar Header */}
+      {campaign.projectAvatarUrl ? (
+        <div className="relative h-24 bg-gradient-to-br from-primary/10 to-primary/5">
+          <div className="absolute -bottom-8 left-6">
+            <img
+              src={campaign.projectAvatarUrl}
+              alt={campaign.name}
+              className="h-16 w-16 rounded-xl border-4 border-card object-cover shadow-lg"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <div className="hidden h-16 w-16 rounded-xl border-4 border-card bg-primary/10 flex items-center justify-center">
+              <Twitter className="h-8 w-8 text-primary/50" />
+            </div>
+          </div>
+          <div className="absolute top-3 right-3">
+            <Badge className={getStatusColor(campaign.status)} variant="secondary">
+              {campaign.status.replace("_", " ")}
+            </Badge>
+          </div>
         </div>
-        <Badge className={getStatusColor(campaign.status)} variant="secondary">
-          {campaign.status.replace("_", " ")}
-        </Badge>
-      </div>
-
-      {campaign.description && (
-        <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
-          {campaign.description}
-        </p>
+      ) : (
+        <div className="relative h-16 bg-gradient-to-br from-muted/50 to-muted/30">
+          <div className="absolute top-3 right-3">
+            <Badge className={getStatusColor(campaign.status)} variant="secondary">
+              {campaign.status.replace("_", " ")}
+            </Badge>
+          </div>
+        </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mt-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Users className="h-4 w-4" />
-          <span>{campaign._count.campaignKols} KOLs</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <FileText className="h-4 w-4" />
-          <span>{campaign._count.posts} posts</span>
-        </div>
-        {campaign.startDate && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span>{formatDate(campaign.startDate)}</span>
+      <div className={campaign.projectAvatarUrl ? "p-6 pt-10" : "p-6 pt-2"}>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-semibold text-lg">{campaign.name}</h3>
+            {campaign.client && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Client: {campaign.client.name}
+              </p>
+            )}
+            {campaign.projectTwitterHandle && (
+              <p className="text-sm text-primary/70 mt-0.5">
+                @{campaign.projectTwitterHandle.replace('@', '')}
+              </p>
+            )}
           </div>
-        )}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <DollarSign className="h-4 w-4" />
-          <span>{formatCurrency(campaign.totalBudget)}</span>
         </div>
-      </div>
 
-      {/* Budget Progress */}
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-muted-foreground">Budget Allocated</span>
-          <span className="font-medium">
-            {formatCurrency(campaign.spentBudget)} / {formatCurrency(campaign.totalBudget)}
-          </span>
+        {campaign.description && (
+          <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
+            {campaign.description}
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>{campaign._count.campaignKols} KOLs</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <FileText className="h-4 w-4" />
+            <span>{campaign._count.posts} posts</span>
+          </div>
+          {campaign.startDate && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>{formatDate(campaign.startDate)}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <DollarSign className="h-4 w-4" />
+            <span>{formatCurrency(campaign.totalBudget)}</span>
+          </div>
         </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${Math.min(budgetProgress, 100)}%` }}
-          />
+
+        {/* Budget Progress */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between text-sm mb-1">
+            <span className="text-muted-foreground">Budget Allocated</span>
+            <span className="font-medium">
+              {formatCurrency(campaign.spentBudget)} / {formatCurrency(campaign.totalBudget)}
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${Math.min(budgetProgress, 100)}%` }}
+            />
+          </div>
         </div>
       </div>
     </Link>

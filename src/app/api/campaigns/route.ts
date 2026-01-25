@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
+import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
 
 export async function GET(request: NextRequest) {
   try {
@@ -120,6 +121,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = campaignSchema.parse(body);
 
+    // Fetch project avatar if Twitter handle provided
+    let projectAvatarUrl: string | null = null;
+    if (validatedData.projectTwitterHandle) {
+      const handle = validatedData.projectTwitterHandle.replace('@', '');
+      try {
+        projectAvatarUrl = await fetchTwitterAvatar(handle);
+      } catch (error) {
+        console.log("Failed to fetch project Twitter avatar:", error);
+      }
+    }
+
     const campaign = await db.campaign.create({
       data: {
         agencyId: session.user.organizationId,
@@ -127,6 +139,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         description: validatedData.description || null,
         projectTwitterHandle: validatedData.projectTwitterHandle || null,
+        projectAvatarUrl,
         keywords: validatedData.keywords || [],
         totalBudget: validatedData.totalBudget || 0,
         status: validatedData.status,

@@ -195,6 +195,7 @@ model Campaign {
 
   // Project Twitter handle (e.g., @ProjectHandle)
   projectTwitterHandle String?
+  projectAvatarUrl     String?
 
   // Keywords for post tracking (e.g., ["$TOKEN", "#launch", "DEMO"])
   keywords    String[]
