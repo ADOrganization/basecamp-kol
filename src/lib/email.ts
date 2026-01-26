@@ -237,7 +237,22 @@ This is an automated email from ${APP_NAME}. Please do not reply.
   `.trim();
 
   try {
-    const { error } = await getResend().emails.send({
+    const resend = getResend();
+
+    // Development fallback: log invite link to console
+    if (!resend) {
+      console.log("\n" + "=".repeat(60));
+      console.log("📧 INVITATION EMAIL (dev mode - no email sent)");
+      console.log("=".repeat(60));
+      console.log(`To: ${email}`);
+      console.log(`From: ${inviterName} at ${organizationName}`);
+      console.log(`Role: ${role}`);
+      console.log(`Link: ${inviteLink}`);
+      console.log("=".repeat(60) + "\n");
+      return { success: true };
+    }
+
+    const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
       subject: `You're invited to join ${organizationName} on ${APP_NAME}`,
@@ -324,7 +339,20 @@ This is an automated email from ${APP_NAME}. Please do not reply.
   `.trim();
 
   try {
-    const { error } = await getResend().emails.send({
+    const resend = getResend();
+
+    // Development fallback: log to console
+    if (!resend) {
+      console.log("\n" + "=".repeat(60));
+      console.log("📧 ACCOUNT DISABLED EMAIL (dev mode - no email sent)");
+      console.log("=".repeat(60));
+      console.log(`To: ${email}`);
+      console.log(`Organization: ${organizationName}`);
+      console.log("=".repeat(60) + "\n");
+      return { success: true };
+    }
+
+    const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
       subject: `${APP_NAME}: Account Access Disabled`,
