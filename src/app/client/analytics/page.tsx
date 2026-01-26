@@ -195,7 +195,7 @@ export default function ClientAnalyticsPage() {
         <select
           value={selectedCampaign}
           onChange={(e) => setSelectedCampaign(e.target.value)}
-          className="px-4 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="px-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         >
           <option value="all">All Campaigns</option>
           {campaigns.map(c => (
@@ -410,10 +410,10 @@ export default function ClientAnalyticsPage() {
                     </Pie>
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#1e293b",
-                        border: "none",
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
-                        color: "#fff"
+                        color: "hsl(var(--foreground))"
                       }}
                     />
                     <Legend />
@@ -444,10 +444,10 @@ export default function ClientAnalyticsPage() {
                     <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={12} width={100} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#1e293b",
-                        border: "none",
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
-                        color: "#fff"
+                        color: "hsl(var(--foreground))"
                       }}
                     />
                     <Bar dataKey="engagement" fill="#6366f1" name="Engagement" radius={[0, 4, 4, 0]} />

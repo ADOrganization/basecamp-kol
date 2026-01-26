@@ -17,7 +17,7 @@ export function KPITile({ label, value, delta, format = "number", className }: K
   const getDeltaColor = (delta: number) => {
     if (delta > 0) return "text-emerald-500";
     if (delta < 0) return "text-rose-500";
-    return "text-slate-400";
+    return "text-muted-foreground";
   };
 
   const getDeltaIcon = (delta: number) => {

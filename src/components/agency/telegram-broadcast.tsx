@@ -160,28 +160,28 @@ export function TelegramBroadcast({ campaigns }: TelegramBroadcastProps) {
     switch (status) {
       case "completed":
         return (
-          <Badge variant="outline" className="bg-green-50 text-green-700">
+          <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400">
             <CheckCircle className="h-3 w-3 mr-1" />
             Completed
           </Badge>
         );
       case "sending":
         return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
             <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
             Sending
           </Badge>
         );
       case "failed":
         return (
-          <Badge variant="outline" className="bg-red-50 text-red-700">
+          <Badge variant="outline" className="bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
             <XCircle className="h-3 w-3 mr-1" />
             Failed
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700">
+          <Badge variant="outline" className="bg-muted text-muted-foreground">
             <Clock className="h-3 w-3 mr-1" />
             Pending
           </Badge>

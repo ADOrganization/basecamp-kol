@@ -30,17 +30,17 @@ export function KolTierChart({ data }: KolTierChartProps) {
         </Pie>
         <Tooltip
           contentStyle={{
-            backgroundColor: "#0f172a",
-            border: "1px solid #1e293b",
+            backgroundColor: "hsl(var(--card))",
+            border: "1px solid hsl(var(--border))",
             borderRadius: "8px",
-            color: "#f8fafc",
+            color: "hsl(var(--foreground))",
           }}
           formatter={(value, name) => [`${value} KOLs`, name]}
         />
         <Legend
           verticalAlign="bottom"
           height={36}
-          formatter={(value) => <span style={{ color: "#94a3b8", fontSize: "12px" }}>{value}</span>}
+          formatter={(value) => <span className="text-muted-foreground text-xs">{value}</span>}
         />
       </PieChart>
     </ResponsiveContainer>

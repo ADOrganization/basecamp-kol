@@ -171,7 +171,7 @@ export default function ClientReviewPage() {
           {getStatusBadge(post.status)}
         </div>
 
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 mb-4 border border-slate-200">
+        <div className="bg-muted/50 rounded-xl p-4 mb-4 border border-border">
           <p className="text-sm whitespace-pre-wrap leading-relaxed">{post.content}</p>
         </div>
 
@@ -189,7 +189,7 @@ export default function ClientReviewPage() {
         </div>
 
         {post.status === "POSTED" && (
-          <div className="grid grid-cols-4 gap-3 p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl mb-4">
+          <div className="grid grid-cols-4 gap-3 p-4 bg-muted/50 rounded-xl mb-4">
             <div className="text-center">
               <div className="h-8 w-8 rounded-lg bg-teal-100 flex items-center justify-center mx-auto mb-1">
                 <Eye className="h-4 w-4 text-teal-600" />
@@ -343,17 +343,17 @@ export default function ClientReviewPage() {
           placeholder="Search posts by content, KOL, or campaign..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+          className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
         />
       </div>
 
       <Tabs defaultValue="pending" className="space-y-6">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-background">
             <Clock className="h-4 w-4" />
             Pending ({filteredPendingPosts.length})
           </TabsTrigger>
-          <TabsTrigger value="reviewed" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="reviewed" className="gap-2 data-[state=active]:bg-background">
             <FileText className="h-4 w-4" />
             All Posts ({filteredReviewedPosts.length + filteredPendingPosts.length})
           </TabsTrigger>

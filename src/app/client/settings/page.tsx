@@ -40,16 +40,16 @@ export default async function ClientSettingsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 p-8 text-white">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-8 text-white">
         <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-600/20 rounded-full blur-3xl -mr-32 -mt-32" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-32 -mt-32" />
         <div className="relative">
-          <div className="flex items-center gap-2 text-slate-300 mb-2">
+          <div className="flex items-center gap-2 text-indigo-200 mb-2">
             <Settings className="h-5 w-5" />
             <span className="text-sm font-medium">Account Management</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Settings</h1>
-          <p className="text-slate-300 max-w-xl">
+          <p className="text-indigo-100 max-w-xl">
             Manage your account, organization details, team members, and notification preferences.
           </p>
         </div>
@@ -57,19 +57,19 @@ export default async function ClientSettingsPage() {
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-background">
             <User className="h-4 w-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-background">
             <Building2 className="h-4 w-4" />
             Organization
           </TabsTrigger>
-          <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-background">
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-white">
+          <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-background">
             <Bell className="h-4 w-4" />
             Notifications
           </TabsTrigger>
@@ -97,7 +97,7 @@ export default async function ClientSettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                   <div>
                     <p className="font-medium">Current Plan</p>
                     <p className="text-sm text-muted-foreground">Enterprise Client</p>
@@ -151,28 +151,28 @@ export default async function ClientSettingsPage() {
                     <p className="font-medium">Campaign Updates</p>
                     <p className="text-sm text-muted-foreground">Get notified when campaign status changes</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-gray-300" />
+                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Post Approvals</p>
                     <p className="text-sm text-muted-foreground">Receive alerts when posts need your review</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-gray-300" />
+                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Weekly Reports</p>
                     <p className="text-sm text-muted-foreground">Receive weekly performance summaries</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-gray-300" />
+                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">KOL Performance Alerts</p>
                     <p className="text-sm text-muted-foreground">Get notified about exceptional KOL performance</p>
                   </div>
-                  <input type="checkbox" className="h-4 w-4 rounded border-gray-300" />
+                  <input type="checkbox" className="h-4 w-4 rounded border-border" />
                 </div>
               </div>
             </CardContent>

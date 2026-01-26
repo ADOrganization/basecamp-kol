@@ -630,7 +630,7 @@ export function TweetScraper({
                               {new Date(tweet.postedAt).toLocaleDateString()}
                             </span>
                             {tweet.alreadyImported && (
-                              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                              <Badge variant="secondary" className="text-xs">
                                 Already Imported
                               </Badge>
                             )}

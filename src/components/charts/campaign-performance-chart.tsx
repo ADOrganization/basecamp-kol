@@ -15,7 +15,7 @@ export function CampaignPerformanceChart({ data }: CampaignPerformanceChartProps
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} barGap={8}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
         <XAxis
           dataKey="name"
           stroke="#64748b"
@@ -32,10 +32,10 @@ export function CampaignPerformanceChart({ data }: CampaignPerformanceChartProps
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#0f172a",
-            border: "1px solid #1e293b",
+            backgroundColor: "hsl(var(--card))",
+            border: "1px solid hsl(var(--border))",
             borderRadius: "8px",
-            color: "#f8fafc",
+            color: "hsl(var(--foreground))",
           }}
           formatter={(value, name) => [
             `$${(Number(value) / 100).toLocaleString()}`,

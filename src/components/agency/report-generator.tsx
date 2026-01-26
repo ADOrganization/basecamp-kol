@@ -156,17 +156,17 @@ export function ReportGenerator({
           </DialogHeader>
         </div>
 
-        <div className="px-6 py-5 space-y-5 bg-slate-50">
+        <div className="px-6 py-5 space-y-5 bg-muted/50">
           {/* Quick Select Buttons */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-slate-700">Quick Select</Label>
+            <Label className="text-sm font-medium">Quick Select</Label>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect(7)}
-                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
+                className="hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 dark:hover:bg-teal-950 dark:hover:text-teal-400"
               >
                 Last 7 days
               </Button>
@@ -175,7 +175,7 @@ export function ReportGenerator({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect(30)}
-                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
+                className="hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 dark:hover:bg-teal-950 dark:hover:text-teal-400"
               >
                 Last 30 days
               </Button>
@@ -184,7 +184,7 @@ export function ReportGenerator({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect(90)}
-                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
+                className="hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 dark:hover:bg-teal-950 dark:hover:text-teal-400"
               >
                 Last 90 days
               </Button>
@@ -193,7 +193,7 @@ export function ReportGenerator({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuickSelect("all")}
-                className="bg-white hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300"
+                className="hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 dark:hover:bg-teal-950 dark:hover:text-teal-400"
               >
                 All time
               </Button>
@@ -203,7 +203,7 @@ export function ReportGenerator({
           {/* Date Range Inputs */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startDate" className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <Label htmlFor="startDate" className="flex items-center gap-1.5 text-sm font-medium">
                 <Calendar className="h-4 w-4 text-teal-600" />
                 Start Date
               </Label>
@@ -212,11 +212,11 @@ export function ReportGenerator({
                 id="startDate"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent shadow-sm"
+                className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent shadow-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="endDate" className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <Label htmlFor="endDate" className="flex items-center gap-1.5 text-sm font-medium">
                 <Calendar className="h-4 w-4 text-teal-600" />
                 End Date
               </Label>
@@ -225,15 +225,15 @@ export function ReportGenerator({
                 id="endDate"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent shadow-sm"
+                className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent shadow-sm"
               />
             </div>
           </div>
 
           {/* Report Contents Preview */}
-          <div className="p-4 bg-white rounded-lg border border-slate-200 space-y-2 shadow-sm">
-            <Label className="text-sm font-medium text-slate-700">Report will include:</Label>
-            <ul className="text-sm text-slate-600 space-y-1.5 ml-1">
+          <div className="p-4 bg-card rounded-lg border border-border space-y-2 shadow-sm">
+            <Label className="text-sm font-medium">Report will include:</Label>
+            <ul className="text-sm text-muted-foreground space-y-1.5 ml-1">
               <li className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
                 Campaign overview and status
@@ -267,12 +267,11 @@ export function ReportGenerator({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 px-6 py-4 bg-white border-t border-slate-200">
+        <div className="flex justify-end gap-3 px-6 py-4 bg-card border-t border-border">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isGenerating}
-            className="hover:bg-slate-100"
           >
             Cancel
           </Button>

@@ -24,7 +24,7 @@ export function EngagementChart({ data }: EngagementChartProps) {
             <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
         <XAxis
           dataKey="date"
           stroke="#64748b"
@@ -41,10 +41,10 @@ export function EngagementChart({ data }: EngagementChartProps) {
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#0f172a",
-            border: "1px solid #1e293b",
+            backgroundColor: "hsl(var(--card))",
+            border: "1px solid hsl(var(--border))",
             borderRadius: "8px",
-            color: "#f8fafc",
+            color: "hsl(var(--foreground))",
           }}
           formatter={(value) => [Number(value).toLocaleString(), ""]}
         />
