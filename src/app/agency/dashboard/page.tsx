@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getAgencyContext } from "@/lib/get-agency-context";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { Users, Megaphone, TrendingUp, Eye, Heart, MessageSquare, Repeat2, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
@@ -95,12 +95,12 @@ async function getDashboardStats(organizationId: string) {
 }
 
 export default async function AgencyDashboard() {
-  const session = await auth();
-  if (!session?.user) {
+  const context = await getAgencyContext();
+  if (!context) {
     redirect("/login");
   }
 
-  const stats = await getDashboardStats(session.user.organizationId);
+  const stats = await getDashboardStats(context.organizationId);
 
   const tierChartData = [
     { name: "Macro (75K+)", value: stats.tierDistribution.MACRO, color: "#f59e0b" },

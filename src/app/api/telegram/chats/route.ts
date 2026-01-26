@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { TelegramChatStatus, Prisma } from "@prisma/client";
+import { getApiAuthContext } from "@/lib/api-auth";
 
 // GET - List all telegram chats with filters
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause - exclude PRIVATE chats (those are for 1:1 conversations)
     const where: Prisma.TelegramChatWhereInput = {
-      organizationId: session.user.organizationId,
+      organizationId: authContext.organizationId,
       type: {
         not: "PRIVATE",
       },

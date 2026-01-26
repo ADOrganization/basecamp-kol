@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
 import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
+import { getApiAuthContext } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,14 +11,14 @@ export async function GET(request: NextRequest) {
     const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // SECURITY: Only agency users can access the full KOL roster
     // Clients can only see KOLs assigned to their campaigns via /api/campaigns/[id]
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const kols = await db.kOL.findMany({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         ...(search && {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
@@ -81,12 +81,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const existingKol = await db.kOL.findUnique({
       where: {
         organizationId_twitterHandle: {
-          organizationId: session.user.organizationId,
+          organizationId: authContext.organizationId,
           twitterHandle,
         },
       },
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     const kol = await db.kOL.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         name: validatedData.name,
         twitterHandle,
         avatarUrl,

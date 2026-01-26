@@ -3,24 +3,25 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
 import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
+import { getApiAuthContext } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    const isAgency = session.user.organizationType === "AGENCY";
+    const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     const campaigns = await db.campaign.findMany({
       where: {
         ...(isAgency
-          ? { agencyId: session.user.organizationId }
-          : { clientId: session.user.organizationId }),
+          ? { agencyId: authContext.organizationId }
+          : { clientId: authContext.organizationId }),
         ...(status && { status: status as "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED" }),
       },
       include: {
@@ -131,12 +132,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     // Load organization's API keys for media fetching
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     const campaign = await db.campaign.create({
       data: {
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
         clientId: validatedData.clientId || null,
         name: validatedData.name,
         description: validatedData.description || null,

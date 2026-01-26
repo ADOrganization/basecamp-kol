@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { getApiAuthContext } from "@/lib/api-auth";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -15,12 +15,12 @@ const createClientSchema = z.object({
 // GET - List all client organizations and their campaigns
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -30,7 +30,7 @@ export async function GET() {
         type: "CLIENT",
         clientCampaigns: {
           some: {
-            agencyId: session.user.organizationId,
+            agencyId: authContext.organizationId,
           },
         },
       },
@@ -48,7 +48,7 @@ export async function GET() {
         },
         clientCampaigns: {
           where: {
-            agencyId: session.user.organizationId,
+            agencyId: authContext.organizationId,
           },
           select: {
             id: true,
@@ -75,12 +75,12 @@ export async function GET() {
 // POST - Create a new client account
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     const campaign = await db.campaign.findFirst({
       where: {
         id: validatedData.campaignId,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 
