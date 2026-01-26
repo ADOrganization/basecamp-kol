@@ -114,7 +114,7 @@ export default async function AgencyDashboard() {
       {/* Hero Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Impressions */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-indigo-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-card p-6 border border-border hover:border-indigo-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
@@ -134,7 +134,7 @@ export default async function AgencyDashboard() {
         </div>
 
         {/* Total Engagement */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-teal-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-card p-6 border border-border hover:border-teal-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
@@ -154,7 +154,7 @@ export default async function AgencyDashboard() {
         </div>
 
         {/* Active Campaigns */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-purple-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-card p-6 border border-border hover:border-purple-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
@@ -174,7 +174,7 @@ export default async function AgencyDashboard() {
         </div>
 
         {/* Budget Utilization */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-amber-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-card p-6 border border-border hover:border-amber-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
@@ -190,7 +190,7 @@ export default async function AgencyDashboard() {
             </p>
             <p className="text-sm text-muted-foreground">Total Budget</p>
             {/* Progress bar */}
-            <div className="mt-3 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div className="mt-3 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
                 style={{ width: `${stats.totalBudget > 0 ? (stats.totalSpent / stats.totalBudget) * 100 : 0}%` }}
