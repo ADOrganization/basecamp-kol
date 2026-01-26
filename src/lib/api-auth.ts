@@ -27,6 +27,7 @@ export async function getApiAuthContext(): Promise<ApiAuthContext | null> {
       },
       select: {
         id: true,
+        name: true,
         _count: {
           select: {
             kols: true,
@@ -35,6 +36,10 @@ export async function getApiAuthContext(): Promise<ApiAuthContext | null> {
         },
       },
     });
+
+    console.log(`[API Auth] Admin session found. Found ${agencies.length} agencies:`,
+      agencies.map(a => ({ id: a.id, name: a.name, kols: a._count.kols, campaigns: a._count.agencyCampaigns }))
+    );
 
     // Sort by total content (KOLs + campaigns) and pick the one with most data
     const sortedAgencies = agencies.sort((a, b) => {
@@ -46,9 +51,11 @@ export async function getApiAuthContext(): Promise<ApiAuthContext | null> {
     const agencyWithData = sortedAgencies[0];
 
     if (!agencyWithData) {
-      console.error("No agency organization found for admin user");
+      console.error("[API Auth] No agency organization found for admin user");
       return null;
     }
+
+    console.log(`[API Auth] Selected agency: ${agencyWithData.id} (${agencyWithData.name})`);
 
     return {
       organizationId: agencyWithData.id,

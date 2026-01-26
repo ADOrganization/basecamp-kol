@@ -15,6 +15,8 @@ export async function GET(
     if (rateLimitResponse) return rateLimitResponse;
 
     const authContext = await getApiAuthContext();
+    console.log(`[KOL API] Auth context:`, authContext ? { orgId: authContext.organizationId, isAdmin: authContext.isAdmin } : null);
+
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -26,6 +28,7 @@ export async function GET(
     }
 
     const { id } = await params;
+    console.log(`[KOL API] Fetching KOL ${id} for org ${authContext.organizationId}`);
 
     // Try to include paymentReceipts, but gracefully handle if table doesn't exist yet
     let includePaymentReceipts = true;
@@ -91,6 +94,12 @@ export async function GET(
     }
 
     if (!kol) {
+      // Check if KOL exists but belongs to different org
+      const kolAnyOrg = await db.kOL.findUnique({
+        where: { id },
+        select: { id: true, organizationId: true, name: true },
+      });
+      console.log(`[KOL API] KOL not found for org. KOL exists?`, kolAnyOrg);
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
