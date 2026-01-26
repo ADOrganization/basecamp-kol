@@ -26,11 +26,34 @@ export default async function SettingsPage() {
     },
   });
 
-  const user = await db.user.findUnique({
-    where: { id: context.userId },
-  });
+  if (!organization) {
+    redirect("/login");
+  }
 
-  if (!organization || !user) {
+  // For admin users, create a synthetic user object since they don't have a User record
+  let user;
+  if (context.isAdmin) {
+    const adminUser = await db.adminUser.findUnique({
+      where: { id: context.userId },
+    });
+    user = adminUser ? {
+      id: adminUser.id,
+      name: adminUser.name || "Admin",
+      email: adminUser.email,
+      avatarUrl: null,
+      passwordHash: null,
+      emailVerified: null,
+      lastLoginAt: adminUser.lastLoginAt,
+      createdAt: adminUser.createdAt,
+      updatedAt: adminUser.updatedAt,
+    } : null;
+  } else {
+    user = await db.user.findUnique({
+      where: { id: context.userId },
+    });
+  }
+
+  if (!user) {
     redirect("/login");
   }
 
