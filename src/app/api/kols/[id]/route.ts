@@ -27,43 +27,78 @@ export async function GET(
 
     const { id } = await params;
 
-    const kol = await db.kOL.findFirst({
-      where: {
-        id,
-        organizationId: authContext.organizationId,
-      },
-      include: {
-        tags: true,
-        campaignKols: {
-          include: {
-            campaign: true,
+    // Try to include paymentReceipts, but gracefully handle if table doesn't exist yet
+    let includePaymentReceipts = true;
+    let kol;
+
+    try {
+      kol = await db.kOL.findFirst({
+        where: {
+          id,
+          organizationId: authContext.organizationId,
+        },
+        include: {
+          tags: true,
+          campaignKols: {
+            include: {
+              campaign: true,
+            },
           },
-        },
-        posts: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        },
-        payments: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        },
-        paymentReceipts: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            campaign: {
-              select: { id: true, name: true },
+          posts: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+          payments: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+          paymentReceipts: {
+            orderBy: { createdAt: "desc" },
+            include: {
+              campaign: {
+                select: { id: true, name: true },
+              },
             },
           },
         },
-      },
-    });
+      });
+    } catch (e) {
+      // If paymentReceipts table doesn't exist yet, retry without it
+      console.log("Falling back to query without paymentReceipts:", e);
+      includePaymentReceipts = false;
+      kol = await db.kOL.findFirst({
+        where: {
+          id,
+          organizationId: authContext.organizationId,
+        },
+        include: {
+          tags: true,
+          campaignKols: {
+            include: {
+              campaign: true,
+            },
+          },
+          posts: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+          payments: {
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          },
+        },
+      });
+    }
 
     if (!kol) {
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
+    // Add empty paymentReceipts if not included
+    const kolData = includePaymentReceipts ? kol : { ...kol, paymentReceipts: [] };
+
     // Add security headers to prevent caching of sensitive data
-    const response = NextResponse.json(kol);
+    const response = NextResponse.json(kolData);
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error fetching KOL:", error);
