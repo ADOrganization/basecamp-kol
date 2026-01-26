@@ -30,6 +30,7 @@ export async function GET(
     const { id } = await params;
     console.log(`[KOL API] Fetching KOL ${id} for org ${authContext.organizationId}`);
 
+    // Query KOL with relations
     const kol = await db.kOL.findFirst({
       where: {
         id,
@@ -50,16 +51,27 @@ export async function GET(
           orderBy: { createdAt: "desc" },
           take: 10,
         },
-        paymentReceipts: {
+      },
+    });
+
+    // Add paymentReceipts separately to avoid potential schema issues
+    let paymentReceipts: any[] = [];
+    if (kol) {
+      try {
+        const receipts = await db.paymentReceipt.findMany({
+          where: { kolId: kol.id },
           orderBy: { createdAt: "desc" },
           include: {
             campaign: {
               select: { id: true, name: true },
             },
           },
-        },
-      },
-    });
+        });
+        paymentReceipts = receipts;
+      } catch (e) {
+        console.log("[KOL API] Could not fetch paymentReceipts:", e);
+      }
+    }
 
     if (!kol) {
       // Check if KOL exists but belongs to different org
@@ -71,7 +83,7 @@ export async function GET(
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
-    const kolData = kol;
+    const kolData = { ...kol, paymentReceipts };
 
     // Add security headers to prevent caching of sensitive data
     const response = NextResponse.json(kolData);
