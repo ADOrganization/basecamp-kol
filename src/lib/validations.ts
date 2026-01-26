@@ -38,6 +38,12 @@ export const kolTagSchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color format"),
 });
 
+// Client access user schema
+export const clientUserSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  name: z.string().optional(),
+});
+
 // Campaign validations
 export const campaignSchema = z.object({
   name: z.string().min(2, "Campaign name must be at least 2 characters"),
@@ -50,6 +56,7 @@ export const campaignSchema = z.object({
   status: z.enum(["DRAFT", "PENDING_APPROVAL", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  clientUsers: z.array(clientUserSchema).optional(),
 });
 
 export const campaignKolSchema = z.object({

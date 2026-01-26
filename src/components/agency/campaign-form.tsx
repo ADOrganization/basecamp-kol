@@ -19,6 +19,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { KeywordsInput } from "./keywords-input";
+import { Plus, X, Mail, Users } from "lucide-react";
+
+interface ClientAccessUser {
+  email: string;
+  name?: string;
+}
 
 interface CampaignFormProps {
   campaign?: {
@@ -31,6 +37,7 @@ interface CampaignFormProps {
     totalBudget: number;
     startDate: string | null;
     endDate: string | null;
+    clientUsers?: ClientAccessUser[];
   };
   telegramChats?: { id: string; telegramChatId: string; title: string | null }[];
   open: boolean;
@@ -51,6 +58,42 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
     startDate: campaign?.startDate ? campaign.startDate.split("T")[0] : "",
     endDate: campaign?.endDate ? campaign.endDate.split("T")[0] : "",
   });
+
+  // Client access state
+  const [clientUsers, setClientUsers] = useState<ClientAccessUser[]>(
+    campaign?.clientUsers || []
+  );
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientName, setNewClientName] = useState("");
+
+  const addClientUser = () => {
+    if (!newClientEmail.trim()) return;
+
+    // Check for duplicate
+    if (clientUsers.some(u => u.email.toLowerCase() === newClientEmail.toLowerCase().trim())) {
+      setError("This email has already been added");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newClientEmail.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setClientUsers([...clientUsers, {
+      email: newClientEmail.trim().toLowerCase(),
+      name: newClientName.trim() || undefined
+    }]);
+    setNewClientEmail("");
+    setNewClientName("");
+    setError("");
+  };
+
+  const removeClientUser = (email: string) => {
+    setClientUsers(clientUsers.filter(u => u.email !== email));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +123,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
         status: "ACTIVE", // Default to ACTIVE
         startDate: formData.startDate || undefined,
         endDate: formData.endDate || undefined,
+        clientUsers: clientUsers.length > 0 ? clientUsers : undefined,
       };
 
       const url = campaign ? `/api/campaigns/${campaign.id}` : "/api/campaigns";
@@ -228,6 +272,108 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Client Portal Access */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <Label className="text-base font-medium">Client Portal Access</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Generate login credentials for clients to view campaign progress
+                  </p>
+                </div>
+              </div>
+
+              {/* Added client users */}
+              {clientUsers.length > 0 && (
+                <div className="space-y-2">
+                  {clientUsers.map((user) => (
+                    <div
+                      key={user.email}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                          <Mail className="h-4 w-4 text-indigo-600" />
+                        </div>
+                        <div>
+                          {user.name && (
+                            <p className="font-medium text-sm">{user.name}</p>
+                          )}
+                          <p className={user.name ? "text-xs text-muted-foreground" : "text-sm"}>
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeClientUser(user.email)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new client user */}
+              <div className="space-y-3 p-4 rounded-lg border border-dashed">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="client-email" className="text-xs">Email Address *</Label>
+                    <Input
+                      id="client-email"
+                      type="email"
+                      placeholder="client@company.com"
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addClientUser();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="client-name" className="text-xs">Name (optional)</Label>
+                    <Input
+                      id="client-name"
+                      placeholder="John Doe"
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addClientUser();
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addClientUser}
+                  disabled={!newClientEmail.trim()}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Client User
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                {clientUsers.length === 0
+                  ? "No client users added. Add emails to generate login credentials."
+                  : `${clientUsers.length} client user${clientUsers.length !== 1 ? "s" : ""} will receive magic link login credentials via email.`}
+              </p>
             </div>
 
           {/* Actions */}

@@ -371,3 +371,122 @@ This is an automated email from ${APP_NAME}. Please do not reply.
     return { success: false, error: "Failed to send email" };
   }
 }
+
+/**
+ * Send a client portal access email with magic link
+ */
+export async function sendClientPortalAccessEmail(
+  email: string,
+  token: string,
+  campaignName: string,
+  clientName?: string
+): Promise<SendEmailResult> {
+  // Use the standard magic link callback - it handles client redirects automatically
+  const magicLink = `${APP_URL}/api/auth/callback/magic?token=${token}&email=${encodeURIComponent(email)}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Your Campaign Dashboard on ${APP_NAME}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 480px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0d9488 0%, #059669 100%); padding: 32px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${APP_NAME}</h1>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 32px;">
+              <h2 style="margin: 0 0 16px; color: #18181b; font-size: 20px; font-weight: 600;">Welcome to Your Campaign Dashboard${clientName ? `, ${clientName}` : ""}!</h2>
+              <p style="margin: 0 0 24px; color: #52525b; font-size: 15px; line-height: 1.6;">
+                You've been given access to view and track the progress of <strong>${campaignName}</strong>. Click the button below to access your dashboard.
+              </p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding: 8px 0;">
+                    <a href="${magicLink}" style="display: inline-block; background: linear-gradient(135deg, #0d9488 0%, #059669 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 8px;">
+                      Access Campaign Dashboard
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 24px 0 0; color: #71717a; font-size: 13px; line-height: 1.5;">
+                This link is your personal access link. Please keep it secure and do not share it with others.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background-color: #f9fafb; border-top: 1px solid #e4e4e7;">
+              <p style="margin: 0; color: #a1a1aa; font-size: 12px; text-align: center;">
+                This is an automated email from ${APP_NAME}.<br>
+                Please do not reply to this message.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  const text = `
+Welcome to Your Campaign Dashboard${clientName ? `, ${clientName}` : ""}!
+
+You've been given access to view and track the progress of ${campaignName}.
+
+Click the link below to access your dashboard:
+
+${magicLink}
+
+This link is your personal access link. Please keep it secure and do not share it with others.
+
+---
+This is an automated email from ${APP_NAME}. Please do not reply.
+  `.trim();
+
+  try {
+    const resend = getResend();
+
+    // Development fallback: log magic link to console
+    if (!resend) {
+      console.log("\n" + "=".repeat(60));
+      console.log("📧 CLIENT PORTAL ACCESS (dev mode - no email sent)");
+      console.log("=".repeat(60));
+      console.log(`To: ${email}`);
+      console.log(`Campaign: ${campaignName}`);
+      console.log(`Link: ${magicLink}`);
+      console.log("=".repeat(60) + "\n");
+      return { success: true };
+    }
+
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: email,
+      subject: `Access Your Campaign Dashboard - ${campaignName}`,
+      html,
+      text,
+    });
+
+    if (error) {
+      console.error("Failed to send client portal access email:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Email service error:", error);
+    return { success: false, error: "Failed to send email" };
+  }
+}
