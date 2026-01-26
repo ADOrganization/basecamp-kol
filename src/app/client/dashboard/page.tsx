@@ -129,11 +129,6 @@ export default async function ClientDashboard() {
 
   const stats = await getClientStats(session.user.organizationId);
 
-  // If client has exactly one campaign, redirect to that campaign's detail page
-  if (stats.campaigns.length === 1) {
-    redirect(`/client/campaigns/${stats.campaigns[0].id}`);
-  }
-
   return (
     <div className="space-y-8">
       {/* Pending Approvals Alert */}

@@ -51,10 +51,6 @@ export async function GET(
           },
         },
         posts: {
-          where: {
-            // Only show scraped/posted tweets, not content reviews (DRAFT, PENDING_APPROVAL, etc.)
-            status: { in: ["POSTED", "VERIFIED"] },
-          },
           include: {
             kol: {
               select: { id: true, name: true, twitterHandle: true, avatarUrl: true },

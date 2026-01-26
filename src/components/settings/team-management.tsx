@@ -53,9 +53,10 @@ interface TeamManagementProps {
   members: Member[];
   currentUserId: string;
   variant?: "agency" | "client";
+  hideInvite?: boolean;
 }
 
-export function TeamManagement({ members, currentUserId, variant = "agency" }: TeamManagementProps) {
+export function TeamManagement({ members, currentUserId, variant = "agency", hideInvite = false }: TeamManagementProps) {
   const router = useRouter();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
@@ -135,6 +136,7 @@ export function TeamManagement({ members, currentUserId, variant = "agency" }: T
               Manage who has access to your organization
             </CardDescription>
           </div>
+          {!hideInvite && (
           <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
             <DialogTrigger asChild>
               <Button className={buttonClass}>Invite Member</Button>
@@ -201,6 +203,7 @@ export function TeamManagement({ members, currentUserId, variant = "agency" }: T
               </form>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </CardHeader>
       <CardContent>

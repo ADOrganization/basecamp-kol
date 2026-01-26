@@ -4,20 +4,16 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CheckCircle2,
   XCircle,
   Clock,
   ExternalLink,
-  Eye,
   ThumbsUp,
-  MessageCircle,
-  Repeat2,
   FileText,
   FileCheck,
-  Sparkles,
   AlertCircle,
   Search,
 } from "lucide-react";
@@ -38,6 +34,7 @@ interface Post {
     id: string;
     name: string;
     twitterHandle: string;
+    avatarUrl: string | null;
   };
   campaign: {
     id: string;
@@ -159,6 +156,7 @@ export default function ClientReviewPage() {
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12 border-2 border-teal-100">
+              {post.kol.avatarUrl && <AvatarImage src={post.kol.avatarUrl} alt={post.kol.name} />}
               <AvatarFallback className="bg-gradient-to-br from-teal-500 to-teal-600 text-white">
                 {post.kol.name.charAt(0)}
               </AvatarFallback>
@@ -176,8 +174,7 @@ export default function ClientReviewPage() {
         </div>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-          <span className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />
+          <span>
             {post.campaign.name}
           </span>
           {post.scheduledFor && (
@@ -188,35 +185,14 @@ export default function ClientReviewPage() {
           )}
         </div>
 
-        {post.status === "POSTED" && (
-          <div className="grid grid-cols-4 gap-3 p-4 bg-muted/50 rounded-xl mb-4">
-            <div className="text-center">
-              <div className="h-8 w-8 rounded-lg bg-teal-100 flex items-center justify-center mx-auto mb-1">
-                <Eye className="h-4 w-4 text-teal-600" />
-              </div>
-              <p className="text-sm font-semibold">{formatNumber(post.impressions)}</p>
-              <p className="text-xs text-muted-foreground">Views</p>
+        {post.status === "POSTED" && post.likes > 0 && (
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-xl mb-4">
+            <div className="h-8 w-8 rounded-lg bg-rose-100 flex items-center justify-center">
+              <ThumbsUp className="h-4 w-4 text-rose-600" />
             </div>
-            <div className="text-center">
-              <div className="h-8 w-8 rounded-lg bg-rose-100 flex items-center justify-center mx-auto mb-1">
-                <ThumbsUp className="h-4 w-4 text-rose-600" />
-              </div>
+            <div>
               <p className="text-sm font-semibold">{formatNumber(post.likes)}</p>
               <p className="text-xs text-muted-foreground">Likes</p>
-            </div>
-            <div className="text-center">
-              <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center mx-auto mb-1">
-                <Repeat2 className="h-4 w-4 text-blue-600" />
-              </div>
-              <p className="text-sm font-semibold">{formatNumber(post.retweets)}</p>
-              <p className="text-xs text-muted-foreground">Retweets</p>
-            </div>
-            <div className="text-center">
-              <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center mx-auto mb-1">
-                <MessageCircle className="h-4 w-4 text-indigo-600" />
-              </div>
-              <p className="text-sm font-semibold">{formatNumber(post.replies)}</p>
-              <p className="text-xs text-muted-foreground">Replies</p>
             </div>
           </div>
         )}

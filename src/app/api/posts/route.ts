@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         kol: {
-          select: { id: true, name: true, twitterHandle: true },
+          select: { id: true, name: true, twitterHandle: true, avatarUrl: true },
         },
         campaign: {
           select: { id: true, name: true },
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         kol: {
-          select: { id: true, name: true, twitterHandle: true },
+          select: { id: true, name: true, twitterHandle: true, avatarUrl: true },
         },
         campaign: {
           select: { id: true, name: true, keywords: true },

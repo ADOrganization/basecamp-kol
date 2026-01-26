@@ -142,17 +142,17 @@ export default function ClientAnalyticsPage() {
     { name: "Rejected", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "REJECTED").length, color: "#ef4444" },
   ].filter(item => item.value > 0);
 
-  // Top performing KOLs
+  // Top performing KOLs (sorted by likes since that's the only metric we can scrape)
   const kolPerformance = filteredCampaigns.flatMap(c =>
     (c.campaignKols || []).filter(ck => ck.kol).map(ck => {
       const kolPosts = (c.posts || []).filter(post => post.kolId === ck.kol.id);
       return {
         ...ck.kol,
         impressions: kolPosts.reduce((sum, post) => sum + (post.impressions || 0), 0),
-        engagement: kolPosts.reduce((sum, post) => sum + (post.likes || 0) + (post.retweets || 0) + (post.replies || 0), 0),
+        likes: kolPosts.reduce((sum, post) => sum + (post.likes || 0), 0),
       };
     })
-  ).sort((a, b) => b.engagement - a.engagement).slice(0, 5);
+  ).sort((a, b) => b.likes - a.likes).slice(0, 5);
 
   if (isLoading) {
     return (
@@ -469,7 +469,7 @@ export default function ClientAnalyticsPage() {
               <Trophy className="h-5 w-5 text-amber-500" />
               Top Performing KOLs
             </CardTitle>
-            <CardDescription>KOLs with highest engagement</CardDescription>
+            <CardDescription>KOLs with most likes</CardDescription>
           </CardHeader>
           <CardContent>
             {kolPerformance.length > 0 ? (
@@ -501,10 +501,10 @@ export default function ClientAnalyticsPage() {
                       <p className="text-sm text-muted-foreground truncate">@{kol.twitterHandle}</p>
                     </div>
 
-                    {/* Engagement Stats */}
+                    {/* Likes Stats */}
                     <div className="text-right shrink-0">
-                      <p className="font-semibold text-indigo-600">{formatNumber(kol.engagement)}</p>
-                      <p className="text-xs text-muted-foreground">engagement</p>
+                      <p className="font-semibold text-indigo-600">{formatNumber(kol.likes)}</p>
+                      <p className="text-xs text-muted-foreground">likes</p>
                     </div>
                   </div>
                 ))}

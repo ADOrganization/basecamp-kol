@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Users, Bell, Shield, FileText, Settings } from "lucide-react";
+import { Building2, User, Users, Shield, FileText, Settings } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { PasswordForm } from "@/components/settings/password-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
@@ -69,9 +69,9 @@ export default async function ClientSettingsPage() {
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2 data-[state=active]:bg-background">
-            <Bell className="h-4 w-4" />
-            Notifications
+          <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-background">
+            <Shield className="h-4 w-4" />
+            Security
           </TabsTrigger>
         </TabsList>
 
@@ -132,88 +132,13 @@ export default async function ClientSettingsPage() {
             }))}
             currentUserId={session.user.id}
             variant="client"
+            hideInvite={true}
           />
         </TabsContent>
 
-        {/* Notifications Tab */}
-        <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Notifications</CardTitle>
-              <CardDescription>
-                Configure which emails you&apos;d like to receive
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Campaign Updates</p>
-                    <p className="text-sm text-muted-foreground">Get notified when campaign status changes</p>
-                  </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Post Approvals</p>
-                    <p className="text-sm text-muted-foreground">Receive alerts when posts need your review</p>
-                  </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Weekly Reports</p>
-                    <p className="text-sm text-muted-foreground">Receive weekly performance summaries</p>
-                  </div>
-                  <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border" />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">KOL Performance Alerts</p>
-                    <p className="text-sm text-muted-foreground">Get notified about exceptional KOL performance</p>
-                  </div>
-                  <input type="checkbox" className="h-4 w-4 rounded border-border" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Security
-              </CardTitle>
-              <CardDescription>
-                Manage your account security settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Two-Factor Authentication</p>
-                    <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
-                  </div>
-                  <Button variant="outline" size="sm">Enable</Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Active Sessions</p>
-                    <p className="text-sm text-muted-foreground">Manage your active login sessions</p>
-                  </div>
-                  <Button variant="outline" size="sm">View</Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Login History</p>
-                    <p className="text-sm text-muted-foreground">View recent login activity</p>
-                  </div>
-                  <Button variant="outline" size="sm">View</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Security Tab */}
+        <TabsContent value="security" className="space-y-6">
+          <PasswordForm />
         </TabsContent>
       </Tabs>
     </div>

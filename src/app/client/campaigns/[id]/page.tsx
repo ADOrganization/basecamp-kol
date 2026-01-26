@@ -667,8 +667,6 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                         <th className="text-left p-4 font-medium text-muted-foreground">Content</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
                         <th className="text-right p-4 font-medium text-muted-foreground">Likes</th>
-                        <th className="text-right p-4 font-medium text-muted-foreground">RTs</th>
-                        <th className="text-right p-4 font-medium text-muted-foreground">Replies</th>
                         {campaign.keywords.length > 0 && (
                           <th className="text-left p-4 font-medium text-muted-foreground">Keywords</th>
                         )}
@@ -726,9 +724,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                               <Badge variant="outline">Draft</Badge>
                             )}
                           </td>
-                          <td className="p-4 text-right font-medium">{formatNumber(post.likes)}</td>
-                          <td className="p-4 text-right">{formatNumber(post.retweets)}</td>
-                          <td className="p-4 text-right">{formatNumber(post.replies)}</td>
+                          <td className="p-4 text-right font-medium">{post.likes > 0 ? formatNumber(post.likes) : "-"}</td>
                           {campaign.keywords && campaign.keywords.length > 0 && (
                             <td className="p-4">
                               {post.matchedKeywords && post.matchedKeywords.length > 0 ? (
