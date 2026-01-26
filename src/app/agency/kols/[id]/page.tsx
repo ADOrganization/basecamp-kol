@@ -22,19 +22,7 @@ import {
   Mail,
   Wallet,
   RefreshCw,
-  UserPlus,
-  Check,
-  Copy,
-  Loader2,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface TelegramChat {
   id: string;
@@ -94,7 +82,7 @@ interface KOLDetails {
     paidAt: string | null;
     createdAt: string;
   }[];
-  paymentReceipts: {
+  paymentReceipts?: {
     id: string;
     proofUrl: string;
     telegramUsername: string | null;
@@ -104,11 +92,6 @@ interface KOLDetails {
       name: string;
     } | null;
   }[];
-  account?: {
-    id: string;
-    email: string;
-    createdAt: string;
-  } | null;
 }
 
 export default function KOLDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -119,10 +102,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [isInviting, setIsInviting] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState(false);
 
   const fetchTelegramChats = async () => {
     try {
@@ -174,35 +153,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
       console.error("Failed to refresh metrics:", error);
     } finally {
       setIsRefreshing(false);
-    }
-  };
-
-  const inviteToPortal = async () => {
-    setIsInviting(true);
-    try {
-      const response = await fetch(`/api/kols/${id}/invite`, {
-        method: "POST",
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setInviteUrl(data.inviteUrl);
-        setShowInviteModal(true);
-      } else {
-        alert(data.error || "Failed to create invitation");
-      }
-    } catch (error) {
-      console.error("Failed to create invitation:", error);
-      alert("Failed to create invitation");
-    } finally {
-      setIsInviting(false);
-    }
-  };
-
-  const copyInviteUrl = async () => {
-    if (inviteUrl) {
-      await navigator.clipboard.writeText(inviteUrl);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2000);
     }
   };
 
@@ -277,26 +227,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Refreshing..." : "Refresh Metrics"}
           </Button>
-          {kol.account ? (
-            <Button variant="outline" disabled>
-              <Check className="h-4 w-4 mr-2 text-emerald-600" />
-              Portal Active
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={inviteToPortal}
-              disabled={isInviting || !kol.email}
-              title={!kol.email ? "Add email first" : "Invite to KOL Portal"}
-            >
-              {isInviting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4 mr-2" />
-              )}
-              Invite to Portal
-            </Button>
-          )}
           <Button onClick={() => setShowForm(true)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
@@ -584,44 +514,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
           fetchKol();
         }}
       />
-
-      {/* Invite Modal */}
-      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Portal Invitation Created</DialogTitle>
-            <DialogDescription>
-              Share this link with {kol.name} to invite them to the KOL Portal.
-              The link expires in 7 days.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center gap-2">
-              <code className="flex-1 p-3 bg-muted rounded-lg text-sm break-all">
-                {inviteUrl}
-              </code>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={copyInviteUrl}
-                className="shrink-0"
-              >
-                {inviteCopied ? (
-                  <Check className="h-4 w-4 text-emerald-600" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              An email will be sent to <strong>{kol.email}</strong> with the invitation link.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowInviteModal(false)}>Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

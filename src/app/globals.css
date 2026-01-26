@@ -456,3 +456,27 @@ button:active:not(:disabled) {
 .progress-bar {
   animation: progress-fill 1s ease-out;
 }
+
+/* Dialog/Modal scroll improvements */
+[data-radix-dialog-content] {
+  /* Prevent body scroll when dialog is open */
+  overscroll-behavior: contain;
+}
+
+/* Ensure scrollable areas in dialogs work properly */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Fix for iOS Safari input zoom */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Prevent content from jumping when scrollbar appears */
+html {
+  scrollbar-gutter: stable;
+}
