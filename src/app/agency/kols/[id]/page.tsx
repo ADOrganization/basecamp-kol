@@ -18,7 +18,6 @@ import {
   ArrowLeft,
   Edit,
   ExternalLink,
-  Twitter,
   Mail,
   Wallet,
   RefreshCw,
@@ -27,6 +26,7 @@ import {
   Trash2,
   Download,
 } from "lucide-react";
+import { XIcon } from "@/components/ui/x-icon";
 import {
   Dialog,
   DialogContent,
@@ -379,7 +379,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 hover:text-primary"
               >
-                <Twitter className="h-4 w-4" />
+                <XIcon className="h-4 w-4" />
                 @{kol.twitterHandle}
                 <ExternalLink className="h-3 w-3" />
               </a>

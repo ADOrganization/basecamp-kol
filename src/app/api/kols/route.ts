@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         twitterHandle,
         avatarUrl,
-        followersCount: followersCount,
+        ...(followersCount !== null && { followersCount }),
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,

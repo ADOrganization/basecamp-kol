@@ -175,7 +175,7 @@ export async function PUT(
         name: validatedData.name,
         twitterHandle,
         avatarUrl,
-        followersCount: followersCount,
+        ...(followersCount !== null && { followersCount }),
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,
