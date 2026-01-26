@@ -590,8 +590,8 @@ async function handleHelpCommand(
 • \`/review <draft_content>\` - Submit content for agency review before posting
 
 *Payments:*
-• \`/payment <proof_url>\` - Submit payment receipt/proof
-• \`/payment <campaign> <proof_url>\` - Submit for a specific campaign
+• \`/payment <amount> <proof_url>\` - Submit payment receipt with amount (USD)
+• \`/payment <campaign> <amount> <proof_url>\` - Submit for a specific campaign
 
 *Other:*
 • \`/budget\` - View campaign budget breakdown
@@ -601,7 +601,7 @@ async function handleHelpCommand(
 
 *Examples:*
 \`/submit https://x.com/user/status/123456789\`
-\`/payment https://etherscan.io/tx/0x123...\`
+\`/payment 500 https://etherscan.io/tx/0x123...\`
 \`/review Check out @ProjectHandle - amazing DeFi protocol! #crypto\`
 
 Need assistance? Contact @altcoinclimber or @viperrcrypto`;
@@ -1291,18 +1291,18 @@ async function handlePaymentCommand(
     await client.sendMessage(telegramChatId, message, { parse_mode: "Markdown" });
   };
 
-  // Parse command: /payment [campaign_name] <proof_url>
+  // Parse command: /payment [campaign_name] <amount> <proof_url>
   const commandContent = text.replace(/^\/payment\s*/i, "").trim();
 
   if (!commandContent) {
     await sendResponse(
-      "Please provide a payment proof link.\n\n" +
+      "Please provide an amount and payment proof link.\n\n" +
       "*Usage:*\n" +
-      "`/payment <proof_url>` - Submit payment proof\n" +
-      "`/payment <campaign> <proof_url>` - Submit for a specific campaign\n\n" +
+      "`/payment <amount> <proof_url>` - Submit payment receipt\n" +
+      "`/payment <campaign> <amount> <proof_url>` - Submit for a specific campaign\n\n" +
       "*Examples:*\n" +
-      "`/payment https://etherscan.io/tx/0x123...`\n" +
-      "`/payment MyCampaign https://solscan.io/tx/abc...`"
+      "`/payment 500 https://etherscan.io/tx/0x123...`\n" +
+      "`/payment MyCampaign 1000 https://solscan.io/tx/abc...`"
     );
     return;
   }
@@ -1324,10 +1324,64 @@ async function handlePaymentCommand(
   }
 
   const proofUrl = urlMatch[1];
-  const campaignNameFilter = commandContent.replace(proofUrl, "").trim() || null;
+  const beforeUrl = commandContent.substring(0, commandContent.indexOf(proofUrl)).trim();
 
-  console.log(`[Payment] User @${senderUsername} submitting receipt: ${proofUrl}`);
+  // Parse amount and optional campaign name from the part before the URL
+  // Format: [campaign_name] <amount>
+  const parts = beforeUrl.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    await sendResponse(
+      "Please provide the payment amount (in USD).\n\n" +
+      "*Usage:*\n" +
+      "`/payment <amount> <proof_url>`\n\n" +
+      "*Example:*\n" +
+      "`/payment 500 https://etherscan.io/tx/0x123...`"
+    );
+    return;
+  }
+
+  // The last part before URL should be the amount
+  const amountStr = parts[parts.length - 1];
+  const amount = parseFloat(amountStr.replace(/[$,]/g, ""));
+
+  if (isNaN(amount) || amount <= 0) {
+    await sendResponse(
+      `Invalid amount: "${amountStr}". Please provide a valid number.\n\n` +
+      "*Example:*\n" +
+      "`/payment 500 https://etherscan.io/tx/0x123...`"
+    );
+    return;
+  }
+
+  // Convert to cents
+  const amountCents = Math.round(amount * 100);
+
+  // Campaign name is everything before the amount
+  const campaignNameFilter = parts.length > 1 ? parts.slice(0, -1).join(" ") : null;
+
+  console.log(`[Payment] User @${senderUsername} submitting receipt: $${amount} - ${proofUrl}`);
   console.log(`[Payment] Campaign filter: "${campaignNameFilter || 'none'}"`);
+
+  // Check for duplicate proof URL
+  const existingReceipt = await db.paymentReceipt.findUnique({
+    where: { proofUrl },
+    include: {
+      kol: { select: { name: true } },
+      campaign: { select: { name: true } },
+    },
+  });
+
+  if (existingReceipt) {
+    await sendResponse(
+      `⚠️ *This payment proof has already been submitted!*\n\n` +
+      `*KOL:* ${existingReceipt.kol.name}\n` +
+      `*Campaign:* ${existingReceipt.campaign?.name || "N/A"}\n` +
+      `*Date:* ${existingReceipt.createdAt.toLocaleDateString()}\n\n` +
+      `Each payment proof link can only be submitted once.`
+    );
+    return;
+  }
 
   // Find KOL by telegram username
   let kol = await db.kOL.findFirst({
@@ -1409,7 +1463,7 @@ async function handlePaymentCommand(
       await sendResponse(
         `No campaign found matching "${campaignNameFilter}".\n\n` +
         `Your campaigns:\n${campaignList}\n\n` +
-        `Usage: \`/payment <campaign_name> <proof_url>\``
+        `Usage: \`/payment <campaign> <amount> <proof_url>\``
       );
       return;
     }
@@ -1433,7 +1487,7 @@ async function handlePaymentCommand(
       await sendResponse(
         `You're assigned to multiple campaigns. Please specify which one:\n\n` +
         `${campaignList}\n\n` +
-        `Usage: \`/payment <campaign_name> <proof_url>\``
+        `Usage: \`/payment <campaign> <amount> <proof_url>\``
       );
       return;
     }
@@ -1446,6 +1500,7 @@ async function handlePaymentCommand(
     data: {
       kolId: kol.id,
       campaignId: campaignKol.campaignId,
+      amount: amountCents,
       proofUrl,
       telegramUsername: senderUsername,
       telegramUserId: senderTelegramId || null,
@@ -1458,9 +1513,10 @@ async function handlePaymentCommand(
     `✅ *Payment receipt logged!*\n\n` +
     `*KOL:* ${kol.name}\n` +
     `*Campaign:* ${campaignKol.campaign.name}\n` +
+    `*Amount:* $${amount.toLocaleString()}\n` +
     `*Proof:* ${proofUrl}\n\n` +
     `This receipt has been added to your profile for accounting records.`
   );
 
-  console.log(`[Payment] Completed for KOL ${kol.name}, receipt ${receipt.id}`);
+  console.log(`[Payment] Completed for KOL ${kol.name}, receipt ${receipt.id}, amount: $${amount}`);
 }

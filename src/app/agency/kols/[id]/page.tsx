@@ -22,7 +22,27 @@ import {
   Mail,
   Wallet,
   RefreshCw,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TelegramChat {
   id: string;
@@ -84,6 +104,7 @@ interface KOLDetails {
   }[];
   paymentReceipts?: {
     id: string;
+    amount: number;
     proofUrl: string;
     telegramUsername: string | null;
     createdAt: string;
@@ -103,6 +124,17 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Receipt form state
+  const [showReceiptForm, setShowReceiptForm] = useState(false);
+  const [editingReceipt, setEditingReceipt] = useState<KOLDetails["paymentReceipts"][0] | null>(null);
+  const [receiptFormData, setReceiptFormData] = useState({
+    amount: "",
+    proofUrl: "",
+    campaignId: "",
+  });
+  const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
+  const [deletingReceiptId, setDeletingReceiptId] = useState<string | null>(null);
 
   const fetchTelegramChats = async () => {
     try {
@@ -160,6 +192,87 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
       console.error("Failed to refresh metrics:", error);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const openReceiptForm = (receipt?: KOLDetails["paymentReceipts"][0]) => {
+    if (receipt) {
+      setEditingReceipt(receipt);
+      setReceiptFormData({
+        amount: (receipt.amount / 100).toString(),
+        proofUrl: receipt.proofUrl,
+        campaignId: receipt.campaign?.id || "",
+      });
+    } else {
+      setEditingReceipt(null);
+      setReceiptFormData({
+        amount: "",
+        proofUrl: "",
+        campaignId: kol?.campaignKols[0]?.campaign.id || "",
+      });
+    }
+    setShowReceiptForm(true);
+  };
+
+  const handleReceiptSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!kol) return;
+
+    setIsSubmittingReceipt(true);
+    try {
+      const payload = {
+        kolId: kol.id,
+        amount: Math.round(parseFloat(receiptFormData.amount) * 100),
+        proofUrl: receiptFormData.proofUrl,
+        campaignId: receiptFormData.campaignId || null,
+      };
+
+      const response = await fetch(
+        editingReceipt
+          ? `/api/payment-receipts/${editingReceipt.id}`
+          : "/api/payment-receipts",
+        {
+          method: editingReceipt ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (response.ok) {
+        setShowReceiptForm(false);
+        fetchKol();
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to save receipt");
+      }
+    } catch (error) {
+      console.error("Failed to save receipt:", error);
+      alert("Failed to save receipt");
+    } finally {
+      setIsSubmittingReceipt(false);
+    }
+  };
+
+  const handleDeleteReceipt = async (receiptId: string) => {
+    if (!confirm("Are you sure you want to delete this payment receipt?")) return;
+
+    setDeletingReceiptId(receiptId);
+    try {
+      const response = await fetch(`/api/payment-receipts/${receiptId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        fetchKol();
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to delete receipt");
+      }
+    } catch (error) {
+      console.error("Failed to delete receipt:", error);
+      alert("Failed to delete receipt");
+    } finally {
+      setDeletingReceiptId(null);
     }
   };
 
@@ -426,6 +539,30 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
         </TabsContent>
 
         <TabsContent value="payments" className="mt-6 space-y-6">
+          {/* Summary Cards */}
+          {(() => {
+            const totalPaid = kol.paymentReceipts?.reduce((sum, r) => sum + r.amount, 0) || 0;
+            const totalAllocated = kol.campaignKols.reduce((sum, ck) => sum + ck.assignedBudget, 0);
+            return (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-lg border bg-card p-4">
+                  <p className="text-sm text-muted-foreground">Total Allocated Budget</p>
+                  <p className="text-2xl font-bold">{formatCurrency(totalAllocated)}</p>
+                </div>
+                <div className="rounded-lg border bg-card p-4">
+                  <p className="text-sm text-muted-foreground">Total Paid (Receipts)</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
+                </div>
+                <div className="rounded-lg border bg-card p-4">
+                  <p className="text-sm text-muted-foreground">Remaining</p>
+                  <p className={`text-2xl font-bold ${totalAllocated - totalPaid < 0 ? "text-red-600" : ""}`}>
+                    {formatCurrency(totalAllocated - totalPaid)}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Outgoing Payments */}
           <div className="rounded-lg border bg-card">
             <div className="p-4 border-b bg-muted/30">
@@ -464,24 +601,32 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
 
           {/* Payment Receipts */}
           <div className="rounded-lg border bg-card">
-            <div className="p-4 border-b bg-muted/30">
-              <h3 className="font-semibold">Payment Receipts</h3>
-              <p className="text-sm text-muted-foreground">Proof of payments submitted via Telegram</p>
+            <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold">Payment Receipts</h3>
+                <p className="text-sm text-muted-foreground">Proof of payments submitted via Telegram or manually added</p>
+              </div>
+              <Button size="sm" onClick={() => openReceiptForm()}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Receipt
+              </Button>
             </div>
-            {kol.paymentReceipts?.length === 0 ? (
-              <p className="p-6 text-muted-foreground">No receipts submitted. KOLs can submit receipts using <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/payment</code> in Telegram.</p>
+            {(!kol.paymentReceipts || kol.paymentReceipts.length === 0) ? (
+              <p className="p-6 text-muted-foreground">No receipts submitted. KOLs can submit receipts using <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/payment</code> in Telegram, or you can add them manually.</p>
             ) : (
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-medium text-muted-foreground">Campaign</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Amount</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Proof Link</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Submitted By</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Date</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {kol.paymentReceipts?.map((receipt) => (
+                  {kol.paymentReceipts.map((receipt) => (
                     <tr key={receipt.id} className="border-t">
                       <td className="p-4">
                         {receipt.campaign ? (
@@ -494,6 +639,9 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
+                      </td>
+                      <td className="p-4 text-right font-medium">
+                        {formatCurrency(receipt.amount)}
                       </td>
                       <td className="p-4">
                         <a
@@ -512,8 +660,37 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                       <td className="p-4 text-right">
                         {formatDate(receipt.createdAt)}
                       </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openReceiptForm(receipt)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteReceipt(receipt.id)}
+                            disabled={deletingReceiptId === receipt.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
+                  {/* Total row */}
+                  <tr className="border-t bg-muted/30 font-semibold">
+                    <td className="p-4">Total</td>
+                    <td className="p-4 text-right">
+                      {formatCurrency(kol.paymentReceipts.reduce((sum, r) => sum + r.amount, 0))}
+                    </td>
+                    <td colSpan={4}></td>
+                  </tr>
                 </tbody>
               </table>
             )}
@@ -533,6 +710,88 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
           fetchKol();
         }}
       />
+
+      {/* Receipt Form Dialog */}
+      <Dialog open={showReceiptForm} onOpenChange={setShowReceiptForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingReceipt ? "Edit Payment Receipt" : "Add Payment Receipt"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingReceipt
+                ? "Update the payment receipt details."
+                : "Add a new payment receipt for this KOL."}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleReceiptSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="receipt-campaign">Campaign</Label>
+              <Select
+                value={receiptFormData.campaignId}
+                onValueChange={(value) =>
+                  setReceiptFormData((prev) => ({ ...prev, campaignId: value }))
+                }
+              >
+                <SelectTrigger id="receipt-campaign">
+                  <SelectValue placeholder="Select campaign" />
+                </SelectTrigger>
+                <SelectContent>
+                  {kol.campaignKols.map((ck) => (
+                    <SelectItem key={ck.campaign.id} value={ck.campaign.id}>
+                      {ck.campaign.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receipt-amount">Amount (USD)</Label>
+              <Input
+                id="receipt-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="500.00"
+                value={receiptFormData.amount}
+                onChange={(e) =>
+                  setReceiptFormData((prev) => ({ ...prev, amount: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receipt-proof">Proof URL</Label>
+              <Input
+                id="receipt-proof"
+                type="url"
+                placeholder="https://etherscan.io/tx/..."
+                value={receiptFormData.proofUrl}
+                onChange={(e) =>
+                  setReceiptFormData((prev) => ({ ...prev, proofUrl: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowReceiptForm(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmittingReceipt}>
+                {isSubmittingReceipt
+                  ? "Saving..."
+                  : editingReceipt
+                  ? "Update Receipt"
+                  : "Add Receipt"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

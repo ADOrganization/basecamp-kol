@@ -513,7 +513,8 @@ model PaymentReceipt {
   kolId            String
   campaignId       String?
 
-  proofUrl         String    // Link to proof (blockchain explorer, screenshot, etc.)
+  amount           Int       @default(0)  // Amount in cents (USD)
+  proofUrl         String    @unique      // Link to proof - unique to prevent duplicates
   telegramUsername String?   // Who submitted it
   telegramUserId   String?   // Telegram user ID
   notes            String?   // Optional notes
