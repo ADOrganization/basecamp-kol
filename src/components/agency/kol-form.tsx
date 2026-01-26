@@ -204,12 +204,12 @@ export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{kol ? "Edit KOL" : "Add New KOL"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto flex-1 pr-2">
           {error && (
             <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
               {error}
@@ -504,17 +504,17 @@ export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps
               rows={3}
             />
           </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Saving..." : kol ? "Save Changes" : "Add KOL"}
-            </Button>
-          </div>
         </form>
+
+        {/* Actions - Fixed at bottom */}
+        <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0 mt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isLoading} onClick={handleSubmit}>
+            {isLoading ? "Saving..." : kol ? "Save Changes" : "Add KOL"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
