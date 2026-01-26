@@ -9,8 +9,8 @@ import {
   hasApifyApiKey,
 } from "@/lib/scraper/x-scraper";
 
-// Rate limit: 1 refresh per post per hour
-const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
+// Rate limit: 1 refresh per post per 5 minutes (admin users bypass this)
+const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 
 export async function POST(
   request: Request,
@@ -56,8 +56,8 @@ export async function POST(
       );
     }
 
-    // Check rate limit
-    if (post.lastMetricsUpdate) {
+    // Check rate limit (admin users bypass this)
+    if (!authContext.isAdmin && post.lastMetricsUpdate) {
       const timeSinceLastUpdate = Date.now() - post.lastMetricsUpdate.getTime();
       if (timeSinceLastUpdate < REFRESH_COOLDOWN_MS) {
         const minutesRemaining = Math.ceil((REFRESH_COOLDOWN_MS - timeSinceLastUpdate) / 60000);
