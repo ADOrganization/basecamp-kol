@@ -102,7 +102,7 @@ model AdminUser {
   passwordHash String
   name         String?
   avatarUrl    String?
-  role         AdminRole @default(ADMIN)
+  role         AdminRole @default(USER)
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
@@ -121,9 +121,8 @@ model AdminUser {
 }
 
 enum AdminRole {
-  SUPER_ADMIN  // Full access - can manage other admins
-  ADMIN        // Full access to data, cannot manage admins
-  VIEWER       // Read-only access
+  SUPER_ADMIN  // Full access - can create/manage admin accounts
+  USER         // Full access to all features except admin account management
 }
 
 // ============================================

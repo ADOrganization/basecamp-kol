@@ -15,13 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -69,6 +62,8 @@ interface AdminTeamManagementProps {
 
 const ROLE_LABELS: Record<string, { label: string; icon: typeof Shield; color: string }> = {
   SUPER_ADMIN: { label: "Super Admin", icon: ShieldCheck, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
+  USER: { label: "User", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  // Legacy roles for backwards compatibility
   ADMIN: { label: "Admin", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
   VIEWER: { label: "Viewer", icon: Eye, color: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
 };
@@ -82,7 +77,6 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
-  const [inviteRole, setInviteRole] = useState<string>("ADMIN");
   const [isInviting, setIsInviting] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copiedPassword, setCopiedPassword] = useState(false);
@@ -90,15 +84,13 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
   // Edit dialog state
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [editName, setEditName] = useState("");
-  const [editRole, setEditRole] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Delete confirmation state
   const [deletingAdmin, setDeletingAdmin] = useState<AdminUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canManageTeam = currentAdminRole === "SUPER_ADMIN" || currentAdminRole === "ADMIN";
-  const isSuperAdmin = currentAdminRole === "SUPER_ADMIN";
+  const canManageTeam = currentAdminRole === "SUPER_ADMIN";
 
   useEffect(() => {
     fetchAdmins();
@@ -131,7 +123,6 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
         body: JSON.stringify({
           email: inviteEmail,
           name: inviteName || undefined,
-          role: inviteRole,
         }),
       });
 
@@ -161,7 +152,6 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editName,
-          role: editRole,
         }),
       });
 
@@ -215,7 +205,6 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
     setShowInviteDialog(false);
     setInviteEmail("");
     setInviteName("");
-    setInviteRole("ADMIN");
     setTempPassword(null);
   };
 
@@ -298,7 +287,7 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                     2FA
                   </Badge>
                 )}
-                {canManageTeam && !isCurrentUser && (isSuperAdmin || admin.role !== "SUPER_ADMIN") && (
+                {canManageTeam && !isCurrentUser && admin.role !== "SUPER_ADMIN" && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -310,7 +299,6 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                         onClick={() => {
                           setEditingAdmin(admin);
                           setEditName(admin.name || "");
-                          setEditRole(admin.role);
                         }}
                       >
                         <Pencil className="h-4 w-4 mr-2" />
@@ -394,36 +382,9 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                   onChange={(e) => setInviteName(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="invite-role">Role</Label>
-                <Select value={inviteRole} onValueChange={setInviteRole}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isSuperAdmin && (
-                      <SelectItem value="SUPER_ADMIN">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-purple-600" />
-                          Super Admin - Full access, can manage team
-                        </div>
-                      </SelectItem>
-                    )}
-                    <SelectItem value="ADMIN">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-blue-600" />
-                        Admin - Full access to data
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="VIEWER">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-4 w-4 text-slate-600" />
-                        Viewer - Read-only access
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                New team members will have full access to all features except admin account management.
+              </p>
               {error && (
                 <p className="text-sm text-rose-500">{error}</p>
               )}
@@ -466,19 +427,6 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
-              <Select value={editRole} onValueChange={setEditRole}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {isSuperAdmin && <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>}
-                  <SelectItem value="ADMIN">Admin</SelectItem>
-                  <SelectItem value="VIEWER">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 

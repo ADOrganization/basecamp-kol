@@ -74,24 +74,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // SUPER_ADMIN can invite any role, ADMIN can only invite ADMIN or VIEWER
-    const { email, name, role } = await request.json();
-
+    // Only SUPER_ADMIN can invite new team members
     if (admin.role !== "SUPER_ADMIN") {
-      if (admin.role !== "ADMIN") {
-        return NextResponse.json(
-          { error: "You don't have permission to invite team members" },
-          { status: 403 }
-        );
-      }
-      // ADMIN can only create ADMIN or VIEWER, not SUPER_ADMIN
-      if (role === "SUPER_ADMIN") {
-        return NextResponse.json(
-          { error: "Only super admins can create other super admin accounts" },
-          { status: 403 }
-        );
-      }
+      return NextResponse.json(
+        { error: "Only super admins can invite team members" },
+        { status: 403 }
+      );
     }
+
+    const { email, name } = await request.json();
 
     if (!email) {
       return NextResponse.json(
@@ -116,13 +107,13 @@ export async function POST(request: NextRequest) {
     const tempPassword = crypto.randomBytes(12).toString("hex");
     const passwordHash = await bcrypt.hash(tempPassword, 12);
 
-    // Create the new admin
+    // Create the new admin (always USER role - only one SUPER_ADMIN exists)
     const newAdmin = await db.adminUser.create({
       data: {
         email: email.toLowerCase(),
         name: name || null,
         passwordHash,
-        role: role || "ADMIN",
+        role: "USER",
         invitedBy: admin.id,
         invitedAt: new Date(),
       },

@@ -42,6 +42,14 @@ export async function PUT(
 
     const { id } = await params;
 
+    // Only SUPER_ADMIN can modify team members
+    if (admin.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Only super admins can modify team members" },
+        { status: 403 }
+      );
+    }
+
     // Cannot modify yourself
     if (admin.id === id) {
       return NextResponse.json(
@@ -50,45 +58,10 @@ export async function PUT(
       );
     }
 
-    // Get the target admin to check their role
-    const targetAdmin = await db.adminUser.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    if (!targetAdmin) {
-      return NextResponse.json({ error: "Admin not found" }, { status: 404 });
-    }
-
-    const { name, role, isActive } = await request.json();
-
-    // Permission checks based on current admin's role
-    if (admin.role !== "SUPER_ADMIN") {
-      if (admin.role !== "ADMIN") {
-        return NextResponse.json(
-          { error: "You don't have permission to modify team members" },
-          { status: 403 }
-        );
-      }
-      // ADMIN cannot modify SUPER_ADMIN accounts
-      if (targetAdmin.role === "SUPER_ADMIN") {
-        return NextResponse.json(
-          { error: "You cannot modify super admin accounts" },
-          { status: 403 }
-        );
-      }
-      // ADMIN cannot promote someone to SUPER_ADMIN
-      if (role === "SUPER_ADMIN") {
-        return NextResponse.json(
-          { error: "Only super admins can grant super admin privileges" },
-          { status: 403 }
-        );
-      }
-    }
+    const { name, isActive } = await request.json();
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
-    if (role !== undefined) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
 
     const updatedAdmin = await db.adminUser.update({
@@ -126,39 +99,20 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // Only SUPER_ADMIN can remove team members
+    if (admin.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Only super admins can remove team members" },
+        { status: 403 }
+      );
+    }
+
     // Cannot delete yourself
     if (admin.id === id) {
       return NextResponse.json(
         { error: "Cannot delete your own account" },
         { status: 400 }
       );
-    }
-
-    // Get the target admin to check their role
-    const targetAdmin = await db.adminUser.findUnique({
-      where: { id },
-      select: { role: true },
-    });
-
-    if (!targetAdmin) {
-      return NextResponse.json({ error: "Admin not found" }, { status: 404 });
-    }
-
-    // Permission checks
-    if (admin.role !== "SUPER_ADMIN") {
-      if (admin.role !== "ADMIN") {
-        return NextResponse.json(
-          { error: "You don't have permission to remove team members" },
-          { status: 403 }
-        );
-      }
-      // ADMIN cannot deactivate SUPER_ADMIN accounts
-      if (targetAdmin.role === "SUPER_ADMIN") {
-        return NextResponse.json(
-          { error: "You cannot deactivate super admin accounts" },
-          { status: 403 }
-        );
-      }
     }
 
     // Soft delete - just deactivate
