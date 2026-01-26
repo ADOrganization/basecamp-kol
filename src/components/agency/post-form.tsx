@@ -156,14 +156,14 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
         onClose();
       }
     }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle>Add Post</DialogTitle>
           <DialogDescription>
             Track a new post for this campaign. Paste the tweet URL and metrics if already posted.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           <div className="space-y-2">
             <Label>KOL *</Label>
             <Select
@@ -373,7 +373,7 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
             />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
           <Button variant="outline" onClick={() => {
             resetForm();
             onClose();

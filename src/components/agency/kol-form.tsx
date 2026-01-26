@@ -18,6 +18,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Popover,
@@ -204,12 +206,16 @@ export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle>{kol ? "Edit KOL" : "Add New KOL"}</DialogTitle>
+          <DialogDescription>
+            Fill in the KOL details below. Required fields are marked with *.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 overflow-y-auto flex-1 pr-2">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {error && (
             <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
               {error}
@@ -504,17 +510,18 @@ export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps
               rows={3}
             />
           </div>
-        </form>
+          </div>
 
-        {/* Actions - Fixed at bottom */}
-        <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0 mt-4">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isLoading} onClick={handleSubmit}>
-            {isLoading ? "Saving..." : kol ? "Save Changes" : "Add KOL"}
-          </Button>
-        </div>
+          {/* Actions - Fixed Footer */}
+          <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Saving..." : kol ? "Save Changes" : "Add KOL"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
