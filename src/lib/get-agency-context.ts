@@ -20,38 +20,35 @@ export async function getAgencyContext(): Promise<AgencyContext | null> {
   const adminSession = await getAdminSession();
 
   if (adminSession) {
-    // Admin user - find the agency organization that has actual data
-    // We look for the oldest agency with members (the original one with data)
-    const agencyWithData = await db.organization.findFirst({
+    // Admin user - find the agency organization with the most data (KOLs + campaigns)
+    // This ensures we get the agency that actually has content
+    const agencies = await db.organization.findMany({
       where: {
         type: "AGENCY",
-        members: {
-          some: {},
+      },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            kols: true,
+            agencyCampaigns: true,
+          },
         },
       },
-      select: { id: true },
-      orderBy: { createdAt: "asc" }, // Get the oldest agency (original one)
     });
 
+    // Sort by total content (KOLs + campaigns) and pick the one with most data
+    const sortedAgencies = agencies.sort((a, b) => {
+      const aTotal = a._count.kols + a._count.agencyCampaigns;
+      const bTotal = b._count.kols + b._count.agencyCampaigns;
+      return bTotal - aTotal; // Descending order
+    });
+
+    const agencyWithData = sortedAgencies[0];
+
     if (!agencyWithData) {
-      // Fallback: find any agency
-      const anyAgency = await db.organization.findFirst({
-        where: { type: "AGENCY" },
-        select: { id: true },
-      });
-
-      if (!anyAgency) {
-        console.error("No agency organization found for admin user");
-        return null;
-      }
-
-      return {
-        organizationId: anyAgency.id,
-        userId: adminSession.id,
-        isAdmin: true,
-        userName: adminSession.name,
-        userEmail: adminSession.email,
-      };
+      console.error("No agency organization found for admin user");
+      return null;
     }
 
     return {
