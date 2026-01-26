@@ -2,10 +2,9 @@ import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Key, Users, Settings, Shield, UserCog } from "lucide-react";
+import { Building2, User, Key, Settings, Shield, UserCog } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
-import { TeamManagement } from "@/components/settings/team-management";
 import { TwitterIntegrationCard, TelegramIntegrationCard, NotificationsCard } from "@/components/settings/integrations-card";
 import { TwoFactorAuth } from "@/components/settings/two-factor-auth";
 import { AdminTeamManagement } from "@/components/settings/admin-team-management";
@@ -93,16 +92,10 @@ export default async function SettingsPage() {
           </TabsTrigger>
           {/* Non-super admins only see Profile and Security */}
           {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
-            <>
-              <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
-                <Building2 className="h-4 w-4" />
-                Organization
-              </TabsTrigger>
-              <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
-                <Users className="h-4 w-4" />
-                Team
-              </TabsTrigger>
-            </>
+            <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+              <Building2 className="h-4 w-4" />
+              Organization
+            </TabsTrigger>
           )}
           {adminRole === "SUPER_ADMIN" && (
             <TabsTrigger value="admin-team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
@@ -152,38 +145,6 @@ export default async function SettingsPage() {
                 </div>
               </div>
               <OrganizationForm organization={organization} variant="agency" />
-            </div>
-          </TabsContent>
-        )}
-
-        {/* Team Tab - Only for non-admins or SUPER_ADMIN */}
-        {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
-          <TabsContent value="team" className="space-y-6">
-            <div className="rounded-xl border bg-card p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Users className="h-4 w-4 text-blue-500" />
-                </div>
-                <div>
-                  <h2 className="font-semibold">Team Management</h2>
-                  <p className="text-sm text-muted-foreground">Manage team members and roles</p>
-                </div>
-              </div>
-              <TeamManagement
-                members={organization.members.map(m => ({
-                  id: m.id,
-                  userId: m.userId,
-                  role: m.role,
-                  user: {
-                    id: m.user.id,
-                    name: m.user.name,
-                    email: m.user.email,
-                    avatarUrl: m.user.avatarUrl,
-                  },
-                }))}
-                currentUserId={context.userId}
-                variant="agency"
-              />
             </div>
           </TabsContent>
         )}
