@@ -121,21 +121,33 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
+          // Replace [mention] with KOL's telegram username
+          let messageContent = validatedData.content;
+          if (kol.telegramUsername) {
+            messageContent = messageContent.replace(
+              /\[mention\]/gi,
+              `@${kol.telegramUsername.replace("@", "")}`
+            );
+          } else {
+            // Fallback to KOL name if no telegram username
+            messageContent = messageContent.replace(/\[mention\]/gi, kol.name);
+          }
+
           const result = await client.sendMessage(
             privateChat.chat.telegramChatId,
-            validatedData.content
+            messageContent
           );
 
           if (result.ok) {
             sentCount++;
 
-            // Store outbound message
+            // Store outbound message with personalized content
             await db.telegramMessage.create({
               data: {
                 kolId: kol.id,
                 telegramChatId: privateChat.chat.telegramChatId,
                 telegramMessageId: result.result?.message_id?.toString(),
-                content: validatedData.content,
+                content: messageContent,
                 direction: "OUTBOUND",
                 timestamp: new Date(),
               },
@@ -200,17 +212,35 @@ export async function POST(request: NextRequest) {
     // Send messages to all target chats
     for (const chat of targetChats) {
       try {
-        const result = await client.sendMessage(chat.telegramChatId, validatedData.content);
+        // Replace [mention] with the KOL's telegram username in this chat
+        let messageContent = validatedData.content;
+
+        // Find KOL(s) linked to this chat
+        const kolLink = chat.kolLinks?.[0];
+        if (kolLink?.kol) {
+          const kol = kolLink.kol;
+          if (kol.telegramUsername) {
+            messageContent = messageContent.replace(
+              /\[mention\]/gi,
+              `@${kol.telegramUsername.replace("@", "")}`
+            );
+          } else {
+            // Fallback to KOL name if no telegram username
+            messageContent = messageContent.replace(/\[mention\]/gi, kol.name);
+          }
+        }
+
+        const result = await client.sendMessage(chat.telegramChatId, messageContent);
 
         if (result.ok) {
           sentCount++;
 
-          // Store outbound message
+          // Store outbound message with personalized content
           await db.telegramGroupMessage.create({
             data: {
               chatId: chat.id,
               telegramMessageId: result.result?.message_id?.toString(),
-              content: validatedData.content,
+              content: messageContent,
               direction: "OUTBOUND",
               senderName: "Broadcast",
               timestamp: new Date(),
@@ -275,7 +305,10 @@ async function getFilteredChats(
       kolLinks: {
         include: {
           kol: {
-            include: {
+            select: {
+              id: true,
+              name: true,
+              telegramUsername: true,
               campaignKols: campaignId
                 ? { where: { campaignId } }
                 : true,
@@ -377,7 +410,10 @@ async function getFilteredKolsForDm(
         },
       },
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      telegramUsername: true,
       telegramChatLinks: {
         include: {
           chat: true,
