@@ -18,8 +18,6 @@ import {
   Search,
   RefreshCw,
   MessageSquare,
-  CheckCircle,
-  AlertCircle,
   Hash,
 } from "lucide-react";
 import { TelegramGroupChat } from "./telegram-group-chat";
@@ -117,43 +115,6 @@ export function TelegramGroups({ campaigns }: TelegramGroupsProps) {
     }
   };
 
-  const getKpiStatusBadge = (chat: TelegramChat) => {
-    if (chat.kolLinks.length === 0) {
-      return null;
-    }
-
-    const hasProgress = chat.kolLinks.some(
-      (link) => link.campaignProgress.length > 0
-    );
-    if (!hasProgress) {
-      return null;
-    }
-
-    const allMet = chat.kolLinks.every((link) =>
-      link.campaignProgress.every((p) => p.percentage >= 100)
-    );
-    const anyNotMet = chat.kolLinks.some((link) =>
-      link.campaignProgress.some((p) => p.percentage < 100)
-    );
-
-    if (allMet) {
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          <CheckCircle className="h-3 w-3 mr-1" />
-          Met KPI
-        </Badge>
-      );
-    }
-    if (anyNotMet) {
-      return (
-        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-          <AlertCircle className="h-3 w-3 mr-1" />
-          In Progress
-        </Badge>
-      );
-    }
-    return null;
-  };
 
   return (
     <>
@@ -296,7 +257,6 @@ export function TelegramGroups({ campaigns }: TelegramGroupsProps) {
                       <Badge variant="outline" className="text-xs">
                         {chat.type.toLowerCase()}
                       </Badge>
-                      {getKpiStatusBadge(chat)}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                       {chat.username && (
