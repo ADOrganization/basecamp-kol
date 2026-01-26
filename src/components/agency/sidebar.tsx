@@ -15,7 +15,6 @@ import {
   ChevronDown,
   UserPlus,
   ChevronRight,
-  DollarSign,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,7 +41,6 @@ const navigation = [
   { name: "KOL Roster", href: "/agency/kols", icon: Users, description: "Manage influencers" },
   { name: "Campaigns", href: "/agency/campaigns", icon: Megaphone, description: "Active promotions" },
   { name: "Content Review", href: "/agency/content/review", icon: FileText, description: "Approve posts" },
-  { name: "Payments", href: "/agency/payments", icon: DollarSign, description: "KOL payments" },
   { name: "Clients", href: "/agency/clients", icon: UserPlus, description: "Client accounts" },
   { name: "Telegram", href: "/agency/telegram", icon: MessageSquare, description: "Messages & chats" },
 ];
