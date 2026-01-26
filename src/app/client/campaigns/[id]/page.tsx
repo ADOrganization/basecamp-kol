@@ -20,6 +20,7 @@ import {
   FileText,
   BarChart3,
   Eye,
+  Heart,
   ThumbsUp,
   MessageCircle,
   Repeat2,
@@ -282,10 +283,10 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-teal-100 text-sm">Total Impressions</p>
-                <p className="text-3xl font-bold mt-1">{formatNumber(totalImpressions)}</p>
+                <p className="text-teal-100 text-sm">Total Likes</p>
+                <p className="text-3xl font-bold mt-1">{formatNumber(totalLikes)}</p>
               </div>
-              <Eye className="h-8 w-8 text-teal-200" />
+              <Heart className="h-8 w-8 text-teal-200" />
             </div>
           </CardContent>
         </Card>
@@ -563,7 +564,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
             ) : (
               campaign.campaignKols.map((ck) => {
                 const kolPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id);
-                const kolImpressions = kolPosts.reduce((sum, p) => sum + p.impressions, 0);
+                const kolLikes = kolPosts.reduce((sum, p) => sum + p.likes, 0);
                 const kolEngagement = kolPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies + p.quotes + p.bookmarks, 0);
                 const kolKeywordMatches = kolPosts.filter(p => p.hasKeywordMatch).length;
                 const deliverables = getKolDeliverables(ck.kol.id, ck);
@@ -623,8 +624,8 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                           <p className="text-sm text-muted-foreground">Posts</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold">{formatNumber(kolImpressions)}</p>
-                          <p className="text-sm text-muted-foreground">Impressions</p>
+                          <p className="text-2xl font-bold">{formatNumber(kolLikes)}</p>
+                          <p className="text-sm text-muted-foreground">Likes</p>
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-bold">{formatNumber(kolEngagement)}</p>
@@ -665,7 +666,6 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                         <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Content</th>
                         <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                        <th className="text-right p-4 font-medium text-muted-foreground">Impressions</th>
                         <th className="text-right p-4 font-medium text-muted-foreground">Likes</th>
                         <th className="text-right p-4 font-medium text-muted-foreground">RTs</th>
                         <th className="text-right p-4 font-medium text-muted-foreground">Replies</th>
@@ -726,8 +726,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                               <Badge variant="outline">Draft</Badge>
                             )}
                           </td>
-                          <td className="p-4 text-right font-medium">{formatNumber(post.impressions)}</td>
-                          <td className="p-4 text-right">{formatNumber(post.likes)}</td>
+                          <td className="p-4 text-right font-medium">{formatNumber(post.likes)}</td>
                           <td className="p-4 text-right">{formatNumber(post.retweets)}</td>
                           <td className="p-4 text-right">{formatNumber(post.replies)}</td>
                           {campaign.keywords && campaign.keywords.length > 0 && (

@@ -496,7 +496,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   if (!campaign) return null;
 
-  const totalImpressions = campaign.posts.reduce((sum, p) => sum + (p.impressions || 0), 0);
+  const totalLikes = campaign.posts.reduce((sum, p) => sum + (p.likes || 0), 0);
   const totalEngagement = campaign.posts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0) + (p.quotes || 0) + (p.bookmarks || 0), 0);
   const assignedBudgetTotal = campaign.campaignKols.reduce((sum, ck) => sum + getKolBudget(ck), 0);
 
@@ -592,8 +592,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           )}
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Total Impressions</p>
-          <p className="text-2xl font-bold">{formatNumber(totalImpressions)}</p>
+          <p className="text-sm text-muted-foreground">Total Likes</p>
+          <p className="text-2xl font-bold">{formatNumber(totalLikes)}</p>
         </div>
       </div>
 
@@ -819,8 +819,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <th className="text-left p-4 font-medium text-muted-foreground">Keywords</th>
                     )}
                     <th className="text-left p-4 font-medium text-muted-foreground">Posted</th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">Impressions</th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">Engagement</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Likes</th>
                     <th className="w-[50px]"></th>
                   </tr>
                 </thead>
@@ -884,10 +883,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           day: "numeric",
                         }) : "-"}
                       </td>
-                      <td className="p-4 text-right">{formatNumber(post.impressions || 0)}</td>
-                      <td className="p-4 text-right">
-                        {formatNumber((post.likes || 0) + (post.retweets || 0) + (post.replies || 0) + (post.quotes || 0) + (post.bookmarks || 0))}
-                      </td>
+                      <td className="p-4 text-right">{formatNumber(post.likes || 0)}</td>
                       <td className="p-4">
                         {post.tweetUrl && (
                           <a
