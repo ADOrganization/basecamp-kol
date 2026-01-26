@@ -24,7 +24,7 @@ export async function GET() {
     cookieStore.delete(name);
   }
 
-  return NextResponse.redirect(new URL('/login', process.env.NEXTAUTH_URL || process.env.AUTH_URL || 'https://basecamp-kol-platform.vercel.app'));
+  return NextResponse.redirect(new URL('/login', process.env.NEXTAUTH_URL || process.env.AUTH_URL || 'https://basecampnetwork.xyz'));
 }
 
 export async function POST() {
