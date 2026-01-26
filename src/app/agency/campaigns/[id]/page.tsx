@@ -249,15 +249,26 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         method: "POST",
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        const result = await response.json();
-        console.log(result.message);
+        // Show feedback to user
+        if (result.refreshed > 0) {
+          alert(`Successfully refreshed ${result.refreshed}/${result.total} posts.${result.failed > 0 ? ` ${result.failed} failed.` : ''}`);
+        } else if (result.errors && result.errors.length > 0) {
+          alert(`Could not refresh posts. The X API may be temporarily unavailable.\n\nErrors:\n${result.errors.slice(0, 3).join('\n')}`);
+        } else {
+          alert('No posts could be refreshed. The X API may be temporarily unavailable.');
+        }
+      } else {
+        alert(result.error || 'Failed to refresh metrics');
       }
 
       // Refetch campaign to get updated metrics
       await fetchCampaign();
     } catch (error) {
       console.error("Failed to refresh metrics:", error);
+      alert('Failed to refresh metrics. Please try again.');
     } finally {
       setIsRefreshingMetrics(false);
     }
