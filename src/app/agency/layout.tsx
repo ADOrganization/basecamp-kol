@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AgencySidebar } from "@/components/agency/sidebar";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export default async function AgencyLayout({
   children,
@@ -9,6 +10,36 @@ export default async function AgencyLayout({
   children: React.ReactNode;
 }) {
   try {
+    // Check for admin session first (admin portal access)
+    const adminSession = await getAdminSession();
+
+    if (adminSession) {
+      // Admin user - give them access to agency features
+      // Find the Basecamp agency organization
+      const basecampOrg = await db.organization.findFirst({
+        where: { type: "AGENCY" },
+        select: { name: true },
+      });
+
+      return (
+        <div className="flex h-screen bg-background">
+          <AgencySidebar
+            user={{
+              name: adminSession.name || "Admin",
+              email: adminSession.email,
+              avatarUrl: null,
+              organizationName: basecampOrg?.name || "Basecamp Network",
+            }}
+            isAdmin={true}
+          />
+          <main className="flex-1 overflow-y-auto">
+            <div className="p-8">{children}</div>
+          </main>
+        </div>
+      );
+    }
+
+    // Regular user auth flow
     const session = await auth();
 
     if (!session?.user) {

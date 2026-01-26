@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import {
@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronDown,
   UserPlus,
+  Shield,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,6 +32,7 @@ interface AgencySidebarProps {
     avatarUrl?: string | null;
     organizationName: string;
   };
+  isAdmin?: boolean;
 }
 
 const navigation = [
@@ -43,8 +45,20 @@ const navigation = [
   { name: "Settings", href: "/agency/settings", icon: Settings },
 ];
 
-export function AgencySidebar({ user }: AgencySidebarProps) {
+export function AgencySidebar({ user, isAdmin = false }: AgencySidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    if (isAdmin) {
+      // Admin logout - call admin logout endpoint
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+      router.push("/admin/login");
+    } else {
+      // Regular user logout
+      signOut({ callbackUrl: "/login" });
+    }
+  };
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground border-r border-border">
@@ -54,6 +68,11 @@ export function AgencySidebar({ user }: AgencySidebarProps) {
           <span className="text-lg font-bold text-white">B</span>
         </div>
         <span className="text-lg font-semibold">Basecamp</span>
+        {isAdmin && (
+          <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-purple-600/20 text-purple-400 rounded-full border border-purple-500/30">
+            Admin
+          </span>
+        )}
         <div className="ml-auto">
           <ThemeToggle />
         </div>
@@ -115,7 +134,7 @@ export function AgencySidebar({ user }: AgencySidebarProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleLogout}
               className="text-rose-600"
             >
               <LogOut className="mr-2 h-4 w-4" />

@@ -54,21 +54,28 @@ export default auth((req) => {
     const isLoggedIn = !!session?.user;
     const hostname = req.headers.get("host") || "";
 
-    // Handle admin subdomain - rewrite to /admin routes
+    // Handle admin subdomain
     if (hostname.startsWith("admin.")) {
-      // If not already on /admin route, rewrite to /admin equivalent
-      if (!nextUrl.pathname.startsWith("/admin") && !nextUrl.pathname.startsWith("/api/admin")) {
-        // Rewrite root or /login to /admin/login
-        if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
-          const url = nextUrl.clone();
-          url.pathname = "/admin/login";
-          return NextResponse.rewrite(url);
-        }
-        // For other paths, rewrite to /admin prefix
+      // Allow agency routes for admin subdomain (admin users access agency features)
+      if (nextUrl.pathname.startsWith("/agency") || nextUrl.pathname.startsWith("/api/")) {
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+      // Rewrite root or /login to /admin/login
+      if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
         const url = nextUrl.clone();
-        url.pathname = `/admin${nextUrl.pathname}`;
+        url.pathname = "/admin/login";
         return NextResponse.rewrite(url);
       }
+      // Allow /admin routes
+      if (nextUrl.pathname.startsWith("/admin")) {
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+      // For other paths, rewrite to /admin prefix
+      const url = nextUrl.clone();
+      url.pathname = `/admin${nextUrl.pathname}`;
+      return NextResponse.rewrite(url);
     }
 
     // Route classification
