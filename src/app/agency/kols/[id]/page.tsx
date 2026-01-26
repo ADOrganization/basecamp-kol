@@ -127,7 +127,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
 
   // Receipt form state
   const [showReceiptForm, setShowReceiptForm] = useState(false);
-  const [editingReceipt, setEditingReceipt] = useState<KOLDetails["paymentReceipts"][0] | null>(null);
+  const [editingReceipt, setEditingReceipt] = useState<NonNullable<KOLDetails["paymentReceipts"]>[0] | null>(null);
   const [receiptFormData, setReceiptFormData] = useState({
     amount: "",
     proofUrl: "",
@@ -195,7 +195,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
     }
   };
 
-  const openReceiptForm = (receipt?: KOLDetails["paymentReceipts"][0]) => {
+  const openReceiptForm = (receipt?: NonNullable<KOLDetails["paymentReceipts"]>[0]) => {
     if (receipt) {
       setEditingReceipt(receipt);
       setReceiptFormData({
