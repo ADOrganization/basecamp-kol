@@ -423,26 +423,30 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
 }
 
 /**
- * Scrape a single tweet using Apify
+ * Scrape a single tweet using Apify KaitoEasyAPI actor
+ * Uses the same actor (CJdippxWmn9uRfooo) as the rest of the codebase
  */
 async function scrapeSingleTweetWithApify(tweetId: string): Promise<ScrapedTweet | null> {
   const apiKey = getApifyApiKey();
   if (!apiKey) return null;
 
-  const actorId = 'apidojo/tweet-scraper';
+  // Use the same actor as scrapeFromApify for consistency
+  const actorId = 'CJdippxWmn9uRfooo';
   const tweetUrl = `https://x.com/i/status/${tweetId}`;
 
+  console.log(`[Apify] Fetching single tweet ${tweetId} via KaitoEasyAPI...`);
+
   try {
-    // Start the actor run
+    // Start the actor run - use searchTerms format like the rest of the codebase
+    // KaitoEasyAPI accepts tweet URLs in searchTerms
     const runResponse = await fetch(
       `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startUrls: [{ url: tweetUrl }],
+          searchTerms: [tweetUrl],
           maxItems: 1,
-          addUserInfo: true,
         }),
         signal: AbortSignal.timeout(30000),
       }
@@ -485,24 +489,53 @@ async function scrapeSingleTweetWithApify(tweetId: string): Promise<ScrapedTweet
         if (!itemsResponse.ok) return null;
 
         const items = await itemsResponse.json();
-        if (!items || items.length === 0) return null;
+        if (!items || items.length === 0) {
+          console.log(`[Apify] No items returned for tweet ${tweetId}`);
+          return null;
+        }
 
         const item = items[0];
+
+        // Log the raw item to see what fields are available
+        console.log(`[Apify] Raw item keys for ${tweetId}:`, Object.keys(item));
+        console.log(`[Apify] Raw item sample:`, JSON.stringify(item).slice(0, 500));
+
+        // Check for mock data (KaitoEasyAPI returns this when no results found)
+        const content = String(item.text || item.full_text || item.content || '');
+        if (content.includes('KaitoEasyAPI') && content.includes('mock data')) {
+          console.log(`[Apify] Received mock data for tweet ${tweetId}, skipping`);
+          return null;
+        }
+
+        // Extract metrics with better logging
+        const metrics = {
+          likes: Number(item.likeCount || item.favorite_count || 0),
+          retweets: Number(item.retweetCount || item.retweet_count || 0),
+          replies: Number(item.replyCount || item.reply_count || 0),
+          quotes: Number(item.quoteCount || item.quote_count || 0),
+          views: Number(item.viewCount || item.views?.count || item.view_count || 0),
+          bookmarks: Number(item.bookmarkCount || item.bookmark_count || 0),
+        };
+
+        console.log(`[Apify] Extracted metrics for ${tweetId}:`, JSON.stringify(metrics));
+
+        // Validate we got some real data (at least views or likes)
+        if (metrics.views === 0 && metrics.likes === 0 && metrics.retweets === 0) {
+          console.log(`[Apify] No valid metrics found for tweet ${tweetId}`);
+          return null;
+        }
+
+        // Get actual tweet URL from response if available
+        const actualUrl = item.url || item.twitterUrl || tweetUrl;
+
         return {
-          id: tweetId,
-          url: tweetUrl,
-          content: item.text || item.full_text || '',
+          id: String(item.id || tweetId),
+          url: actualUrl,
+          content,
           authorHandle: item.author?.userName || item.user?.screen_name || '',
           authorName: item.author?.name || item.user?.name || '',
           postedAt: item.createdAt ? new Date(item.createdAt) : new Date(),
-          metrics: {
-            likes: item.likeCount || item.favorite_count || 0,
-            retweets: item.retweetCount || item.retweet_count || 0,
-            replies: item.replyCount || item.reply_count || 0,
-            quotes: item.quoteCount || item.quote_count || 0,
-            views: item.viewCount || item.views?.count || 0,
-            bookmarks: item.bookmarkCount || item.bookmark_count || 0,
-          },
+          metrics,
           mediaUrls: [],
           isRetweet: false,
           isQuote: false,

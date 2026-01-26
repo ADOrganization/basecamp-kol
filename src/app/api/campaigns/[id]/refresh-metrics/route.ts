@@ -91,42 +91,33 @@ export async function POST(
           continue;
         }
 
-        // Only update if we got better data than what we have
-        const hasNewData = tweet.metrics.likes > 0 ||
-                          tweet.metrics.retweets > 0 ||
-                          tweet.metrics.replies > 0 ||
-                          tweet.metrics.views > 0;
+        // Log what we got for debugging
+        console.log(`[Refresh] Post ${post.id} metrics from API:`, JSON.stringify(tweet.metrics));
 
-        const hasBetterData = tweet.metrics.likes >= (post.likes || 0) ||
-                             tweet.metrics.retweets >= (post.retweets || 0) ||
-                             tweet.metrics.views >= (post.impressions || 0);
+        // Calculate engagement rate
+        const totalEngagements = tweet.metrics.likes + tweet.metrics.retweets +
+                                 tweet.metrics.replies + tweet.metrics.quotes;
+        const engagementRate = tweet.metrics.views > 0
+          ? (totalEngagements / tweet.metrics.views) * 100
+          : 0;
 
-        if (hasNewData && hasBetterData) {
-          // Calculate engagement rate
-          const totalEngagements = tweet.metrics.likes + tweet.metrics.retweets +
-                                   tweet.metrics.replies + tweet.metrics.quotes;
-          const engagementRate = tweet.metrics.views > 0
-            ? (totalEngagements / tweet.metrics.views) * 100
-            : 0;
+        // Update the post with new metrics
+        await db.post.update({
+          where: { id: post.id },
+          data: {
+            impressions: tweet.metrics.views,
+            likes: tweet.metrics.likes,
+            retweets: tweet.metrics.retweets,
+            replies: tweet.metrics.replies,
+            quotes: tweet.metrics.quotes,
+            bookmarks: tweet.metrics.bookmarks,
+            engagementRate: Math.round(engagementRate * 100) / 100,
+            lastMetricsUpdate: new Date(),
+          },
+        });
 
-          await db.post.update({
-            where: { id: post.id },
-            data: {
-              impressions: tweet.metrics.views,
-              likes: tweet.metrics.likes,
-              retweets: tweet.metrics.retweets,
-              replies: tweet.metrics.replies,
-              quotes: tweet.metrics.quotes,
-              bookmarks: tweet.metrics.bookmarks,
-              engagementRate: Math.round(engagementRate * 100) / 100,
-              lastMetricsUpdate: new Date(),
-            },
-          });
-          successCount++;
-        } else {
-          errors.push(`Post ${post.id}: No valid new data from API`);
-          failCount++;
-        }
+        console.log(`[Refresh] Post ${post.id} updated: views=${tweet.metrics.views}, likes=${tweet.metrics.likes}`);
+        successCount++;
 
         // Small delay between requests to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
