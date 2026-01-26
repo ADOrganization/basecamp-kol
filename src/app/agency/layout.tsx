@@ -23,7 +23,7 @@ export default async function AgencyLayout({
 
       // Get admin user's avatar
       const adminUser = await db.adminUser.findUnique({
-        where: { id: adminSession.sub },
+        where: { id: adminSession.id },
         select: { avatarUrl: true },
       });
 
