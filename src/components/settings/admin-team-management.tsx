@@ -35,6 +35,7 @@ import {
   Check,
   UserX,
   Pencil,
+  KeyRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -89,6 +90,12 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
   // Delete confirmation state
   const [deletingAdmin, setDeletingAdmin] = useState<AdminUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Password reset state
+  const [resettingAdmin, setResettingAdmin] = useState<AdminUser | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetTempPassword, setResetTempPassword] = useState<string | null>(null);
+  const [copiedResetPassword, setCopiedResetPassword] = useState(false);
 
   const canManageTeam = currentAdminRole === "SUPER_ADMIN";
 
@@ -208,6 +215,46 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
     setTempPassword(null);
   };
 
+  const handleResetPassword = async () => {
+    if (!resettingAdmin) return;
+
+    setIsResetting(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/team/${resettingAdmin.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetPassword: true }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to reset password");
+      }
+
+      setResetTempPassword(data.tempPassword);
+      await fetchAdmins();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset password");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const copyResetPassword = () => {
+    if (resetTempPassword) {
+      navigator.clipboard.writeText(resetTempPassword);
+      setCopiedResetPassword(true);
+      setTimeout(() => setCopiedResetPassword(false), 2000);
+    }
+  };
+
+  const closeResetDialog = () => {
+    setResettingAdmin(null);
+    setResetTempPassword(null);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -303,6 +350,12 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                       >
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setResettingAdmin(admin)}
+                      >
+                        <KeyRound className="h-4 w-4 mr-2" />
+                        Reset Password
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => setDeletingAdmin(admin)}
@@ -465,6 +518,74 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!resettingAdmin} onOpenChange={closeResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {resetTempPassword ? "Password Reset Complete" : "Reset Password"}
+            </DialogTitle>
+            <DialogDescription>
+              {resetTempPassword
+                ? "Share these credentials securely with the team member."
+                : `Reset the password for ${resettingAdmin?.name || resettingAdmin?.email}. This will also disable their 2FA.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {resetTempPassword ? (
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="font-mono text-sm">{resettingAdmin?.email}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">New Temporary Password</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 p-2 bg-background rounded font-mono text-sm">
+                      {resetTempPassword}
+                    </code>
+                    <Button variant="outline" size="sm" onClick={copyResetPassword}>
+                      {copiedResetPassword ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                This password will not be shown again. The user will need to set up 2FA again on their next login.
+              </p>
+            </div>
+          ) : (
+            <div className="py-4">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-600 text-sm">
+                <p className="font-medium">Warning</p>
+                <p className="mt-1">This will generate a new temporary password and disable their two-factor authentication. They will need to set up 2FA again.</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {resetTempPassword ? (
+              <Button onClick={closeResetDialog}>Done</Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={closeResetDialog}>
+                  Cancel
+                </Button>
+                <Button onClick={handleResetPassword} disabled={isResetting}>
+                  {isResetting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Reset Password
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

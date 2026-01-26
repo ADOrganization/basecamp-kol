@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import bcrypt from "bcryptjs";
 
 const ADMIN_JWT_SECRET = new TextEncoder().encode(
   process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
@@ -58,7 +59,31 @@ export async function PUT(
       );
     }
 
-    const { name, isActive } = await request.json();
+    const { name, isActive, resetPassword } = await request.json();
+
+    // Handle password reset
+    if (resetPassword === true) {
+      // Generate a random temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+      const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+      // Update password and disable 2FA so they have to set it up again
+      await db.adminUser.update({
+        where: { id },
+        data: {
+          passwordHash,
+          twoFactorEnabled: false,
+          twoFactorSecret: null,
+          backupCodes: [],
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        tempPassword,
+        message: "Password reset successfully. User will need to set up 2FA again.",
+      });
+    }
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
