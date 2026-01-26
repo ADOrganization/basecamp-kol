@@ -52,6 +52,20 @@ export default auth((req) => {
   try {
     const { nextUrl, auth: session } = req;
     const isLoggedIn = !!session?.user;
+    const hostname = req.headers.get("host") || "";
+
+    // Handle admin subdomain - rewrite to /admin routes
+    if (hostname.startsWith("admin.")) {
+      // If not already on /admin route, redirect to /admin equivalent
+      if (!nextUrl.pathname.startsWith("/admin") && !nextUrl.pathname.startsWith("/api/admin")) {
+        // Redirect root to /admin/login
+        if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
+          return NextResponse.redirect(new URL("/admin/login", nextUrl));
+        }
+        // For other paths, redirect to /admin prefix
+        return NextResponse.redirect(new URL(`/admin${nextUrl.pathname}`, nextUrl));
+      }
+    }
 
     // Route classification
     const isAuthPage =
