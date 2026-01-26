@@ -48,6 +48,7 @@ export default async function ContentReviewPage() {
     kol: {
       name: post.kol.name,
       twitterHandle: post.kol.twitterHandle,
+      avatarUrl: post.kol.avatarUrl,
     },
     campaign: {
       name: post.campaign.name,

@@ -33,6 +33,7 @@ interface Post {
   kol: {
     name: string;
     twitterHandle: string;
+    avatarUrl?: string | null;
   };
   campaign: {
     name: string;

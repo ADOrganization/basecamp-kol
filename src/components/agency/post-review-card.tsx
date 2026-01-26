@@ -48,6 +48,7 @@ interface Post {
   kol: {
     name: string;
     twitterHandle: string;
+    avatarUrl?: string | null;
   };
   campaign: {
     name: string;
@@ -277,9 +278,22 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
       )}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 flex-1">
+            {post.kol.avatarUrl ? (
+              <img
+                src={post.kol.avatarUrl}
+                alt={post.kol.name}
+                className="h-11 w-11 rounded-xl object-cover shadow-lg flex-shrink-0"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.classList.remove('hidden');
+                }}
+              />
+            ) : null}
             <div className={cn(
               "h-11 w-11 rounded-xl flex items-center justify-center font-semibold text-white shadow-lg flex-shrink-0",
-              "bg-gradient-to-br from-indigo-500 to-purple-600"
+              "bg-gradient-to-br from-indigo-500 to-purple-600",
+              post.kol.avatarUrl ? "hidden" : ""
             )}>
               {post.kol.name.charAt(0).toUpperCase()}
             </div>
@@ -330,7 +344,7 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                   <Bookmark className="h-3.5 w-3.5" />
                   {(metrics.bookmarks ?? 0).toLocaleString()}
                 </span>
-                <span className="flex items-center gap-1.5 bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md" title="Likes">
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md" title="Likes">
                   <Heart className="h-3.5 w-3.5" />
                   {(metrics.likes ?? 0).toLocaleString()}
                 </span>
