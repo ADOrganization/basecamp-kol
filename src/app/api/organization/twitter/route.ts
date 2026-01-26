@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
@@ -11,13 +11,13 @@ const twitterSettingsSchema = z.object({
 // GET - Retrieve Twitter/API settings
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: {
         apifyApiKey: true,
         socialDataApiKey: true,
@@ -55,25 +55,27 @@ export async function GET() {
 // PUT - Update Twitter/Apify settings
 export async function PUT(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user has permission
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check if user has permission (admins bypass)
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to update settings" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to update settings" },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await request.json();
@@ -90,7 +92,7 @@ export async function PUT(request: NextRequest) {
     }
 
     await db.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       data: updateData,
     });
 

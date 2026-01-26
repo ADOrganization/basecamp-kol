@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { renderToBuffer } from "@react-pdf/renderer";
 import {
@@ -20,8 +20,8 @@ export async function POST(
     if (rateLimitResponse) return rateLimitResponse;
 
     // 1. Authenticate user
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -56,14 +56,14 @@ export async function POST(
 
     // 4. Fetch campaign with authorization check
     const { id } = await params;
-    const isAgency = session.user.organizationType === "AGENCY";
+    const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     const campaign = await db.campaign.findFirst({
       where: {
         id,
         ...(isAgency
-          ? { agencyId: session.user.organizationId }
-          : { clientId: session.user.organizationId }),
+          ? { agencyId: authContext.organizationId }
+          : { clientId: authContext.organizationId }),
       },
       include: {
         client: {

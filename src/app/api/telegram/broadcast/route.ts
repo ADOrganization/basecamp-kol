@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { TelegramClient } from "@/lib/telegram/client";
@@ -8,13 +8,13 @@ import { telegramBroadcastSchema } from "@/lib/validations";
 // GET - List past broadcasts
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const broadcasts = await db.telegramBroadcast.findMany({
-      where: { organizationId: session.user.organizationId },
+      where: { organizationId: authContext.organizationId },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -32,30 +32,32 @@ export async function GET() {
 // POST - Create and send broadcast
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check permission
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check permission - admins bypass membership check
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to send broadcasts" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to send broadcasts" },
+          { status: 403 }
+        );
+      }
     }
 
     // Get organization with bot token
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { telegramBotToken: true },
     });
 
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (targetType === "dms") {
       // Get KOLs with private chats for DM broadcast
       const targetKols = await getFilteredKolsForDm(
-        session.user.organizationId,
+        authContext.organizationId,
         validatedData.filterType,
         validatedData.filterCampaignId
       );
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
       // Create broadcast record
       const broadcast = await db.telegramBroadcast.create({
         data: {
-          organizationId: session.user.organizationId,
+          organizationId: authContext.organizationId,
           content: validatedData.content,
           targetType: "dms",
           filterType: validatedData.filterType,
@@ -168,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     // Group broadcast (original logic)
     const targetChats = await getFilteredChats(
-      session.user.organizationId,
+      authContext.organizationId,
       validatedData.filterType,
       validatedData.filterCampaignId
     );
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest) {
     // Create broadcast record
     const broadcast = await db.telegramBroadcast.create({
       data: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         content: validatedData.content,
         targetType: "groups",
         filterType: validatedData.filterType,

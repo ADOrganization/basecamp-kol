@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { postApprovalSchema } from "@/lib/validations";
 import { TelegramClient } from "@/lib/telegram/client";
@@ -16,20 +16,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const isAgency = session.user.organizationType === "AGENCY";
+    const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     const post = await db.post.findFirst({
       where: {
         id,
         campaign: isAgency
-          ? { agencyId: session.user.organizationId }
-          : { clientId: session.user.organizationId },
+          ? { agencyId: authContext.organizationId }
+          : { clientId: authContext.organizationId },
       },
       include: {
         kol: {
@@ -66,23 +66,23 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
     const body = await request.json();
 
-    const isAgency = session.user.organizationType === "AGENCY";
+    const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     // Verify post access and get campaign keywords
     const existingPost = await db.post.findFirst({
       where: {
         id,
         campaign: isAgency
-          ? { agencyId: session.user.organizationId }
-          : { clientId: session.user.organizationId },
+          ? { agencyId: authContext.organizationId }
+          : { clientId: authContext.organizationId },
       },
       include: {
         campaign: {
@@ -112,7 +112,7 @@ export async function PUT(
           id,
           validatedData.status,
           validatedData.clientNotes || null,
-          session.user.organizationId
+          authContext.organizationId
         );
       }
 
@@ -167,7 +167,7 @@ export async function PUT(
         id,
         body.status,
         body.clientNotes || null,
-        session.user.organizationId
+        authContext.organizationId
       );
     }
 
@@ -186,12 +186,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -201,7 +201,7 @@ export async function DELETE(
       where: {
         id,
         campaign: {
-          agencyId: session.user.organizationId,
+          agencyId: authContext.organizationId,
         },
       },
     });

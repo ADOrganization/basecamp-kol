@@ -1,35 +1,37 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { TelegramClient, mapTelegramChatType } from "@/lib/telegram/client";
 
 // POST - Manual sync to fetch bot's current groups
 export async function POST() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check permission
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check permission - admins bypass membership check
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to sync chats" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to sync chats" },
+          { status: 403 }
+        );
+      }
     }
 
     // Get organization with bot token and webhook secret
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { telegramBotToken: true, telegramWebhookSecret: true },
     });
 
@@ -71,7 +73,7 @@ export async function POST() {
 
     if (!updatesResult.ok || !updatesResult.result) {
       // Try to verify existing chats instead
-      return await verifyExistingChats(session.user.organizationId, client);
+      return await verifyExistingChats(authContext.organizationId, client);
     }
 
     let newChats = 0;
@@ -88,12 +90,12 @@ export async function POST() {
           const result = await db.telegramChat.upsert({
             where: {
               organizationId_telegramChatId: {
-                organizationId: session.user.organizationId,
+                organizationId: authContext.organizationId,
                 telegramChatId: chat.id.toString(),
               },
             },
             create: {
-              organizationId: session.user.organizationId,
+              organizationId: authContext.organizationId,
               telegramChatId: chat.id.toString(),
               title: chat.title || null,
               type: mapTelegramChatType(chat.type),

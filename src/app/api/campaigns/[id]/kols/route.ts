@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { campaignKolSchema } from "@/lib/validations";
 
@@ -8,12 +8,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -25,7 +25,7 @@ export async function POST(
     const campaign = await db.campaign.findFirst({
       where: {
         id: campaignId,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 
@@ -37,7 +37,7 @@ export async function POST(
     const kol = await db.kOL.findFirst({
       where: {
         id: validatedData.kolId,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 
@@ -109,12 +109,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -130,7 +130,7 @@ export async function PUT(
     const campaign = await db.campaign.findFirst({
       where: {
         id: campaignId,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 
@@ -194,12 +194,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -215,7 +215,7 @@ export async function DELETE(
     const campaign = await db.campaign.findFirst({
       where: {
         id: campaignId,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 

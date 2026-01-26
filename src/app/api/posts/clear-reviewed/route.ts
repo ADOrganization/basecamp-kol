@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 export async function DELETE() {
-  const session = await auth();
+  const authContext = await getApiAuthContext();
 
-  if (!session?.user) {
+  if (!authContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -14,7 +18,7 @@ export async function DELETE() {
     const result = await db.post.updateMany({
       where: {
         campaign: {
-          agencyId: session.user.organizationId,
+          agencyId: authContext.organizationId,
         },
         status: {
           in: ["APPROVED", "POSTED", "VERIFIED", "REJECTED", "CHANGES_REQUESTED"],

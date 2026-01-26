@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,14 +9,14 @@ import { TeamManagement } from "@/components/settings/team-management";
 import { TwitterIntegrationCard, TelegramIntegrationCard, NotificationsCard } from "@/components/settings/integrations-card";
 
 export default async function SettingsPage() {
-  const session = await auth();
+  const context = await getAgencyContext();
 
-  if (!session?.user) {
+  if (!context) {
     redirect("/login");
   }
 
   const organization = await db.organization.findUnique({
-    where: { id: session.user.organizationId },
+    where: { id: context.organizationId },
     include: {
       members: {
         include: {
@@ -27,7 +27,7 @@ export default async function SettingsPage() {
   });
 
   const user = await db.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: context.userId },
   });
 
   if (!organization || !user) {
@@ -87,7 +87,7 @@ export default async function SettingsPage() {
                 avatarUrl: m.user.avatarUrl,
               },
             }))}
-            currentUserId={session.user.id}
+            currentUserId={context.userId}
             variant="agency"
           />
         </TabsContent>

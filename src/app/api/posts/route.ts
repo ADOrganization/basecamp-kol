@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { postSchema } from "@/lib/validations";
 
@@ -12,8 +12,8 @@ function findKeywordMatches(content: string, keywords: string[]): string[] {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,13 +22,13 @@ export async function GET(request: NextRequest) {
     const kolId = searchParams.get("kolId");
     const status = searchParams.get("status");
 
-    const isAgency = session.user.organizationType === "AGENCY";
+    const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     const posts = await db.post.findMany({
       where: {
         campaign: isAgency
-          ? { agencyId: session.user.organizationId }
-          : { clientId: session.user.organizationId },
+          ? { agencyId: authContext.organizationId }
+          : { clientId: authContext.organizationId },
         ...(campaignId && { campaignId }),
         ...(kolId && { kolId }),
         ...(status && { status: status as "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SCHEDULED" | "POSTED" | "VERIFIED" }),
@@ -56,12 +56,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const campaign = await db.campaign.findFirst({
       where: {
         id: validatedData.campaignId,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     const kol = await db.kOL.findFirst({
       where: {
         id: validatedData.kolId,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 

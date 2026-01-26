@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { fetchTwitterProfile, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
@@ -11,18 +11,18 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Load organization's API keys
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Get all KOLs for this organization (exclude only BLACKLISTED)
     const kols = await db.kOL.findMany({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         status: { not: "BLACKLISTED" },
       },
       select: {

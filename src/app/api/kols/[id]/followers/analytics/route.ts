@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 
@@ -21,16 +21,16 @@ export async function GET(
   const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const session = await auth();
+  const authContext = await getApiAuthContext();
   const { id } = await params;
 
-  if (!session?.user) {
+  if (!authContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // SECURITY: Only agency users can access KOL follower analytics
   // This data is confidential and should not be exposed to clients
-  if (session.user.organizationType !== "AGENCY") {
+  if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -43,7 +43,7 @@ export async function GET(
     const kol = await db.kOL.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 export async function DELETE(
@@ -7,24 +7,28 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id: memberId } = await params;
 
-    // Check if user is owner or admin
-    const userMembership = await db.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: session.user.organizationId,
-          userId: session.user.id,
+    // Admins bypass membership check
+    let userMembership = null;
+    if (!authContext.isAdmin) {
+      // Check if user is owner or admin
+      userMembership = await db.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: authContext.organizationId,
+            userId: authContext.userId,
+          },
         },
-      },
-    });
+      });
+    }
 
-    if (!userMembership || !["OWNER", "ADMIN"].includes(userMembership.role)) {
+    if (!authContext.isAdmin && (!userMembership || !["OWNER", "ADMIN"].includes(userMembership.role))) {
       return NextResponse.json(
         { error: "Only owners and admins can remove members" },
         { status: 403 }
@@ -44,15 +48,15 @@ export async function DELETE(
     }
 
     // Check organization matches
-    if (membershipToRemove.organizationId !== session.user.organizationId) {
+    if (membershipToRemove.organizationId !== authContext.organizationId) {
       return NextResponse.json(
         { error: "Member not found in your organization" },
         { status: 404 }
       );
     }
 
-    // Cannot remove yourself
-    if (membershipToRemove.userId === session.user.id) {
+    // Cannot remove yourself (unless admin)
+    if (!authContext.isAdmin && membershipToRemove.userId === authContext.userId) {
       return NextResponse.json(
         { error: "Cannot remove yourself from the organization" },
         { status: 400 }
@@ -67,8 +71,8 @@ export async function DELETE(
       );
     }
 
-    // Admins cannot remove other admins (only owners can)
-    if (membershipToRemove.role === "ADMIN" && userMembership.role !== "OWNER") {
+    // Admins cannot remove other admins (only owners can), but site admins can
+    if (!authContext.isAdmin && membershipToRemove.role === "ADMIN" && userMembership?.role !== "OWNER") {
       return NextResponse.json(
         { error: "Only the owner can remove administrators" },
         { status: 403 }
@@ -95,8 +99,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -111,21 +115,23 @@ export async function PATCH(
       );
     }
 
-    // Only owners can change roles
-    const userMembership = await db.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: session.user.organizationId,
-          userId: session.user.id,
+    // Only owners (or site admins) can change roles
+    if (!authContext.isAdmin) {
+      const userMembership = await db.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: authContext.organizationId,
+            userId: authContext.userId,
+          },
         },
-      },
-    });
+      });
 
-    if (!userMembership || userMembership.role !== "OWNER") {
-      return NextResponse.json(
-        { error: "Only the owner can change member roles" },
-        { status: 403 }
-      );
+      if (!userMembership || userMembership.role !== "OWNER") {
+        return NextResponse.json(
+          { error: "Only the owner can change member roles" },
+          { status: 403 }
+        );
+      }
     }
 
     // Find the membership to update
@@ -133,7 +139,7 @@ export async function PATCH(
       where: { id: memberId },
     });
 
-    if (!membershipToUpdate || membershipToUpdate.organizationId !== session.user.organizationId) {
+    if (!membershipToUpdate || membershipToUpdate.organizationId !== authContext.organizationId) {
       return NextResponse.json(
         { error: "Member not found" },
         { status: 404 }

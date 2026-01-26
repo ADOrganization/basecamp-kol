@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
@@ -9,32 +9,34 @@ const organizationSchema = z.object({
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const validatedData = organizationSchema.parse(body);
 
-    // Check if user has permission to update organization
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check if user has permission to update organization (admins bypass)
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to update organization settings" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to update organization settings" },
+          { status: 403 }
+        );
+      }
     }
 
     const updatedOrg = await db.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       data: { name: validatedData.name },
       select: { id: true, name: true, slug: true },
     });

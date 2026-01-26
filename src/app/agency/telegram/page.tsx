@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,16 +8,16 @@ import { TelegramBroadcast } from "@/components/agency/telegram-broadcast";
 import { Users, MessageSquare, Send } from "lucide-react";
 
 export default async function TelegramPage() {
-  const session = await auth();
+  const context = await getAgencyContext();
 
-  if (!session?.user) {
+  if (!context) {
     redirect("/login");
   }
 
   // Get KOLs with telegram usernames
   const kols = await db.kOL.findMany({
     where: {
-      organizationId: session.user.organizationId,
+      organizationId: context.organizationId,
       telegramUsername: { not: null },
     },
     include: {
@@ -33,7 +33,7 @@ export default async function TelegramPage() {
   const messages = await db.telegramMessage.findMany({
     where: {
       kol: {
-        organizationId: session.user.organizationId,
+        organizationId: context.organizationId,
       },
     },
     include: {
@@ -46,7 +46,7 @@ export default async function TelegramPage() {
   // Get campaigns for filters
   const campaigns = await db.campaign.findMany({
     where: {
-      agencyId: session.user.organizationId,
+      agencyId: context.organizationId,
       status: { in: ["ACTIVE", "PAUSED"] },
     },
     select: {
@@ -59,7 +59,7 @@ export default async function TelegramPage() {
   // Get group chat count
   const groupChatCount = await db.telegramChat.count({
     where: {
-      organizationId: session.user.organizationId,
+      organizationId: context.organizationId,
       status: "ACTIVE",
     },
   });

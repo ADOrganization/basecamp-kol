@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
 import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
@@ -9,20 +9,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const isAgency = session.user.organizationType === "AGENCY";
+    const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     const campaign = await db.campaign.findFirst({
       where: {
         id,
         ...(isAgency
-          ? { agencyId: session.user.organizationId }
-          : { clientId: session.user.organizationId }),
+          ? { agencyId: authContext.organizationId }
+          : { clientId: authContext.organizationId }),
       },
       include: {
         client: {
@@ -130,12 +130,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -147,7 +147,7 @@ export async function PUT(
     const existingCampaign = await db.campaign.findFirst({
       where: {
         id,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 
@@ -157,7 +157,7 @@ export async function PUT(
 
     // Load organization's Apify API key for media fetching
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { apifyApiKey: true },
     });
 
@@ -234,12 +234,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -249,7 +249,7 @@ export async function DELETE(
     const existingCampaign = await db.campaign.findFirst({
       where: {
         id,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
     });
 

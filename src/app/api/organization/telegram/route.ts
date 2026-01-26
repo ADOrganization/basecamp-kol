@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import {
@@ -15,13 +15,13 @@ const telegramSettingsSchema = z.object({
 // GET - Retrieve Telegram bot status
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: {
         telegramBotToken: true,
         telegramBotUsername: true,
@@ -47,7 +47,7 @@ export async function GET() {
         });
 
         await db.organization.update({
-          where: { id: session.user.organizationId },
+          where: { id: authContext.organizationId },
           data: { telegramWebhookSecret: webhookSecret },
         });
       }
@@ -69,25 +69,27 @@ export async function GET() {
 // PUT - Update Telegram bot token
 export async function PUT(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user has permission
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check if user has permission (admins bypass)
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to update settings" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to update settings" },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await request.json();
@@ -125,7 +127,7 @@ export async function PUT(request: NextRequest) {
 
     // Save the verified token and webhook secret
     await db.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       data: {
         telegramBotToken: validatedData.botToken,
         telegramBotUsername: verification.username || null,
@@ -157,30 +159,32 @@ export async function PUT(request: NextRequest) {
 // DELETE - Disconnect Telegram bot
 export async function DELETE() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user has permission
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check if user has permission (admins bypass)
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to update settings" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to update settings" },
+          { status: 403 }
+        );
+      }
     }
 
     // Get current token to delete webhook
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { telegramBotToken: true },
     });
 
@@ -191,7 +195,7 @@ export async function DELETE() {
     }
 
     await db.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       data: {
         telegramBotToken: null,
         telegramBotUsername: null,

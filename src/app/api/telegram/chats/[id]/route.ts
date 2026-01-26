@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 interface RouteParams {
@@ -9,8 +9,8 @@ interface RouteParams {
 // GET - Get single chat with messages and linked KOLs
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const chat = await db.telegramChat.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
       include: {
         kolLinks: {
@@ -117,25 +117,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // DELETE - Remove chat from tracking
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check permission
-    const membership = await db.organizationMember.findFirst({
-      where: {
-        userId: session.user.id,
-        organizationId: session.user.organizationId,
-        role: { in: ["OWNER", "ADMIN"] },
-      },
-    });
+    // Check permission - admins bypass membership check
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findFirst({
+        where: {
+          userId: authContext.userId,
+          organizationId: authContext.organizationId,
+          role: { in: ["OWNER", "ADMIN"] },
+        },
+      });
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "You don't have permission to delete chats" },
-        { status: 403 }
-      );
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You don't have permission to delete chats" },
+          { status: 403 }
+        );
+      }
     }
 
     const { id } = await params;
@@ -144,7 +146,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const chat = await db.telegramChat.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 

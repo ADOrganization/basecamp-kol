@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
@@ -10,18 +10,18 @@ const createTagSchema = z.object({
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const tags = await db.kOLTag.findMany({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
       include: {
         _count: {
@@ -45,12 +45,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Check for duplicate name
     const existing = await db.kOLTag.findFirst({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         name: {
           equals: validatedData.name,
           mode: "insensitive",
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: validatedData.name,
         color: validatedData.color,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 
@@ -101,12 +101,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -120,7 +120,7 @@ export async function DELETE(request: NextRequest) {
     const tag = await db.kOLTag.findFirst({
       where: {
         id: tagId,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 

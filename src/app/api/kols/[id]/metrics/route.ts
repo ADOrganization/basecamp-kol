@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { fetchTwitterProfile } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
@@ -15,12 +15,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const kol = await db.kOL.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 

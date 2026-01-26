@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import {
   scrapeSingleTweet,
@@ -16,11 +16,15 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const authContext = await getApiAuthContext();
   const { id } = await params;
 
-  if (!session?.user) {
+  if (!authContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -29,7 +33,7 @@ export async function POST(
       where: {
         id,
         campaign: {
-          agencyId: session.user.organizationId,
+          agencyId: authContext.organizationId,
         },
       },
       include: {

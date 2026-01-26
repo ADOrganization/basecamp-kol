@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasAnyScraperConfigured } from "@/lib/scraper/x-scraper";
 
@@ -7,22 +7,22 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const authContext = await getApiAuthContext();
   const { id: campaignId } = await params;
 
-  if (!session?.user) {
+  if (!authContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.organizationType !== "AGENCY") {
+  if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
     // Load organization's API keys
-    console.log(`[Refresh Metrics] Loading API keys for org: ${session.user.organizationId}`);
+    console.log(`[Refresh Metrics] Loading API keys for org: ${authContext.organizationId}`);
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { id: true, name: true, apifyApiKey: true, socialDataApiKey: true },
     });
 
@@ -58,7 +58,7 @@ export async function POST(
     const campaign = await db.campaign.findFirst({
       where: {
         id: campaignId,
-        agencyId: session.user.organizationId,
+        agencyId: authContext.organizationId,
       },
       include: {
         posts: {

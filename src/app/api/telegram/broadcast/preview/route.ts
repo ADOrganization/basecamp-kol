@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
 // GET - Preview broadcast targets
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     if (targetType === "dms") {
       // Get KOLs for DM broadcast
       const kols = await getFilteredKolsForDm(
-        session.user.organizationId,
+        authContext.organizationId,
         filterType,
         campaignId || undefined
       );
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Get groups for group broadcast
       const chats = await getFilteredChats(
-        session.user.organizationId,
+        authContext.organizationId,
         filterType,
         campaignId || undefined
       );

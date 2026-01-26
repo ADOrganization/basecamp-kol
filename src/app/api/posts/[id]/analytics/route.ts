@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 type PeriodKey = "7d" | "14d" | "30d" | "90d" | "365d";
@@ -16,11 +16,15 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
+  const authContext = await getApiAuthContext();
   const { id } = await params;
 
-  if (!session?.user) {
+  if (!authContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -33,7 +37,7 @@ export async function GET(
       where: {
         id,
         campaign: {
-          agencyId: session.user.organizationId,
+          agencyId: authContext.organizationId,
         },
       },
       include: {

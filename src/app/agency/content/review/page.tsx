@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,16 +7,16 @@ import { PostReviewCard } from "@/components/agency/post-review-card";
 import { ReviewedPostsSection } from "@/components/agency/reviewed-posts-section";
 
 export default async function ContentReviewPage() {
-  const session = await auth();
+  const context = await getAgencyContext();
 
-  if (!session?.user) {
+  if (!context) {
     redirect("/login");
   }
 
   const posts = await db.post.findMany({
     where: {
       campaign: {
-        agencyId: session.user.organizationId,
+        agencyId: context.organizationId,
       },
       hiddenFromReview: false,
     },

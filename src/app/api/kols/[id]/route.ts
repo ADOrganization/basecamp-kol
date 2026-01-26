@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
 import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
@@ -14,14 +14,14 @@ export async function GET(
     const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // SECURITY: Only agency users can access individual KOL details
     // Clients can only see KOL data through campaign endpoints
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -30,7 +30,7 @@ export async function GET(
     const kol = await db.kOL.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
       include: {
         tags: true,
@@ -78,12 +78,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -95,7 +95,7 @@ export async function PUT(
     const existingKol = await db.kOL.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 
@@ -110,7 +110,7 @@ export async function PUT(
     if (twitterHandle !== existingKol.twitterHandle) {
       const duplicateKol = await db.kOL.findFirst({
         where: {
-          organizationId: session.user.organizationId,
+          organizationId: authContext.organizationId,
           twitterHandle,
           NOT: { id },
         },
@@ -188,12 +188,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -203,7 +203,7 @@ export async function DELETE(
     const existingKol = await db.kOL.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 

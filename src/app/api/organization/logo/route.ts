@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -7,26 +7,28 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "im
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner or admin
-    const membership = await db.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: session.user.organizationId,
-          userId: session.user.id,
+    // Check if user is owner or admin (site admins bypass)
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: authContext.organizationId,
+            userId: authContext.userId,
+          },
         },
-      },
-    });
+      });
 
-    if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) {
-      return NextResponse.json(
-        { error: "Only owners and admins can update the organization logo" },
-        { status: 403 }
-      );
+      if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) {
+        return NextResponse.json(
+          { error: "Only owners and admins can update the organization logo" },
+          { status: 403 }
+        );
+      }
     }
 
     const formData = await request.formData();
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Update organization logo
     const updatedOrg = await db.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       data: { logoUrl: dataUrl },
       select: {
         id: true,
@@ -80,31 +82,33 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is owner or admin
-    const membership = await db.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: session.user.organizationId,
-          userId: session.user.id,
+    // Check if user is owner or admin (site admins bypass)
+    if (!authContext.isAdmin) {
+      const membership = await db.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: authContext.organizationId,
+            userId: authContext.userId,
+          },
         },
-      },
-    });
+      });
 
-    if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) {
-      return NextResponse.json(
-        { error: "Only owners and admins can update the organization logo" },
-        { status: 403 }
-      );
+      if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) {
+        return NextResponse.json(
+          { error: "Only owners and admins can update the organization logo" },
+          { status: 403 }
+        );
+      }
     }
 
     // Remove logo
     await db.organization.update({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       data: { logoUrl: null },
     });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { TelegramClient } from "@/lib/telegram/client";
@@ -8,14 +8,14 @@ import { telegramSendMessageSchema, telegramSendToKolSchema } from "@/lib/valida
 // POST - Send message to a chat or KOL
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get organization with bot token
     const org = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { telegramBotToken: true },
     });
 
@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
 
     // Determine if sending to chat or KOL
     if (body.chatId) {
-      return await sendToChat(session.user.organizationId, org.telegramBotToken, body);
+      return await sendToChat(authContext.organizationId, org.telegramBotToken, body);
     } else if (body.kolId) {
-      return await sendToKol(session.user.organizationId, org.telegramBotToken, body);
+      return await sendToKol(authContext.organizationId, org.telegramBotToken, body);
     } else {
       return NextResponse.json(
         { error: "Either chatId or kolId is required" },

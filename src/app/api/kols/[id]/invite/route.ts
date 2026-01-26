@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { randomBytes } from "crypto";
 
@@ -9,13 +9,20 @@ interface RouteContext {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const session = await auth();
+    const authContext = await getApiAuthContext();
     const { id: kolId } = await context.params;
 
-    if (!session?.user?.organizationType || session.user.organizationType !== "AGENCY") {
+    if (!authContext) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 
@@ -28,7 +35,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     });
 
-    if (!kol || kol.organizationId !== session.user.organizationId) {
+    if (!kol || kol.organizationId !== authContext.organizationId) {
       return NextResponse.json(
         { error: "KOL not found" },
         { status: 404 }

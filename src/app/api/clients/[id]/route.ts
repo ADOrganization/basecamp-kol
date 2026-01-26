@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -18,12 +18,12 @@ const updateClientSchema = z.object({
 // GET - Get single client details
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         type: "CLIENT",
         clientCampaigns: {
           some: {
-            agencyId: session.user.organizationId,
+            agencyId: authContext.organizationId,
           },
         },
       },
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         },
         clientCampaigns: {
           where: {
-            agencyId: session.user.organizationId,
+            agencyId: authContext.organizationId,
           },
           select: {
             id: true,
@@ -81,12 +81,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT - Update client details
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         type: "CLIENT",
         clientCampaigns: {
           some: {
-            agencyId: session.user.organizationId,
+            agencyId: authContext.organizationId,
           },
         },
       },
@@ -188,12 +188,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE - Delete client account
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.organizationType !== "AGENCY") {
+    if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -206,7 +206,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         type: "CLIENT",
         clientCampaigns: {
           some: {
-            agencyId: session.user.organizationId,
+            agencyId: authContext.organizationId,
           },
         },
       },

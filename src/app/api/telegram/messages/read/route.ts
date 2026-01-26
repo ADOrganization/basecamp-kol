@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
@@ -10,8 +10,8 @@ const markReadSchema = z.object({
 // POST - Mark all messages in a conversation as read
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const kol = await db.kOL.findFirst({
       where: {
         id: kolId,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 
