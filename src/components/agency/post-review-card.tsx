@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +18,8 @@ import {
   Repeat2,
   MessageCircle,
   Bookmark,
+  RefreshCw,
+  EyeOff,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -69,14 +72,22 @@ interface PostReviewCardProps {
 }
 
 export function PostReviewCard({ post, showActions = false, onStatusChange }: PostReviewCardProps) {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [actionType, setActionType] = useState<"approve" | "reject" | "changes" | null>(null);
+  const [actionType, setActionType] = useState<"approve" | "reject" | "changes" | "refresh" | "hide" | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showChangesDialog, setShowChangesDialog] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
   const [changesNotes, setChangesNotes] = useState("");
   const [currentStatus, setCurrentStatus] = useState(post.status);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState({
+    impressions: post.impressions,
+    likes: post.likes,
+    retweets: post.retweets,
+    replies: post.replies,
+    bookmarks: post.bookmarks,
+  });
 
   const handleApprove = async () => {
     setIsLoading(true);
@@ -193,6 +204,64 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
     }
   };
 
+  const handleRefreshMetrics = async () => {
+    if (!post.tweetUrl) {
+      setError("No tweet URL to refresh metrics from");
+      return;
+    }
+    setIsLoading(true);
+    setActionType("refresh");
+    setError(null);
+    try {
+      const response = await fetch(`/api/posts/${post.id}/refresh-metrics`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setMetrics({
+          impressions: data.metrics.impressions,
+          likes: data.metrics.likes,
+          retweets: data.metrics.retweets,
+          replies: data.metrics.replies,
+          bookmarks: data.metrics.bookmarks,
+        });
+      } else {
+        setError(data.error || "Failed to refresh metrics");
+      }
+    } catch (err) {
+      console.error("Failed to refresh metrics:", err);
+      setError("Failed to refresh metrics. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setActionType(null);
+    }
+  };
+
+  const handleHideFromReview = async () => {
+    setIsLoading(true);
+    setActionType("hide");
+    setError(null);
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hiddenFromReview: true }),
+      });
+      if (response.ok) {
+        router.refresh();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || "Failed to hide post");
+      }
+    } catch (err) {
+      console.error("Failed to hide post:", err);
+      setError("Failed to hide post. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setActionType(null);
+    }
+  };
+
   // Show actions for DRAFT and PENDING_APPROVAL statuses
   const needsReview = currentStatus === "PENDING_APPROVAL" || currentStatus === "DRAFT";
   const isApproved = currentStatus === "APPROVED";
@@ -229,30 +298,29 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                 {!showActions && post.content && (
                   <p className="text-sm mt-2 line-clamp-2">{post.content}</p>
                 )}
-                {(currentStatus === "POSTED" || currentStatus === "VERIFIED") && (
-                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      {(post.impressions ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" />
-                      {(post.likes ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Repeat2 className="h-4 w-4" />
-                      {(post.retweets ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="h-4 w-4" />
-                      {(post.replies ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Bookmark className="h-4 w-4" />
-                      {(post.bookmarks ?? 0).toLocaleString()}
-                    </span>
-                  </div>
-                )}
+                {/* Always show metrics */}
+                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground flex-wrap">
+                  <span className="flex items-center gap-1" title="Views">
+                    <Eye className="h-4 w-4" />
+                    {(metrics.impressions ?? 0).toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1" title="Reposts">
+                    <Repeat2 className="h-4 w-4" />
+                    {(metrics.retweets ?? 0).toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1" title="Comments">
+                    <MessageCircle className="h-4 w-4" />
+                    {(metrics.replies ?? 0).toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1" title="Bookmarks">
+                    <Bookmark className="h-4 w-4" />
+                    {(metrics.bookmarks ?? 0).toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1" title="Likes">
+                    <Heart className="h-4 w-4" />
+                    {(metrics.likes ?? 0).toLocaleString()}
+                  </span>
+                </div>
                 {error && (
                   <div className="mt-2 p-2 rounded bg-red-50 text-red-600 text-sm">
                     {error}
@@ -322,13 +390,41 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                 </Button>
               )}
               {post.tweetUrl && (
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={post.tweetUrl} target="_blank">
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    View
-                  </Link>
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRefreshMetrics}
+                    disabled={isLoading}
+                    title="Refresh metrics from X"
+                  >
+                    {isLoading && actionType === "refresh" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={post.tweetUrl} target="_blank">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      View
+                    </Link>
+                  </Button>
+                </>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleHideFromReview}
+                disabled={isLoading}
+                title="Hide from review"
+              >
+                {isLoading && actionType === "hide" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           </div>
         </CardContent>
