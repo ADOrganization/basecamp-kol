@@ -25,7 +25,10 @@ import {
   ExternalLink,
   Hash,
   X,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -101,6 +104,7 @@ interface CampaignDetails {
       id: string;
       name: string;
       twitterHandle: string;
+      avatarUrl: string | null;
     } | null;
   }[];
 }
@@ -165,6 +169,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [selectedPost, setSelectedPost] = useState<CampaignDetails["posts"][0] | null>(null);
   const [showPostDetail, setShowPostDetail] = useState(false);
 
+  // Refresh metrics state
+  const [isRefreshingMetrics, setIsRefreshingMetrics] = useState(false);
+
   // API key and cookie state for scraper/monitor
   const [twitterApiKey, setTwitterApiKey] = useState("");
   const [twitterCookies, setTwitterCookies] = useState("");
@@ -225,6 +232,30 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       }
     } catch (error) {
       console.error("Failed to fetch KOLs:", error);
+    }
+  };
+
+  const handleRefreshAllMetrics = async () => {
+    if (!campaign || campaign.posts.length === 0) return;
+    setIsRefreshingMetrics(true);
+
+    try {
+      // Use bulk refresh endpoint
+      const response = await fetch(`/api/campaigns/${id}/refresh-metrics`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(result.message);
+      }
+
+      // Refetch campaign to get updated metrics
+      await fetchCampaign();
+    } catch (error) {
+      console.error("Failed to refresh metrics:", error);
+    } finally {
+      setIsRefreshingMetrics(false);
     }
   };
 
@@ -382,7 +413,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   if (!campaign) return null;
 
   const totalImpressions = campaign.posts.reduce((sum, p) => sum + (p.impressions || 0), 0);
-  const totalEngagement = campaign.posts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0), 0);
+  const totalEngagement = campaign.posts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0) + (p.quotes || 0) + (p.bookmarks || 0), 0);
   const assignedBudgetTotal = campaign.campaignKols.reduce((sum, ck) => sum + ck.assignedBudget, 0);
 
   // Filter posts
@@ -663,14 +694,29 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 )}
               </div>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setShowAddPost(true)}
-              disabled={campaign.campaignKols.length === 0}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Post
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRefreshAllMetrics}
+                disabled={isRefreshingMetrics || campaign.posts.length === 0}
+              >
+                {isRefreshingMetrics ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Refresh Metrics
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowAddPost(true)}
+                disabled={campaign.campaignKols.length === 0}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Post
+              </Button>
+            </div>
           </div>
           <div className="rounded-lg border bg-card">
             {filteredPosts.length === 0 ? (
@@ -705,8 +751,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       }}
                     >
                       <td className="p-4">
-                        <p className="font-medium">{post.kol?.name || "Unknown"}</p>
-                        <p className="text-sm text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</p>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={post.kol?.avatarUrl || undefined} alt={post.kol?.name || "KOL"} />
+                            <AvatarFallback className="text-xs">
+                              {post.kol?.name?.charAt(0).toUpperCase() || "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{post.kol?.name || "Unknown"}</p>
+                            <p className="text-sm text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="p-4 max-w-[200px]">
                         {post.content ? (
@@ -746,7 +802,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       </td>
                       <td className="p-4 text-right">{formatNumber(post.impressions || 0)}</td>
                       <td className="p-4 text-right">
-                        {formatNumber((post.likes || 0) + (post.retweets || 0) + (post.replies || 0))}
+                        {formatNumber((post.likes || 0) + (post.retweets || 0) + (post.replies || 0) + (post.quotes || 0) + (post.bookmarks || 0))}
                       </td>
                       <td className="p-4">
                         {post.tweetUrl && (

@@ -904,6 +904,7 @@ async function handleSubmitCommand(
       retweets: tweet.metrics.retweets,
       replies: tweet.metrics.replies,
       quotes: tweet.metrics.quotes,
+      bookmarks: tweet.metrics.bookmarks,
     },
   });
 
@@ -1169,6 +1170,7 @@ async function handleSubmitCommandFromGroup(
       retweets: tweet.metrics.retweets,
       replies: tweet.metrics.replies,
       quotes: tweet.metrics.quotes,
+      bookmarks: tweet.metrics.bookmarks,
     },
   });
 

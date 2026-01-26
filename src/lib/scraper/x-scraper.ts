@@ -46,6 +46,7 @@ export interface ScrapedTweet {
     replies: number;
     quotes: number;
     views: number;
+    bookmarks: number;
   };
   mediaUrls: string[];
   isRetweet: boolean;
@@ -123,6 +124,7 @@ function parseApifyResponse(data: unknown[], handle: string): ScrapedTweet[] {
           replies: Number(item.replyCount || item.reply_count || 0),
           quotes: Number(item.quoteCount || item.quote_count || 0),
           views: Number(item.viewCount || item.view_count || 0),
+          bookmarks: Number(item.bookmarkCount || item.bookmark_count || 0),
         },
         mediaUrls: [],
         isRetweet: false,
@@ -394,7 +396,8 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
           retweets: data.retweet_count || 0,
           replies: data.reply_count || 0,
           quotes: data.quote_count || 0,
-          views: data.views_count || 0,
+          views: data.views?.count || data.views_count || 0,
+          bookmarks: data.bookmark_count || 0,
         },
         mediaUrls: [],
         isRetweet: false,

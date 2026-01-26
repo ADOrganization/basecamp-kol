@@ -53,7 +53,7 @@ export async function GET(
           },
           include: {
             kol: {
-              select: { id: true, name: true, twitterHandle: true },
+              select: { id: true, name: true, twitterHandle: true, avatarUrl: true },
             },
           },
           orderBy: { createdAt: "desc" },

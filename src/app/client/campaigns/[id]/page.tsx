@@ -90,12 +90,15 @@ interface CampaignDetails {
     likes: number;
     retweets: number;
     replies: number;
+    quotes: number;
+    bookmarks: number;
     postedAt: string | null;
     createdAt: string;
     kol: {
       id: string;
       name: string;
       twitterHandle: string;
+      avatarUrl: string | null;
     };
   }[];
 }
@@ -149,7 +152,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
       const existing = dateMap.get(dateKey) || { impressions: 0, engagement: 0, posts: 0 };
       dateMap.set(dateKey, {
         impressions: existing.impressions + post.impressions,
-        engagement: existing.engagement + post.likes + post.retweets + post.replies,
+        engagement: existing.engagement + post.likes + post.retweets + post.replies + post.quotes + post.bookmarks,
         posts: existing.posts + 1,
       });
     });
@@ -184,7 +187,9 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
   const totalLikes = campaign.posts.reduce((sum, p) => sum + p.likes, 0);
   const totalRetweets = campaign.posts.reduce((sum, p) => sum + p.retweets, 0);
   const totalReplies = campaign.posts.reduce((sum, p) => sum + p.replies, 0);
-  const totalEngagement = totalLikes + totalRetweets + totalReplies;
+  const totalQuotes = campaign.posts.reduce((sum, p) => sum + p.quotes, 0);
+  const totalBookmarks = campaign.posts.reduce((sum, p) => sum + p.bookmarks, 0);
+  const totalEngagement = totalLikes + totalRetweets + totalReplies + totalQuotes + totalBookmarks;
   const engagementRate = totalImpressions > 0 ? ((totalEngagement / totalImpressions) * 100).toFixed(2) : "0";
 
   const pendingPosts = campaign.posts.filter(p => p.status === "PENDING_APPROVAL").length;
@@ -559,7 +564,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
               campaign.campaignKols.map((ck) => {
                 const kolPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id);
                 const kolImpressions = kolPosts.reduce((sum, p) => sum + p.impressions, 0);
-                const kolEngagement = kolPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0);
+                const kolEngagement = kolPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies + p.quotes + p.bookmarks, 0);
                 const kolKeywordMatches = kolPosts.filter(p => p.hasKeywordMatch).length;
                 const deliverables = getKolDeliverables(ck.kol.id, ck);
 
@@ -676,6 +681,7 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
+                                <AvatarImage src={post.kol?.avatarUrl || undefined} alt={post.kol?.name || "KOL"} />
                                 <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
                                   {post.kol?.name?.charAt(0) || "K"}
                                 </AvatarFallback>
