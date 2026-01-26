@@ -255,10 +255,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         // Show feedback to user
         if (result.refreshed > 0) {
           alert(`Successfully refreshed ${result.refreshed}/${result.total} posts.${result.failed > 0 ? ` ${result.failed} failed.` : ''}`);
+        } else if (!result.apifyConfigured) {
+          alert('Refresh failed: Apify API key not configured.\n\nGo to Settings → Integrations to add your Apify API key for reliable tweet metrics.');
         } else if (result.errors && result.errors.length > 0) {
-          alert(`Could not refresh posts. The X API may be temporarily unavailable.\n\nErrors:\n${result.errors.slice(0, 3).join('\n')}`);
+          alert(`Could not refresh posts.\n\nErrors:\n${result.errors.slice(0, 3).join('\n')}`);
         } else {
-          alert('No posts could be refreshed. The X API may be temporarily unavailable.');
+          alert('No posts could be refreshed. Please try again later.');
         }
       } else {
         alert(result.error || 'Failed to refresh metrics');
@@ -332,9 +334,21 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     const totalCents = postsCost + threadsCost + retweetsCost + spacesCost;
     const totalDollars = totalCents / 100;
 
-    if (totalDollars > 0) {
-      setAssignedBudget(totalDollars.toFixed(2));
+    setAssignedBudget(totalDollars.toFixed(2));
+  };
+
+  // Calculate budget from campaign KOL data (for display in table)
+  const getKolBudget = (ck: CampaignDetails["campaignKols"][0]): number => {
+    // If stored budget exists and is non-zero, use it
+    if (ck.assignedBudget > 0) {
+      return ck.assignedBudget;
     }
+    // Otherwise calculate from rates × deliverables
+    const postsCost = ck.requiredPosts * (ck.kol.ratePerPost || 0);
+    const threadsCost = ck.requiredThreads * (ck.kol.ratePerThread || 0);
+    const retweetsCost = ck.requiredRetweets * (ck.kol.ratePerRetweet || 0);
+    const spacesCost = ck.requiredSpaces * (ck.kol.ratePerSpace || 0);
+    return postsCost + threadsCost + retweetsCost + spacesCost;
   };
 
   // Update budget when KOL or deliverables change
@@ -484,7 +498,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   const totalImpressions = campaign.posts.reduce((sum, p) => sum + (p.impressions || 0), 0);
   const totalEngagement = campaign.posts.reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.replies || 0) + (p.quotes || 0) + (p.bookmarks || 0), 0);
-  const assignedBudgetTotal = campaign.campaignKols.reduce((sum, ck) => sum + ck.assignedBudget, 0);
+  const assignedBudgetTotal = campaign.campaignKols.reduce((sum, ck) => sum + getKolBudget(ck), 0);
 
   // Filter posts
   const filteredPosts = campaign.posts.filter((post) => {
@@ -686,7 +700,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           <DeliverablesProgress deliverables={deliverables} compact />
                         </td>
                         <td className="p-4 text-right font-medium">
-                          {formatCurrency(ck.assignedBudget)}
+                          {formatCurrency(getKolBudget(ck))}
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-1">

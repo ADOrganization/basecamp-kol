@@ -360,6 +360,7 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
 
 /**
  * Scrape a single tweet by URL or ID
+ * Uses Apify if configured, otherwise falls back to syndication API
  */
 export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet | null> {
   // Extract tweet ID from URL if needed
@@ -368,7 +369,17 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
 
   if (!tweetId || !/^\d+$/.test(tweetId)) return null;
 
-  // Try Twitter's syndication API (works without auth)
+  // Try Apify first if configured (more reliable)
+  if (hasApifyApiKey()) {
+    try {
+      const tweet = await scrapeSingleTweetWithApify(tweetId);
+      if (tweet) return tweet;
+    } catch (error) {
+      console.log(`[ScrapeSingleTweet] Apify failed for ${tweetId}:`, error);
+    }
+  }
+
+  // Fallback to syndication API (may not work)
   try {
     const url = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=0`;
     const response = await fetch(url, {
@@ -409,6 +420,105 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
   }
 
   return null;
+}
+
+/**
+ * Scrape a single tweet using Apify
+ */
+async function scrapeSingleTweetWithApify(tweetId: string): Promise<ScrapedTweet | null> {
+  const apiKey = getApifyApiKey();
+  if (!apiKey) return null;
+
+  const actorId = 'apidojo/tweet-scraper';
+  const tweetUrl = `https://x.com/i/status/${tweetId}`;
+
+  try {
+    // Start the actor run
+    const runResponse = await fetch(
+      `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startUrls: [{ url: tweetUrl }],
+          maxItems: 1,
+          addUserInfo: true,
+        }),
+        signal: AbortSignal.timeout(30000),
+      }
+    );
+
+    if (!runResponse.ok) {
+      console.log(`[Apify] Failed to start actor: ${runResponse.status}`);
+      return null;
+    }
+
+    const runData = await runResponse.json();
+    const runId = runData.data?.id;
+    if (!runId) return null;
+
+    // Poll for completion (max 60 seconds)
+    let attempts = 0;
+    const maxAttempts = 30;
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+
+      const statusResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`
+      );
+
+      if (!statusResponse.ok) continue;
+
+      const statusData = await statusResponse.json();
+      const status = statusData.data?.status;
+
+      if (status === 'SUCCEEDED') {
+        const datasetId = statusData.data?.defaultDatasetId;
+        if (!datasetId) return null;
+
+        // Fetch the results
+        const itemsResponse = await fetch(
+          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}&limit=1`
+        );
+
+        if (!itemsResponse.ok) return null;
+
+        const items = await itemsResponse.json();
+        if (!items || items.length === 0) return null;
+
+        const item = items[0];
+        return {
+          id: tweetId,
+          url: tweetUrl,
+          content: item.text || item.full_text || '',
+          authorHandle: item.author?.userName || item.user?.screen_name || '',
+          authorName: item.author?.name || item.user?.name || '',
+          postedAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+          metrics: {
+            likes: item.likeCount || item.favorite_count || 0,
+            retweets: item.retweetCount || item.retweet_count || 0,
+            replies: item.replyCount || item.reply_count || 0,
+            quotes: item.quoteCount || item.quote_count || 0,
+            views: item.viewCount || item.views?.count || 0,
+            bookmarks: item.bookmarkCount || item.bookmark_count || 0,
+          },
+          mediaUrls: [],
+          isRetweet: false,
+          isQuote: false,
+        };
+      } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+        console.log(`[Apify] Run failed with status: ${status}`);
+        return null;
+      }
+    }
+
+    console.log(`[Apify] Timed out waiting for run ${runId}`);
+    return null;
+  } catch (error) {
+    console.log(`[Apify] Error scraping tweet ${tweetId}:`, error);
+    return null;
+  }
 }
 
 /**

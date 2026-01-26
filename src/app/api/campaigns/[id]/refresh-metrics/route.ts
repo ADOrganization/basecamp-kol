@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scrapeSingleTweet } from "@/lib/scraper/x-scraper";
+import { scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, hasApifyApiKey } from "@/lib/scraper/x-scraper";
 
 export async function POST(
   request: Request,
@@ -19,6 +19,21 @@ export async function POST(
   }
 
   try {
+    // Load organization's Apify API key
+    const org = await db.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { apifyApiKey: true },
+    });
+
+    // Set Apify API key for scraping
+    if (org?.apifyApiKey) {
+      setApifyApiKey(org.apifyApiKey);
+      console.log(`[Refresh Metrics] Apify key configured`);
+    } else {
+      clearApifyApiKey();
+      console.log(`[Refresh Metrics] No Apify key - using syndication API (may fail)`);
+    }
+
     // Get campaign with posts
     const campaign = await db.campaign.findFirst({
       where: {
@@ -128,6 +143,7 @@ export async function POST(
       refreshed: successCount,
       failed: failCount,
       total: campaign.posts.length,
+      apifyConfigured: hasApifyApiKey(),
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Return first 5 errors
     });
   } catch (error) {
