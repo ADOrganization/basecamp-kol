@@ -31,26 +31,32 @@ export default async function SettingsPage() {
   }
 
   // For admin users, create a synthetic user object since they don't have a User record
-  let user;
+  let user: { id: string; name: string | null; email: string; avatarUrl: string | null } | null = null;
+
   if (context.isAdmin) {
     const adminUser = await db.adminUser.findUnique({
       where: { id: context.userId },
     });
-    user = adminUser ? {
-      id: adminUser.id,
-      name: adminUser.name || "Admin",
-      email: adminUser.email,
-      avatarUrl: null,
-      passwordHash: null,
-      emailVerified: null,
-      lastLoginAt: adminUser.lastLoginAt,
-      createdAt: adminUser.createdAt,
-      updatedAt: adminUser.updatedAt,
-    } : null;
+    if (adminUser) {
+      user = {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        avatarUrl: null,
+      };
+    }
   } else {
-    user = await db.user.findUnique({
+    const dbUser = await db.user.findUnique({
       where: { id: context.userId },
     });
+    if (dbUser) {
+      user = {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        avatarUrl: dbUser.avatarUrl,
+      };
+    }
   }
 
   if (!user) {
