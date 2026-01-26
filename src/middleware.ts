@@ -56,14 +56,18 @@ export default auth((req) => {
 
     // Handle admin subdomain - rewrite to /admin routes
     if (hostname.startsWith("admin.")) {
-      // If not already on /admin route, redirect to /admin equivalent
+      // If not already on /admin route, rewrite to /admin equivalent
       if (!nextUrl.pathname.startsWith("/admin") && !nextUrl.pathname.startsWith("/api/admin")) {
-        // Redirect root to /admin/login
+        // Rewrite root or /login to /admin/login
         if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
-          return NextResponse.redirect(new URL("/admin/login", nextUrl));
+          const url = nextUrl.clone();
+          url.pathname = "/admin/login";
+          return NextResponse.rewrite(url);
         }
-        // For other paths, redirect to /admin prefix
-        return NextResponse.redirect(new URL(`/admin${nextUrl.pathname}`, nextUrl));
+        // For other paths, rewrite to /admin prefix
+        const url = nextUrl.clone();
+        url.pathname = `/admin${nextUrl.pathname}`;
+        return NextResponse.rewrite(url);
       }
     }
 
