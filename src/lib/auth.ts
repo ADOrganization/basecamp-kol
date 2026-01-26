@@ -14,6 +14,9 @@ declare module "next-auth" {
     organizationType: OrganizationType;
     organizationRole: OrganizationRole;
     organizationName: string;
+    // KOL Portal fields
+    kolId?: string;
+    isKol?: boolean;
   }
 
   interface Session {
@@ -25,6 +28,9 @@ declare module "next-auth" {
       organizationType: OrganizationType;
       organizationRole: OrganizationRole;
       organizationName: string;
+      // KOL Portal fields
+      kolId?: string;
+      isKol?: boolean;
     };
   }
 }
@@ -38,13 +44,18 @@ declare module "@auth/core/jwt" {
     organizationType?: OrganizationType;
     organizationRole?: OrganizationRole;
     organizationName?: string;
+    // KOL Portal fields
+    kolId?: string;
+    isKol?: boolean;
   }
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   providers: [
+    // Agency/Client user credentials
     Credentials({
+      id: "credentials",
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
@@ -96,9 +107,73 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             organizationType: membership.organization.type,
             organizationRole: membership.role,
             organizationName: membership.organization.name,
+            isKol: false,
           };
         } catch (error) {
           console.error("Auth error:", error);
+          return null;
+        }
+      },
+    }),
+    // KOL Portal credentials
+    Credentials({
+      id: "kol-credentials",
+      name: "KOL Login",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null;
+          }
+
+          const email = credentials.email as string;
+          const password = credentials.password as string;
+
+          // Find KOL account by email
+          const kolAccount = await db.kOLAccount.findUnique({
+            where: { email },
+            include: {
+              kol: {
+                include: {
+                  organization: true,
+                },
+              },
+            },
+          });
+
+          if (!kolAccount) {
+            return null;
+          }
+
+          const isPasswordValid = await bcrypt.compare(password, kolAccount.passwordHash);
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          // Update last login time
+          await db.kOLAccount.update({
+            where: { id: kolAccount.id },
+            data: { lastLoginAt: new Date() },
+          });
+
+          return {
+            id: kolAccount.id,
+            email: kolAccount.email,
+            name: kolAccount.kol.name,
+            emailVerified: null,
+            organizationId: kolAccount.kol.organizationId,
+            organizationType: kolAccount.kol.organization.type,
+            organizationRole: "MEMBER" as OrganizationRole,
+            organizationName: kolAccount.kol.organization.name,
+            kolId: kolAccount.kolId,
+            isKol: true,
+          };
+        } catch (error) {
+          console.error("KOL Auth error:", error);
           return null;
         }
       },
@@ -115,6 +190,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.organizationType = user.organizationType;
           token.organizationRole = user.organizationRole;
           token.organizationName = user.organizationName;
+          token.kolId = user.kolId;
+          token.isKol = user.isKol;
         }
         return token;
       } catch (error) {
@@ -151,6 +228,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             organizationType: token.organizationType as OrganizationType,
             organizationRole: (token.organizationRole as OrganizationRole) ?? "MEMBER",
             organizationName: (token.organizationName as string) ?? "",
+            kolId: token.kolId as string | undefined,
+            isKol: token.isKol as boolean | undefined,
           },
         };
       } catch (error) {

@@ -123,6 +123,10 @@ model KOL {
   tier              KOLTier   @default(SMALL)
   status            KOLStatus @default(ACTIVE)
 
+  // KOL Portal fields
+  bio               String?
+  categories        String[]  // e.g., ["DeFi", "Gaming", "NFT"]
+
   // Rates (stored as cents/smallest unit)
   ratePerPost       Int?
   ratePerThread     Int?
@@ -156,6 +160,10 @@ model KOL {
   messages          TelegramMessage[]
   telegramChatLinks TelegramChatKOL[]
   followerSnapshots KOLFollowerSnapshot[]
+  account           KOLAccount?
+  invitations       KOLInvitation[]
+  joinRequests      CampaignJoinRequest[]
+  wallets           KOLWallet[]
 
   @@unique([organizationId, twitterHandle])
   @@map("kols")
@@ -186,6 +194,28 @@ enum CampaignStatus {
   CANCELLED
 }
 
+enum CampaignVisibility {
+  PRIVATE  // Only assigned KOLs can see
+  OPEN     // Any KOL can request to join
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  WITHDRAWN
+}
+
+enum CryptoNetwork {
+  ETHEREUM
+  POLYGON
+  ARBITRUM
+  OPTIMISM
+  BASE
+  BSC
+  SOLANA
+}
+
 model Campaign {
   id          String         @id @default(cuid())
   agencyId    String
@@ -211,6 +241,11 @@ model Campaign {
 
   status      CampaignStatus @default(DRAFT)
 
+  // KOL Portal visibility
+  visibility          CampaignVisibility @default(PRIVATE)
+  applicationDeadline DateTime?
+  maxKolCount         Int?
+
   // Timeline
   startDate   DateTime?
   endDate     DateTime?
@@ -221,11 +256,12 @@ model Campaign {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  agency      Organization   @relation("AgencyCampaigns", fields: [agencyId], references: [id], onDelete: Cascade)
-  client      Organization?  @relation("ClientCampaigns", fields: [clientId], references: [id])
+  agency       Organization   @relation("AgencyCampaigns", fields: [agencyId], references: [id], onDelete: Cascade)
+  client       Organization?  @relation("ClientCampaigns", fields: [clientId], references: [id])
   campaignKols CampaignKOL[]
-  posts       Post[]
-  payments    Payment[]
+  posts        Post[]
+  payments     Payment[]
+  joinRequests CampaignJoinRequest[]
 
   @@map("campaigns")
 }
@@ -552,4 +588,70 @@ model TelegramBroadcast {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("telegram_broadcasts")
+}
+
+// ============================================
+// KOL PORTAL
+// ============================================
+
+model KOLAccount {
+  id           String    @id @default(cuid())
+  kolId        String    @unique
+  email        String    @unique
+  passwordHash String
+  isVerified   Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  kol          KOL       @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@map("kol_accounts")
+}
+
+model KOLInvitation {
+  id         String    @id @default(cuid())
+  kolId      String
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  kol        KOL       @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@map("kol_invitations")
+}
+
+model CampaignJoinRequest {
+  id           String            @id @default(cuid())
+  campaignId   String
+  kolId        String
+  status       JoinRequestStatus @default(PENDING)
+  message      String?
+  responseNote String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  respondedAt  DateTime?
+
+  campaign     Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  kol          KOL               @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, kolId])
+  @@map("campaign_join_requests")
+}
+
+model KOLWallet {
+  id        String        @id @default(cuid())
+  kolId     String
+  network   CryptoNetwork
+  address   String
+  label     String?
+  isPrimary Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  kol       KOL           @relation(fields: [kolId], references: [id], onDelete: Cascade)
+
+  @@unique([kolId, network, address])
+  @@map("kol_wallets")
 }
