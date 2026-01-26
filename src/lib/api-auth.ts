@@ -19,19 +19,42 @@ export async function getApiAuthContext(): Promise<ApiAuthContext | null> {
   const adminSession = await getAdminSession();
 
   if (adminSession) {
-    // Admin user - find the agency organization
-    const agency = await db.organization.findFirst({
-      where: { type: "AGENCY" },
+    // Admin user - find the agency organization that has actual data
+    // We look for the organization that testuser@basecamp.test belongs to,
+    // or the first agency with members if that user doesn't exist
+    const agencyWithData = await db.organization.findFirst({
+      where: {
+        type: "AGENCY",
+        members: {
+          some: {},
+        },
+      },
       select: { id: true },
+      orderBy: { createdAt: "asc" }, // Get the oldest agency (original one)
     });
 
-    if (!agency) {
-      console.error("No agency organization found for admin user");
-      return null;
+    if (!agencyWithData) {
+      // Fallback: find any agency
+      const anyAgency = await db.organization.findFirst({
+        where: { type: "AGENCY" },
+        select: { id: true },
+      });
+
+      if (!anyAgency) {
+        console.error("No agency organization found for admin user");
+        return null;
+      }
+
+      return {
+        organizationId: anyAgency.id,
+        organizationType: "AGENCY",
+        userId: adminSession.id,
+        isAdmin: true,
+      };
     }
 
     return {
-      organizationId: agency.id,
+      organizationId: agencyWithData.id,
       organizationType: "AGENCY",
       userId: adminSession.id,
       isAdmin: true,

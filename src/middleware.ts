@@ -53,15 +53,52 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 function handleAdminSubdomain(req: NextRequest): NextResponse {
   const { nextUrl } = req;
 
-  // Rewrite root or /login to /admin/login
+  // Check for admin_token cookie to determine if logged in
+  const adminToken = req.cookies.get("admin_token")?.value;
+  const isLoggedIn = !!adminToken;
+
+  // Auth pages - rewrite to admin login
   if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
+    // If logged in, redirect to dashboard
+    if (isLoggedIn) {
+      const url = nextUrl.clone();
+      url.pathname = "/agency/dashboard";
+      return NextResponse.redirect(url);
+    }
     const url = nextUrl.clone();
     url.pathname = "/admin/login";
     const response = NextResponse.rewrite(url);
     return addSecurityHeaders(response);
   }
 
-  // Allow all paths on admin subdomain - they handle their own auth
+  // Admin login page - allow access
+  if (nextUrl.pathname === "/admin/login" || nextUrl.pathname === "/admin") {
+    // If already logged in, redirect to dashboard
+    if (isLoggedIn) {
+      const url = nextUrl.clone();
+      url.pathname = "/agency/dashboard";
+      return NextResponse.redirect(url);
+    }
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
+
+  // Protected agency routes - require admin auth
+  if (nextUrl.pathname.startsWith("/agency")) {
+    if (!isLoggedIn) {
+      const url = nextUrl.clone();
+      url.pathname = "/admin/login";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // API routes - allow (they handle their own auth)
+  if (nextUrl.pathname.startsWith("/api")) {
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
+
+  // All other paths on admin subdomain
   const response = NextResponse.next();
   return addSecurityHeaders(response);
 }
