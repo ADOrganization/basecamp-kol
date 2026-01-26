@@ -170,6 +170,43 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Explicit light mode overrides for components */
+html:not(.dark) .bg-card {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-sidebar-bg {
+  background-color: #ffffff !important;
+}
+
+html:not(.dark) .bg-background {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-muted {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .text-sidebar-foreground {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-sidebar-text-muted {
+  color: #64748b !important;
+}
+
+html:not(.dark) .text-foreground {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-muted-foreground {
+  color: #64748b !important;
+}
+
+html:not(.dark) .border-border {
+  border-color: #e2e8f0 !important;
+}
+
 /* Modern scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
