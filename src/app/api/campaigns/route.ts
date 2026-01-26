@@ -30,7 +30,16 @@ export async function GET(request: NextRequest) {
         campaignKols: {
           include: {
             kol: {
-              select: { id: true, name: true, twitterHandle: true, avatarUrl: true },
+              select: {
+                id: true,
+                name: true,
+                twitterHandle: true,
+                avatarUrl: true,
+                ratePerPost: true,
+                ratePerThread: true,
+                ratePerRetweet: true,
+                ratePerSpace: true,
+              },
             },
           },
         },
@@ -61,10 +70,18 @@ export async function GET(request: NextRequest) {
 
     // Calculate allocated budget and posts count for all campaigns
     const campaignsWithAllocated = campaigns.map((campaign) => {
-      const allocatedBudget = campaign.campaignKols.reduce(
-        (sum, ck) => sum + (ck.assignedBudget || 0),
-        0
-      );
+      // Calculate budget: use assignedBudget if set, otherwise calculate from rates × deliverables
+      const allocatedBudget = campaign.campaignKols.reduce((sum, ck) => {
+        if (ck.assignedBudget > 0) {
+          return sum + ck.assignedBudget;
+        }
+        // Calculate from KOL rates × deliverables (rates are stored in cents)
+        const postsCost = ck.requiredPosts * (ck.kol.ratePerPost || 0);
+        const threadsCost = ck.requiredThreads * (ck.kol.ratePerThread || 0);
+        const retweetsCost = ck.requiredRetweets * (ck.kol.ratePerRetweet || 0);
+        const spacesCost = ck.requiredSpaces * (ck.kol.ratePerSpace || 0);
+        return sum + postsCost + threadsCost + retweetsCost + spacesCost;
+      }, 0);
 
       return {
         ...campaign,

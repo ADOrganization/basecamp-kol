@@ -70,10 +70,18 @@ export async function GET(
     }
 
     // Calculate total allocated budget (sum of all KOL budgets)
-    const allocatedBudget = campaign.campaignKols.reduce(
-      (sum, ck) => sum + (ck.assignedBudget || 0),
-      0
-    );
+    // If assignedBudget is set, use it; otherwise calculate from rates × deliverables
+    const allocatedBudget = campaign.campaignKols.reduce((sum, ck) => {
+      if (ck.assignedBudget > 0) {
+        return sum + ck.assignedBudget;
+      }
+      // Calculate from KOL rates × deliverables (rates are stored in cents)
+      const postsCost = ck.requiredPosts * (ck.kol.ratePerPost || 0);
+      const threadsCost = ck.requiredThreads * (ck.kol.ratePerThread || 0);
+      const retweetsCost = ck.requiredRetweets * (ck.kol.ratePerRetweet || 0);
+      const spacesCost = ck.requiredSpaces * (ck.kol.ratePerSpace || 0);
+      return sum + postsCost + threadsCost + retweetsCost + spacesCost;
+    }, 0);
 
     // For clients, hide sensitive data like per-KOL budget allocations
     if (!isAgency) {
