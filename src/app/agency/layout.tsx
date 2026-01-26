@@ -18,7 +18,13 @@ export default async function AgencyLayout({
       // Find the Basecamp agency organization
       const basecampOrg = await db.organization.findFirst({
         where: { type: "AGENCY" },
-        select: { name: true },
+        select: { name: true, logoUrl: true },
+      });
+
+      // Get admin user's avatar
+      const adminUser = await db.adminUser.findUnique({
+        where: { id: adminSession.sub },
+        select: { avatarUrl: true },
       });
 
       return (
@@ -27,9 +33,10 @@ export default async function AgencyLayout({
             user={{
               name: adminSession.name || "Admin",
               email: adminSession.email,
-              avatarUrl: null,
+              avatarUrl: adminUser?.avatarUrl || null,
               organizationName: basecampOrg?.name || "Basecamp Network",
             }}
+            organizationLogo={basecampOrg?.logoUrl || null}
             isAdmin={true}
           />
           <main className="flex-1 overflow-y-auto">
@@ -55,6 +62,7 @@ export default async function AgencyLayout({
     let userEmail = session.user.email || "";
     let userAvatarUrl: string | null = null;
     let orgName = session.user.organizationName || "Organization";
+    let orgLogoUrl: string | null = null;
 
     try {
       const freshUser = await db.user.findUnique({
@@ -66,7 +74,7 @@ export default async function AgencyLayout({
           memberships: {
             select: {
               organization: {
-                select: { name: true },
+                select: { name: true, logoUrl: true },
               },
             },
             take: 1,
@@ -79,6 +87,7 @@ export default async function AgencyLayout({
         userEmail = freshUser.email ?? userEmail;
         userAvatarUrl = freshUser.avatarUrl ?? null;
         orgName = freshUser.memberships[0]?.organization.name ?? orgName;
+        orgLogoUrl = freshUser.memberships[0]?.organization.logoUrl ?? null;
       }
     } catch (dbError) {
       console.error("Error fetching user data:", dbError);
@@ -94,6 +103,7 @@ export default async function AgencyLayout({
             avatarUrl: userAvatarUrl,
             organizationName: orgName,
           }}
+          organizationLogo={orgLogoUrl}
         />
         <main className="flex-1 overflow-y-auto">
           <div className="p-8">{children}</div>

@@ -29,6 +29,7 @@ interface ClientSidebarProps {
     avatarUrl?: string | null;
     organizationName: string;
   };
+  organizationLogo?: string | null;
 }
 
 const navigation = [
@@ -39,18 +40,26 @@ const navigation = [
   { name: "Settings", href: "/client/settings", icon: Settings },
 ];
 
-export function ClientSidebar({ user }: ClientSidebarProps) {
+export function ClientSidebar({ user, organizationLogo }: ClientSidebarProps) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground border-r border-border">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-muted">
-        <div className="h-8 w-8 rounded-lg bg-teal-600 flex items-center justify-center">
-          <span className="text-lg font-bold text-white">B</span>
-        </div>
-        <span className="text-lg font-semibold">Basecamp</span>
-        <div className="ml-auto flex items-center gap-2">
+        {organizationLogo ? (
+          <img
+            src={organizationLogo}
+            alt={user.organizationName}
+            className="h-8 w-8 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="h-8 w-8 rounded-lg bg-teal-600 flex items-center justify-center">
+            <span className="text-lg font-bold text-white">{user.organizationName.charAt(0)}</span>
+          </div>
+        )}
+        <span className="text-lg font-semibold truncate flex-1">{user.organizationName}</span>
+        <div className="flex items-center gap-2">
           <span className="text-xs bg-teal-600/20 text-teal-400 px-2 py-0.5 rounded">
             Client
           </span>

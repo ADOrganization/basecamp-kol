@@ -32,6 +32,7 @@ interface AgencySidebarProps {
     avatarUrl?: string | null;
     organizationName: string;
   };
+  organizationLogo?: string | null;
   isAdmin?: boolean;
 }
 
@@ -44,7 +45,7 @@ const navigation = [
   { name: "Telegram", href: "/agency/telegram", icon: MessageSquare, description: "Messages & chats" },
 ];
 
-export function AgencySidebar({ user, isAdmin = false }: AgencySidebarProps) {
+export function AgencySidebar({ user, organizationLogo, isAdmin = false }: AgencySidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -61,13 +62,21 @@ export function AgencySidebar({ user, isAdmin = false }: AgencySidebarProps) {
     <div className="flex h-full w-64 flex-col bg-card border-r border-border">
       {/* Logo Header */}
       <div className="flex h-16 items-center gap-3 px-5 border-b border-border">
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <span className="text-lg font-bold text-white">B</span>
-        </div>
-        <div className="flex-1">
-          <span className="text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">Basecamp</span>
+        {organizationLogo ? (
+          <img
+            src={organizationLogo}
+            alt={user.organizationName}
+            className="h-9 w-9 rounded-xl object-cover shadow-lg"
+          />
+        ) : (
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <span className="text-lg font-bold text-white">{user.organizationName.charAt(0)}</span>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <span className="text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text truncate block">{user.organizationName}</span>
           {isAdmin && (
-            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-purple-500/20 text-purple-500 rounded border border-purple-500/30">
+            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-purple-500/20 text-purple-500 rounded border border-purple-500/30">
               ADMIN
             </span>
           )}

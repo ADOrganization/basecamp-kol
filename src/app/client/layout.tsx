@@ -28,7 +28,7 @@ export default async function ClientLayout({
       memberships: {
         select: {
           organization: {
-            select: { name: true },
+            select: { name: true, logoUrl: true },
           },
         },
         take: 1,
@@ -40,6 +40,7 @@ export default async function ClientLayout({
   const userEmail = freshUser?.email ?? session.user.email;
   const userAvatarUrl = freshUser?.avatarUrl ?? null;
   const orgName = freshUser?.memberships[0]?.organization.name ?? session.user.organizationName;
+  const orgLogoUrl = freshUser?.memberships[0]?.organization.logoUrl ?? null;
 
   return (
     <div className="flex h-screen bg-background">
@@ -50,6 +51,7 @@ export default async function ClientLayout({
           avatarUrl: userAvatarUrl,
           organizationName: orgName,
         }}
+        organizationLogo={orgLogoUrl}
       />
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">{children}</div>
