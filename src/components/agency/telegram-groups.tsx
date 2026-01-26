@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +17,6 @@ import {
   Search,
   RefreshCw,
   MessageSquare,
-  Hash,
 } from "lucide-react";
 import { TelegramGroupChat } from "./telegram-group-chat";
 
@@ -234,14 +232,10 @@ export function TelegramGroups({ campaigns }: TelegramGroupsProps) {
                   onClick={() => setSelectedChat(chat)}
                   className="w-full flex items-center gap-4 p-4 hover:bg-muted transition-colors text-left"
                 >
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-indigo-100 text-indigo-600">
-                        {chat.type === "SUPERGROUP" ? (
-                          <Hash className="h-5 w-5" />
-                        ) : (
-                          <Users className="h-5 w-5" />
-                        )}
+                        <Users className="h-5 w-5" />
                       </AvatarFallback>
                     </Avatar>
                     {chat.status !== "ACTIVE" && (
@@ -250,15 +244,17 @@ export function TelegramGroups({ campaigns }: TelegramGroupsProps) {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-medium truncate">
                         {chat.title || "Unnamed Group"}
                       </p>
-                      <Badge variant="outline" className="text-xs">
-                        {chat.type.toLowerCase()}
-                      </Badge>
+                      {chat.lastMessage && (
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {new Date(chat.lastMessage.timestamp).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                       {chat.username && (
                         <span className="truncate">@{chat.username}</span>
                       )}
@@ -269,16 +265,24 @@ export function TelegramGroups({ campaigns }: TelegramGroupsProps) {
                       {chat.kolLinks.length > 0 && (
                         <span className="flex items-center gap-1">
                           <MessageSquare className="h-3.5 w-3.5" />
-                          {chat.kolLinks.length} KOL
-                          {chat.kolLinks.length !== 1 ? "s" : ""}
+                          {chat.kolLinks.length} KOL{chat.kolLinks.length !== 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
+                    {/* Last message preview */}
+                    {chat.lastMessage && (
+                      <p className="text-sm text-muted-foreground mt-1 truncate">
+                        {chat.lastMessage.senderName && (
+                          <span className="font-medium text-foreground/70">{chat.lastMessage.senderName}: </span>
+                        )}
+                        {chat.lastMessage.content}
+                      </p>
+                    )}
                   </div>
 
                   {/* Linked KOLs avatars */}
                   {chat.kolLinks.length > 0 && (
-                    <div className="flex -space-x-2">
+                    <div className="flex -space-x-2 flex-shrink-0">
                       {chat.kolLinks.slice(0, 3).map((link) => (
                         <Avatar
                           key={link.id}
@@ -294,19 +298,6 @@ export function TelegramGroups({ campaigns }: TelegramGroupsProps) {
                           +{chat.kolLinks.length - 3}
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {/* Last activity */}
-                  {chat.lastMessage && (
-                    <div className="text-right text-sm text-muted-foreground">
-                      <p className="truncate max-w-[120px]">
-                        {chat.lastMessage.content.substring(0, 30)}
-                        {chat.lastMessage.content.length > 30 ? "..." : ""}
-                      </p>
-                      <p className="text-xs">
-                        {new Date(chat.lastMessage.timestamp).toLocaleDateString()}
-                      </p>
                     </div>
                   )}
                 </button>
