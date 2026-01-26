@@ -145,6 +145,18 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
         return;
       }
 
+      // Show feedback about client invitations
+      if (data.clientUsersCreated && data.clientUsersCreated.length > 0) {
+        const invited = data.clientUsersCreated.filter((u: { invited: boolean }) => u.invited);
+        const failed = data.clientUsersCreated.filter((u: { invited: boolean }) => !u.invited);
+
+        if (failed.length > 0) {
+          alert(`Campaign created! ${invited.length} client(s) invited successfully. ${failed.length} invitation(s) failed - check email configuration.`);
+        } else if (invited.length > 0) {
+          alert(`Campaign created! ${invited.length} client(s) invited successfully. They will receive login links via email.`);
+        }
+      }
+
       setIsLoading(false);
       onClose();
     } catch {

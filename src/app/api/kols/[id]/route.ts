@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
-import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
+import { fetchTwitterAvatar, fetchTwitterProfile } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 
 export async function GET(
@@ -121,6 +121,8 @@ export async function PUT(
 
     // Check for duplicate handle (excluding current KOL)
     let avatarUrl = existingKol.avatarUrl;
+    let followersCount: number | null = existingKol.followers;
+
     if (twitterHandle !== existingKol.twitterHandle) {
       const duplicateKol = await db.kOL.findFirst({
         where: {
@@ -137,18 +139,33 @@ export async function PUT(
         );
       }
 
-      // Twitter handle changed - fetch new avatar
+      // Twitter handle changed - fetch new profile (avatar + followers)
       try {
-        avatarUrl = await fetchTwitterAvatar(twitterHandle);
+        const profile = await fetchTwitterProfile(twitterHandle);
+        if (profile) {
+          avatarUrl = profile.avatarUrl;
+          followersCount = profile.followersCount > 0 ? profile.followersCount : null;
+          console.log(`[KOL Update] Fetched profile for @${twitterHandle}: ${followersCount} followers`);
+        }
       } catch (error) {
-        console.log("Failed to fetch Twitter avatar:", error);
+        console.log("Failed to fetch Twitter profile:", error);
+        // Fallback to just avatar
+        try {
+          avatarUrl = await fetchTwitterAvatar(twitterHandle);
+        } catch {
+          console.log("Failed to fetch Twitter avatar as fallback");
+        }
       }
-    } else if (!existingKol.avatarUrl) {
-      // No avatar yet - try to fetch one
+    } else if (!existingKol.avatarUrl || !existingKol.followers) {
+      // Missing avatar or followers - try to fetch
       try {
-        avatarUrl = await fetchTwitterAvatar(twitterHandle);
+        const profile = await fetchTwitterProfile(twitterHandle);
+        if (profile) {
+          avatarUrl = profile.avatarUrl || existingKol.avatarUrl;
+          followersCount = profile.followersCount > 0 ? profile.followersCount : existingKol.followers;
+        }
       } catch (error) {
-        console.log("Failed to fetch Twitter avatar:", error);
+        console.log("Failed to fetch Twitter profile:", error);
       }
     }
 
@@ -158,6 +175,7 @@ export async function PUT(
         name: validatedData.name,
         twitterHandle,
         avatarUrl,
+        followers: followersCount,
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,

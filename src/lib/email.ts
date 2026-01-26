@@ -13,11 +13,9 @@ function getResend(): Resend | null {
   if (!resendInstance) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      // In development, return null to use console logging fallback
-      if (process.env.NODE_ENV === "development") {
-        return null;
-      }
-      throw new Error("RESEND_API_KEY environment variable is not configured");
+      // Return null to use console logging fallback (both dev and prod when not configured)
+      console.warn("[Email] RESEND_API_KEY not configured - emails will be logged to console only");
+      return null;
     }
     resendInstance = new Resend(apiKey);
   }

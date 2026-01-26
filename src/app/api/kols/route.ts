@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
-import { fetchTwitterAvatar } from "@/lib/scraper/x-scraper";
+import { fetchTwitterAvatar, fetchTwitterProfile } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 import { getApiAuthContext } from "@/lib/api-auth";
 
@@ -138,12 +138,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch Twitter avatar
+    // Fetch Twitter profile (avatar and followers)
     let avatarUrl: string | null = null;
+    let followersCount: number | null = null;
     try {
-      avatarUrl = await fetchTwitterAvatar(twitterHandle);
+      const profile = await fetchTwitterProfile(twitterHandle);
+      if (profile) {
+        avatarUrl = profile.avatarUrl;
+        followersCount = profile.followersCount > 0 ? profile.followersCount : null;
+        console.log(`[KOL Create] Fetched profile for @${twitterHandle}: ${followersCount} followers`);
+      }
     } catch (error) {
-      console.log("Failed to fetch Twitter avatar:", error);
+      console.log("Failed to fetch Twitter profile:", error);
+      // Fallback to just avatar
+      try {
+        avatarUrl = await fetchTwitterAvatar(twitterHandle);
+      } catch {
+        console.log("Failed to fetch Twitter avatar as fallback");
+      }
     }
 
     const kol = await db.kOL.create({
@@ -152,6 +164,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         twitterHandle,
         avatarUrl,
+        followers: followersCount,
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,
