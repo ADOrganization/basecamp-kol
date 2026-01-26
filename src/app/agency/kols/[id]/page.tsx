@@ -577,30 +577,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
         </TabsContent>
 
         <TabsContent value="payments" className="mt-6 space-y-6">
-          {/* Summary Cards */}
-          {(() => {
-            const totalPaid = kol.paymentReceipts?.reduce((sum, r) => sum + r.amount, 0) || 0;
-            const totalAllocated = kol.campaignKols.reduce((sum, ck) => sum + ck.assignedBudget, 0);
-            return (
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm text-muted-foreground">Total Allocated Budget</p>
-                  <p className="text-2xl font-bold">{formatCurrency(totalAllocated)}</p>
-                </div>
-                <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm text-muted-foreground">Total Paid (Receipts)</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
-                </div>
-                <div className="rounded-lg border bg-card p-4">
-                  <p className="text-sm text-muted-foreground">Remaining</p>
-                  <p className={`text-2xl font-bold ${totalAllocated - totalPaid < 0 ? "text-red-600" : ""}`}>
-                    {formatCurrency(totalAllocated - totalPaid)}
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
-
           {/* Payment Receipts */}
           <div className="rounded-lg border bg-card">
             <div className="p-4 border-b bg-muted/30 flex items-center justify-between">

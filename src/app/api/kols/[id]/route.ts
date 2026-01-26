@@ -121,7 +121,7 @@ export async function PUT(
 
     // Check for duplicate handle (excluding current KOL)
     let avatarUrl = existingKol.avatarUrl;
-    let followersCount: number | null = existingKol.followers;
+    let followersCount: number | null = existingKol.followersCount;
 
     if (twitterHandle !== existingKol.twitterHandle) {
       const duplicateKol = await db.kOL.findFirst({
@@ -156,13 +156,13 @@ export async function PUT(
           console.log("Failed to fetch Twitter avatar as fallback");
         }
       }
-    } else if (!existingKol.avatarUrl || !existingKol.followers) {
+    } else if (!existingKol.avatarUrl || !existingKol.followersCount) {
       // Missing avatar or followers - try to fetch
       try {
         const profile = await fetchTwitterProfile(twitterHandle);
         if (profile) {
           avatarUrl = profile.avatarUrl || existingKol.avatarUrl;
-          followersCount = profile.followersCount > 0 ? profile.followersCount : existingKol.followers;
+          followersCount = profile.followersCount > 0 ? profile.followersCount : existingKol.followersCount;
         }
       } catch (error) {
         console.log("Failed to fetch Twitter profile:", error);
@@ -175,7 +175,7 @@ export async function PUT(
         name: validatedData.name,
         twitterHandle,
         avatarUrl,
-        followers: followersCount,
+        followersCount: followersCount,
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,

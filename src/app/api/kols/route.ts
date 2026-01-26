@@ -57,6 +57,11 @@ export async function GET(request: NextRequest) {
             postedAt: true,
           },
         },
+        paymentReceipts: {
+          select: {
+            amount: true,
+          },
+        },
         _count: {
           select: {
             campaignKols: true,
@@ -71,10 +76,11 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate total earnings and active campaigns for each KOL
+    // Calculate total earnings from payment receipts and active campaigns for each KOL
     const kolsWithEarnings = kols.map((kol) => {
-      const totalEarningsCents = kol.campaignKols.reduce(
-        (sum, ck) => sum + (ck.assignedBudget || 0),
+      // Total earnings = sum of all payment receipts (in cents)
+      const totalEarningsCents = kol.paymentReceipts.reduce(
+        (sum, receipt) => sum + (receipt.amount || 0),
         0
       );
       const activeCampaigns = kol.campaignKols.filter(
@@ -83,7 +89,7 @@ export async function GET(request: NextRequest) {
       const lastPostDate = kol.posts[0]?.postedAt || null;
 
       // Remove internal data from response
-      const { campaignKols: _, posts: __, ...kolData } = kol;
+      const { campaignKols: _, posts: __, paymentReceipts: ___, ...kolData } = kol;
       return {
         ...kolData,
         totalEarnings: totalEarningsCents / 100,
@@ -164,7 +170,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         twitterHandle,
         avatarUrl,
-        followers: followersCount,
+        followersCount: followersCount,
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,
