@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { SignJWT } from "jose";
+import { verify } from "otplib";
 
 const ADMIN_JWT_SECRET = new TextEncoder().encode(
   process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
@@ -10,7 +11,7 @@ const ADMIN_JWT_SECRET = new TextEncoder().encode(
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { email, password, twoFactorCode } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -49,6 +50,48 @@ export async function POST(request: NextRequest) {
         { error: "Invalid credentials" },
         { status: 401 }
       );
+    }
+
+    // Check if 2FA is enabled
+    if (admin.twoFactorEnabled && admin.twoFactorSecret) {
+      // If no 2FA code provided, tell client to show 2FA input
+      if (!twoFactorCode) {
+        return NextResponse.json(
+          {
+            requires2FA: true,
+            message: "Please enter your 2FA code"
+          },
+          { status: 200 }
+        );
+      }
+
+      // Verify 2FA code
+      const isValidCode = await verify({
+        token: twoFactorCode,
+        secret: admin.twoFactorSecret,
+      });
+
+      // Also check backup codes
+      const isBackupCode = admin.backupCodes.includes(twoFactorCode.toUpperCase());
+
+      if (!isValidCode && !isBackupCode) {
+        return NextResponse.json(
+          { error: "Invalid 2FA code" },
+          { status: 401 }
+        );
+      }
+
+      // If backup code was used, remove it
+      if (isBackupCode) {
+        await db.adminUser.update({
+          where: { id: admin.id },
+          data: {
+            backupCodes: admin.backupCodes.filter(
+              (code) => code !== twoFactorCode.toUpperCase()
+            ),
+          },
+        });
+      }
     }
 
     // Update last login
