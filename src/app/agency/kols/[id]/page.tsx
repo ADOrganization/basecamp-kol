@@ -100,6 +100,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
   const [kol, setKol] = useState<KOLDetails | null>(null);
   const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -121,11 +122,17 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
       if (response.ok) {
         const data = await response.json();
         setKol(data);
+        setError(null);
       } else if (response.status === 404) {
         router.push("/agency/kols");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || `Failed to load KOL (${response.status})`);
+        console.error("KOL fetch error:", response.status, data);
       }
-    } catch (error) {
-      console.error("Failed to fetch KOL:", error);
+    } catch (err) {
+      console.error("Failed to fetch KOL:", err);
+      setError("Network error - failed to load KOL");
     } finally {
       setIsLoading(false);
     }
@@ -160,6 +167,18 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-destructive text-lg font-medium">{error}</div>
+        <Button variant="outline" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Go Back
+        </Button>
       </div>
     );
   }
