@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -7,8 +7,8 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -41,9 +41,17 @@ export async function POST(request: NextRequest) {
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 
+    // Admin users - avatars not supported (AdminUser doesn't have avatarUrl field)
+    if (authContext.isAdmin) {
+      return NextResponse.json(
+        { error: "Avatar upload not supported for admin accounts" },
+        { status: 400 }
+      );
+    }
+
     // Update user avatar in database
     const updatedUser = await db.user.update({
-      where: { id: session.user.id },
+      where: { id: authContext.userId },
       data: { avatarUrl: dataUrl },
       select: {
         id: true,
@@ -63,14 +71,22 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Admin users - avatars not supported
+    if (authContext.isAdmin) {
+      return NextResponse.json(
+        { error: "Avatar removal not supported for admin accounts" },
+        { status: 400 }
+      );
     }
 
     // Remove avatar
     await db.user.update({
-      where: { id: session.user.id },
+      where: { id: authContext.userId },
       data: { avatarUrl: null },
     });
 
