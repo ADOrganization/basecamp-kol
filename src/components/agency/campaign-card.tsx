@@ -22,9 +22,11 @@ interface CampaignCardProps {
       posts: number;
     };
   };
+  viewMode?: "grid" | "list";
 }
 
-export function CampaignCard({ campaign }: CampaignCardProps) {
+export function CampaignCard({ campaign, viewMode = "grid" }: CampaignCardProps) {
+  // viewMode is accepted but currently only grid layout is rendered
   const budgetProgress = campaign.totalBudget > 0
     ? (campaign.spentBudget / campaign.totalBudget) * 100
     : 0;
