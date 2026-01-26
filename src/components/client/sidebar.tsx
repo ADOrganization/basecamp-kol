@@ -43,7 +43,7 @@ export function ClientSidebar({ user }: ClientSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground">
+    <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground border-r border-border">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-muted">
         <div className="h-8 w-8 rounded-lg bg-teal-600 flex items-center justify-center">
@@ -70,7 +70,7 @@ export function ClientSidebar({ user }: ClientSidebarProps) {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-teal-600 text-white"
-                  : "text-slate-400 hover:bg-sidebar-muted hover:text-white"
+                  : "text-sidebar-text-muted hover:bg-sidebar-muted hover:text-sidebar-foreground"
               )}
             >
               <item.icon className="h-5 w-5" />
@@ -91,19 +91,19 @@ export function ClientSidebar({ user }: ClientSidebarProps) {
                 className="h-8 w-8 rounded-full object-cover"
               />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-teal-600 flex items-center justify-center text-sm font-medium">
+              <div className="h-8 w-8 rounded-full bg-teal-600 flex items-center justify-center text-sm font-medium text-white">
                 {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
               </div>
             )}
             <div className="flex-1 text-left">
-              <p className="font-medium text-white truncate">
+              <p className="font-medium text-sidebar-foreground truncate">
                 {user.name || user.email}
               </p>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-xs text-sidebar-text-muted truncate">
                 {user.organizationName}
               </p>
             </div>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-sidebar-text-muted" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem asChild>

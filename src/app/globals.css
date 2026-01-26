@@ -82,11 +82,12 @@
   --ring: #4f46e5;
   --radius: 0.75rem;
 
-  /* Sidebar */
-  --sidebar-bg: #0f172a;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-muted: #1e293b;
+  /* Sidebar - Light mode */
+  --sidebar-bg: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-muted: #f1f5f9;
   --sidebar-accent: #4f46e5;
+  --sidebar-text-muted: #64748b;
 }
 
 .dark {
@@ -114,6 +115,7 @@
   --sidebar-foreground: #f8fafc;
   --sidebar-muted: #0f172a;
   --sidebar-accent: #6366f1;
+  --sidebar-text-muted: #94a3b8;
 }
 
 @theme inline {
@@ -141,6 +143,7 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-text-muted: var(--sidebar-text-muted);
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
