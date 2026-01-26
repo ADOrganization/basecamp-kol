@@ -2,11 +2,12 @@ import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Key, Users, Settings } from "lucide-react";
+import { Building2, User, Key, Users, Settings, Shield } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
 import { TeamManagement } from "@/components/settings/team-management";
 import { TwitterIntegrationCard, TelegramIntegrationCard, NotificationsCard } from "@/components/settings/integrations-card";
+import { TwoFactorAuth } from "@/components/settings/two-factor-auth";
 
 export default async function SettingsPage() {
   const context = await getAgencyContext();
@@ -98,6 +99,10 @@ export default async function SettingsPage() {
             <Key className="h-4 w-4" />
             Integrations
           </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+            <Shield className="h-4 w-4" />
+            Security
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -179,6 +184,30 @@ export default async function SettingsPage() {
               <TelegramIntegrationCard />
               <NotificationsCard variant="agency" />
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Security Tab */}
+        <TabsContent value="security" className="space-y-6">
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold">Security Settings</h2>
+                <p className="text-sm text-muted-foreground">Manage your account security and authentication</p>
+              </div>
+            </div>
+            {context.isAdmin ? (
+              <TwoFactorAuth />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Two-factor authentication is available for admin accounts only.</p>
+                <p className="text-sm mt-2">Contact your administrator to enable 2FA for your account.</p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
