@@ -198,6 +198,7 @@ model KOL {
   campaignKols      CampaignKOL[]
   posts             Post[]
   payments          Payment[]
+  paymentReceipts   PaymentReceipt[]
   messages          TelegramMessage[]
   telegramChatLinks TelegramChatKOL[]
   followerSnapshots KOLFollowerSnapshot[]
@@ -294,12 +295,13 @@ model Campaign {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  agency       Organization   @relation("AgencyCampaigns", fields: [agencyId], references: [id], onDelete: Cascade)
-  client       Organization?  @relation("ClientCampaigns", fields: [clientId], references: [id])
-  campaignKols CampaignKOL[]
-  posts        Post[]
-  payments     Payment[]
-  joinRequests CampaignJoinRequest[]
+  agency          Organization   @relation("AgencyCampaigns", fields: [agencyId], references: [id], onDelete: Cascade)
+  client          Organization?  @relation("ClientCampaigns", fields: [clientId], references: [id])
+  campaignKols    CampaignKOL[]
+  posts           Post[]
+  payments        Payment[]
+  paymentReceipts PaymentReceipt[]
+  joinRequests    CampaignJoinRequest[]
 
   @@map("campaigns")
 }
@@ -503,6 +505,25 @@ model Payment {
   campaign Campaign? @relation(fields: [campaignId], references: [id])
 
   @@map("payments")
+}
+
+// Payment receipts - proof of payment submitted via Telegram
+model PaymentReceipt {
+  id               String    @id @default(cuid())
+  kolId            String
+  campaignId       String?
+
+  proofUrl         String    // Link to proof (blockchain explorer, screenshot, etc.)
+  telegramUsername String?   // Who submitted it
+  telegramUserId   String?   // Telegram user ID
+  notes            String?   // Optional notes
+
+  createdAt        DateTime  @default(now())
+
+  kol              KOL       @relation(fields: [kolId], references: [id], onDelete: Cascade)
+  campaign         Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@map("payment_receipts")
 }
 
 // ============================================

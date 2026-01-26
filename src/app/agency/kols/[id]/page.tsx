@@ -94,6 +94,16 @@ interface KOLDetails {
     paidAt: string | null;
     createdAt: string;
   }[];
+  paymentReceipts: {
+    id: string;
+    proofUrl: string;
+    telegramUsername: string | null;
+    createdAt: string;
+    campaign: {
+      id: string;
+      name: string;
+    } | null;
+  }[];
   account?: {
     id: string;
     email: string;
@@ -466,8 +476,13 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
           </div>
         </TabsContent>
 
-        <TabsContent value="payments" className="mt-6">
+        <TabsContent value="payments" className="mt-6 space-y-6">
+          {/* Outgoing Payments */}
           <div className="rounded-lg border bg-card">
+            <div className="p-4 border-b bg-muted/30">
+              <h3 className="font-semibold">Outgoing Payments</h3>
+              <p className="text-sm text-muted-foreground">Payments made to this KOL</p>
+            </div>
             {kol.payments.length === 0 ? (
               <p className="p-6 text-muted-foreground">No payments recorded.</p>
             ) : (
@@ -490,6 +505,63 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                       </td>
                       <td className="p-4 text-right">
                         {formatDate(payment.paidAt || payment.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Payment Receipts */}
+          <div className="rounded-lg border bg-card">
+            <div className="p-4 border-b bg-muted/30">
+              <h3 className="font-semibold">Payment Receipts</h3>
+              <p className="text-sm text-muted-foreground">Proof of payments submitted via Telegram</p>
+            </div>
+            {kol.paymentReceipts?.length === 0 ? (
+              <p className="p-6 text-muted-foreground">No receipts submitted. KOLs can submit receipts using <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/payment</code> in Telegram.</p>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-4 font-medium text-muted-foreground">Campaign</th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">Proof Link</th>
+                    <th className="text-left p-4 font-medium text-muted-foreground">Submitted By</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kol.paymentReceipts?.map((receipt) => (
+                    <tr key={receipt.id} className="border-t">
+                      <td className="p-4">
+                        {receipt.campaign ? (
+                          <Link
+                            href={`/agency/campaigns/${receipt.campaign.id}`}
+                            className="font-medium hover:text-primary"
+                          >
+                            {receipt.campaign.name}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <a
+                          href={receipt.proofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          View Proof
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        {receipt.telegramUsername ? `@${receipt.telegramUsername}` : "-"}
+                      </td>
+                      <td className="p-4 text-right">
+                        {formatDate(receipt.createdAt)}
                       </td>
                     </tr>
                   ))}

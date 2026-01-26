@@ -203,6 +203,20 @@ async function handleMessage(organizationId: string, botToken: string | null, me
     return;
   }
 
+  // Check for /payment command (payment receipt submission)
+  if (textContent.startsWith("/payment")) {
+    await handlePaymentCommand(
+      organizationId,
+      botToken,
+      chat.id,
+      textContent,
+      senderUsername,
+      senderTelegramId,
+      chat.title || null
+    );
+    return;
+  }
+
   // Store the message
   await db.telegramGroupMessage.create({
     data: {
@@ -405,6 +419,20 @@ async function handlePrivateMessage(
     return;
   }
 
+  // Check for /payment command
+  if (textContent?.startsWith("/payment")) {
+    await handlePaymentCommand(
+      organizationId,
+      botToken,
+      message.chat.id,
+      textContent,
+      senderUsername,
+      senderTelegramId,
+      null
+    );
+    return;
+  }
+
   // Find KOL by telegram username
   const kol = await db.kOL.findFirst({
     where: {
@@ -561,6 +589,10 @@ async function handleHelpCommand(
 *Content Review:*
 • \`/review <draft_content>\` - Submit content for agency review before posting
 
+*Payments:*
+• \`/payment <proof_url>\` - Submit payment receipt/proof
+• \`/payment <campaign> <proof_url>\` - Submit for a specific campaign
+
 *Other:*
 • \`/budget\` - View campaign budget breakdown
 • \`/schedule\` - Book a call with our team
@@ -569,7 +601,7 @@ async function handleHelpCommand(
 
 *Examples:*
 \`/submit https://x.com/user/status/123456789\`
-\`/submit MyCampaign https://x.com/user/status/123456789\`
+\`/payment https://etherscan.io/tx/0x123...\`
 \`/review Check out @ProjectHandle - amazing DeFi protocol! #crypto\`
 
 Need assistance? Contact @altcoinclimber or @viperrcrypto`;
@@ -1241,4 +1273,194 @@ async function handleSubmitCommandFromGroup(
   await sendResponse(responseMessage);
 
   console.log(`[Submit Group] Completed for KOL ${kol.name}, post ${post.id}`);
+}
+
+async function handlePaymentCommand(
+  organizationId: string,
+  botToken: string | null,
+  telegramChatId: number,
+  text: string,
+  senderUsername: string | undefined,
+  senderTelegramId: string | undefined,
+  groupTitle: string | null
+) {
+  // Helper to send response
+  const sendResponse = async (message: string) => {
+    if (!botToken) return;
+    const client = new TelegramClient(botToken);
+    await client.sendMessage(telegramChatId, message, { parse_mode: "Markdown" });
+  };
+
+  // Parse command: /payment [campaign_name] <proof_url>
+  const commandContent = text.replace(/^\/payment\s*/i, "").trim();
+
+  if (!commandContent) {
+    await sendResponse(
+      "Please provide a payment proof link.\n\n" +
+      "*Usage:*\n" +
+      "`/payment <proof_url>` - Submit payment proof\n" +
+      "`/payment <campaign> <proof_url>` - Submit for a specific campaign\n\n" +
+      "*Examples:*\n" +
+      "`/payment https://etherscan.io/tx/0x123...`\n" +
+      "`/payment MyCampaign https://solscan.io/tx/abc...`"
+    );
+    return;
+  }
+
+  if (!senderUsername) {
+    await sendResponse(
+      "Unable to identify you. Please make sure your Telegram username is set."
+    );
+    return;
+  }
+
+  // Extract URL (anything that looks like a URL)
+  const urlMatch = commandContent.match(/(https?:\/\/[^\s]+)/i);
+  if (!urlMatch) {
+    await sendResponse(
+      "Could not find a valid URL. Please include a link to your payment proof (e.g., blockchain explorer, screenshot URL)."
+    );
+    return;
+  }
+
+  const proofUrl = urlMatch[1];
+  const campaignNameFilter = commandContent.replace(proofUrl, "").trim() || null;
+
+  console.log(`[Payment] User @${senderUsername} submitting receipt: ${proofUrl}`);
+  console.log(`[Payment] Campaign filter: "${campaignNameFilter || 'none'}"`);
+
+  // Find KOL by telegram username
+  let kol = await db.kOL.findFirst({
+    where: {
+      organizationId,
+      telegramUsername: {
+        equals: senderUsername,
+        mode: "insensitive",
+      },
+    },
+  });
+
+  // Also check TelegramChatKOL for match
+  if (!kol && senderTelegramId) {
+    const chatKol = await db.telegramChatKOL.findFirst({
+      where: {
+        telegramUserId: senderTelegramId,
+        kol: {
+          organizationId,
+        },
+      },
+      include: { kol: true },
+    });
+
+    if (chatKol) {
+      kol = chatKol.kol;
+    }
+  }
+
+  if (!kol) {
+    await sendResponse(
+      `No KOL profile found for @${senderUsername}. Please contact your agency to add your Telegram username to your profile.`
+    );
+    return;
+  }
+
+  console.log(`[Payment] KOL identified: ${kol.name} (@${kol.twitterHandle})`);
+
+  // Find active campaigns KOL is assigned to
+  const allCampaignKols = await db.campaignKOL.findMany({
+    where: {
+      kolId: kol.id,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      campaign: {
+        status: { in: ["ACTIVE", "COMPLETED"] },
+        agencyId: organizationId,
+      },
+    },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (allCampaignKols.length === 0) {
+    await sendResponse(
+      "You're not assigned to any campaign. Please contact your agency."
+    );
+    return;
+  }
+
+  // Determine which campaign to use
+  let campaignKol: typeof allCampaignKols[0] | null = null;
+
+  if (allCampaignKols.length === 1) {
+    campaignKol = allCampaignKols[0];
+  } else if (campaignNameFilter) {
+    const filterLower = campaignNameFilter.toLowerCase();
+    campaignKol = allCampaignKols.find(ck =>
+      ck.campaign.name.toLowerCase().includes(filterLower)
+    ) || null;
+
+    if (!campaignKol) {
+      const campaignList = allCampaignKols.map(ck => `• ${ck.campaign.name}`).join("\n");
+      await sendResponse(
+        `No campaign found matching "${campaignNameFilter}".\n\n` +
+        `Your campaigns:\n${campaignList}\n\n` +
+        `Usage: \`/payment <campaign_name> <proof_url>\``
+      );
+      return;
+    }
+  } else {
+    // Try to match campaign from group title
+    if (groupTitle) {
+      const cleanedTitle = groupTitle
+        .replace(/^basecamp\s*[-|:]\s*/i, "")
+        .replace(/^basecamp\s+/i, "")
+        .trim()
+        .toLowerCase();
+
+      campaignKol = allCampaignKols.find(ck =>
+        ck.campaign.name.toLowerCase().includes(cleanedTitle) ||
+        cleanedTitle.includes(ck.campaign.name.toLowerCase())
+      ) || null;
+    }
+
+    if (!campaignKol) {
+      const campaignList = allCampaignKols.map(ck => `• ${ck.campaign.name}`).join("\n");
+      await sendResponse(
+        `You're assigned to multiple campaigns. Please specify which one:\n\n` +
+        `${campaignList}\n\n` +
+        `Usage: \`/payment <campaign_name> <proof_url>\``
+      );
+      return;
+    }
+  }
+
+  console.log(`[Payment] Campaign selected: ${campaignKol.campaign.name}`);
+
+  // Create the payment receipt
+  const receipt = await db.paymentReceipt.create({
+    data: {
+      kolId: kol.id,
+      campaignId: campaignKol.campaignId,
+      proofUrl,
+      telegramUsername: senderUsername,
+      telegramUserId: senderTelegramId || null,
+    },
+  });
+
+  console.log(`[Payment] Receipt created: ${receipt.id}`);
+
+  await sendResponse(
+    `✅ *Payment receipt logged!*\n\n` +
+    `*KOL:* ${kol.name}\n` +
+    `*Campaign:* ${campaignKol.campaign.name}\n` +
+    `*Proof:* ${proofUrl}\n\n` +
+    `This receipt has been added to your profile for accounting records.`
+  );
+
+  console.log(`[Payment] Completed for KOL ${kol.name}, receipt ${receipt.id}`);
 }

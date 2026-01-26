@@ -47,6 +47,14 @@ export async function GET(
           orderBy: { createdAt: "desc" },
           take: 10,
         },
+        paymentReceipts: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            campaign: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
     });
 
