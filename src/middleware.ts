@@ -64,6 +64,7 @@ export default auth((req) => {
     const isAgencyRoute = nextUrl.pathname.startsWith("/agency");
     const isClientRoute = nextUrl.pathname.startsWith("/client");
     const isKolRoute = nextUrl.pathname.startsWith("/kol");
+    const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
     const isKolAuthPage =
       nextUrl.pathname.startsWith("/kol/login") ||
@@ -84,6 +85,13 @@ export default auth((req) => {
 
     // Allow public routes with security headers
     if (isPublicRoute && !isAgencyRoute && !isClientRoute && !isKolRoute) {
+      const response = NextResponse.next();
+      return addSecurityHeaders(response);
+    }
+
+    // Admin routes have their own auth system (not NextAuth)
+    // Allow all admin routes to pass through - they handle their own auth
+    if (isAdminRoute) {
       const response = NextResponse.next();
       return addSecurityHeaders(response);
     }
