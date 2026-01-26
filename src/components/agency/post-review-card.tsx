@@ -9,16 +9,11 @@ import {
   CheckCircle,
   XCircle,
   ExternalLink,
-  MessageSquare,
   Heart,
-  Repeat2,
-  Eye,
   Loader2,
   Send,
   Edit3,
-  BarChart3
 } from "lucide-react";
-import { PostAnalyticsModal } from "./post-analytics-modal";
 import Link from "next/link";
 import {
   Dialog,
@@ -72,7 +67,6 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
   const [actionType, setActionType] = useState<"approve" | "reject" | "changes" | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showChangesDialog, setShowChangesDialog] = useState(false);
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
   const [changesNotes, setChangesNotes] = useState("");
   const [currentStatus, setCurrentStatus] = useState(post.status);
@@ -232,20 +226,8 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                 {currentStatus === "POSTED" && (
                   <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      {(post.impressions ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
                       <Heart className="h-4 w-4" />
-                      {(post.likes ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Repeat2 className="h-4 w-4" />
-                      {(post.retweets ?? 0).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      {(post.replies ?? 0).toLocaleString()}
+                      {(post.likes ?? 0).toLocaleString()} likes
                     </span>
                   </div>
                 )}
@@ -315,16 +297,6 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                     <Send className="h-4 w-4 mr-1" />
                   )}
                   Mark as Posted
-                </Button>
-              )}
-              {isPosted && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowAnalyticsModal(true)}
-                >
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  Analytics
                 </Button>
               )}
               {post.tweetUrl && (
@@ -416,11 +388,6 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
         </DialogContent>
       </Dialog>
 
-      <PostAnalyticsModal
-        postId={post.id}
-        isOpen={showAnalyticsModal}
-        onClose={() => setShowAnalyticsModal(false)}
-      />
     </>
   );
 }
