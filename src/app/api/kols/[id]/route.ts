@@ -30,73 +30,36 @@ export async function GET(
     const { id } = await params;
     console.log(`[KOL API] Fetching KOL ${id} for org ${authContext.organizationId}`);
 
-    // Try to include paymentReceipts, but gracefully handle if table doesn't exist yet
-    let includePaymentReceipts = true;
-    let kol;
-
-    try {
-      kol = await db.kOL.findFirst({
-        where: {
-          id,
-          organizationId: authContext.organizationId,
-        },
-        include: {
-          tags: true,
-          campaignKols: {
-            include: {
-              campaign: true,
-            },
-          },
-          posts: {
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          },
-          payments: {
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          },
-          paymentReceipts: {
-            orderBy: { createdAt: "desc" },
-            include: {
-              campaign: {
-                select: { id: true, name: true },
-              },
-            },
-          },
-        },
-      });
-    } catch (e) {
-      // If paymentReceipts table doesn't exist yet, retry without it
-      console.log("[KOL API] First query failed, falling back:", e instanceof Error ? e.message : e);
-      includePaymentReceipts = false;
-      try {
-        kol = await db.kOL.findFirst({
-          where: {
-            id,
-            organizationId: authContext.organizationId,
-          },
+    const kol = await db.kOL.findFirst({
+      where: {
+        id,
+        organizationId: authContext.organizationId,
+      },
+      include: {
+        tags: true,
+        campaignKols: {
           include: {
-            tags: true,
-            campaignKols: {
-              include: {
-                campaign: true,
-              },
-            },
-            posts: {
-              orderBy: { createdAt: "desc" },
-              take: 10,
-            },
-            payments: {
-              orderBy: { createdAt: "desc" },
-              take: 10,
+            campaign: true,
+          },
+        },
+        posts: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+        payments: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+        paymentReceipts: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            campaign: {
+              select: { id: true, name: true },
             },
           },
-        });
-      } catch (e2) {
-        console.error("[KOL API] Fallback query also failed:", e2);
-        throw e2;
-      }
-    }
+        },
+      },
+    });
 
     if (!kol) {
       // Check if KOL exists but belongs to different org
@@ -108,8 +71,7 @@ export async function GET(
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
-    // Add empty paymentReceipts if not included
-    const kolData = includePaymentReceipts ? kol : { ...kol, paymentReceipts: [] };
+    const kolData = kol;
 
     // Add security headers to prevent caching of sensitive data
     const response = NextResponse.json(kolData);
