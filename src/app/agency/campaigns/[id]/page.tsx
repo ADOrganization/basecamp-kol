@@ -82,6 +82,10 @@ interface CampaignDetails {
       tier: string;
       followersCount: number;
       avgEngagementRate: number;
+      ratePerPost: number | null;
+      ratePerThread: number | null;
+      ratePerRetweet: number | null;
+      ratePerSpace: number | null;
     };
   }[];
   posts: {
@@ -362,9 +366,64 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     }
   };
 
+  // Calculate edit budget based on KOL rates and deliverables
+  const calculateEditBudget = (kol: CampaignDetails["campaignKols"][0]["kol"], posts: string, threads: string, retweets: string, spaces: string) => {
+    const postsCount = parseInt(posts) || 0;
+    const threadsCount = parseInt(threads) || 0;
+    const retweetsCount = parseInt(retweets) || 0;
+    const spacesCount = parseInt(spaces) || 0;
+
+    // Rates are stored in cents
+    const postsCost = postsCount * (kol.ratePerPost || 0);
+    const threadsCost = threadsCount * (kol.ratePerThread || 0);
+    const retweetsCost = retweetsCount * (kol.ratePerRetweet || 0);
+    const spacesCost = spacesCount * (kol.ratePerSpace || 0);
+
+    const totalCents = postsCost + threadsCost + retweetsCost + spacesCost;
+    const totalDollars = totalCents / 100;
+
+    setEditBudget(totalDollars.toFixed(2));
+  };
+
+  const handleEditDeliverableChange = (type: string, value: string) => {
+    if (!editingKol) return;
+    switch (type) {
+      case "posts":
+        setEditPosts(value);
+        calculateEditBudget(editingKol.kol, value, editThreads, editRetweets, editSpaces);
+        break;
+      case "threads":
+        setEditThreads(value);
+        calculateEditBudget(editingKol.kol, editPosts, value, editRetweets, editSpaces);
+        break;
+      case "retweets":
+        setEditRetweets(value);
+        calculateEditBudget(editingKol.kol, editPosts, editThreads, value, editSpaces);
+        break;
+      case "spaces":
+        setEditSpaces(value);
+        calculateEditBudget(editingKol.kol, editPosts, editThreads, editRetweets, value);
+        break;
+    }
+  };
+
   const handleEditKol = (ck: CampaignDetails["campaignKols"][0]) => {
     setEditingKol(ck);
-    setEditBudget((ck.assignedBudget / 100).toString());
+    // Calculate budget based on current deliverables and KOL rates
+    const postsCount = ck.requiredPosts;
+    const threadsCount = ck.requiredThreads;
+    const retweetsCount = ck.requiredRetweets;
+    const spacesCount = ck.requiredSpaces;
+
+    const postsCost = postsCount * (ck.kol.ratePerPost || 0);
+    const threadsCost = threadsCount * (ck.kol.ratePerThread || 0);
+    const retweetsCost = retweetsCount * (ck.kol.ratePerRetweet || 0);
+    const spacesCost = spacesCount * (ck.kol.ratePerSpace || 0);
+
+    const totalCents = postsCost + threadsCost + retweetsCost + spacesCost;
+    const totalDollars = totalCents / 100;
+
+    setEditBudget(totalDollars.toFixed(2));
     setEditPosts(ck.requiredPosts.toString());
     setEditThreads(ck.requiredThreads.toString());
     setEditRetweets(ck.requiredRetweets.toString());
@@ -886,9 +945,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                 type="number"
                 step="0.01"
                 value={assignedBudget}
-                onChange={(e) => setAssignedBudget(e.target.value)}
-                placeholder="0.00"
+                readOnly
+                className="bg-muted"
+                placeholder="Auto-calculated"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Auto-calculated from KOL rates × deliverables
+              </p>
             </div>
 
             <div className="pt-2 border-t">
@@ -985,9 +1048,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                   type="number"
                   step="0.01"
                   value={editBudget}
-                  onChange={(e) => setEditBudget(e.target.value)}
-                  placeholder="0.00"
+                  readOnly
+                  className="bg-muted"
+                  placeholder="Auto-calculated"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Auto-calculated from KOL rates × deliverables
+                </p>
               </div>
 
               <div className="pt-2 border-t">
@@ -1003,7 +1070,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       type="number"
                       min="0"
                       value={editPosts}
-                      onChange={(e) => setEditPosts(e.target.value)}
+                      onChange={(e) => handleEditDeliverableChange("posts", e.target.value)}
                       placeholder="0"
                     />
                   </div>
@@ -1013,7 +1080,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       type="number"
                       min="0"
                       value={editThreads}
-                      onChange={(e) => setEditThreads(e.target.value)}
+                      onChange={(e) => handleEditDeliverableChange("threads", e.target.value)}
                       placeholder="0"
                     />
                   </div>
@@ -1023,7 +1090,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       type="number"
                       min="0"
                       value={editRetweets}
-                      onChange={(e) => setEditRetweets(e.target.value)}
+                      onChange={(e) => handleEditDeliverableChange("retweets", e.target.value)}
                       placeholder="0"
                     />
                   </div>
@@ -1033,7 +1100,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       type="number"
                       min="0"
                       value={editSpaces}
-                      onChange={(e) => setEditSpaces(e.target.value)}
+                      onChange={(e) => handleEditDeliverableChange("spaces", e.target.value)}
                       placeholder="0"
                     />
                   </div>
