@@ -164,7 +164,7 @@ model KOL {
   tier              KOLTier   @default(SMALL)
   status            KOLStatus @default(ACTIVE)
 
-  // KOL Portal fields
+  // Profile fields
   bio               String?
   categories        String[]  // e.g., ["DeFi", "Gaming", "NFT"]
 
@@ -201,10 +201,7 @@ model KOL {
   messages          TelegramMessage[]
   telegramChatLinks TelegramChatKOL[]
   followerSnapshots KOLFollowerSnapshot[]
-  account           KOLAccount?
-  invitations       KOLInvitation[]
   joinRequests      CampaignJoinRequest[]
-  wallets           KOLWallet[]
 
   @@unique([organizationId, twitterHandle])
   @@map("kols")
@@ -632,37 +629,8 @@ model TelegramBroadcast {
 }
 
 // ============================================
-// KOL PORTAL
+// CAMPAIGN JOIN REQUESTS
 // ============================================
-
-model KOLAccount {
-  id           String    @id @default(cuid())
-  kolId        String    @unique
-  email        String    @unique
-  passwordHash String?   // Optional - not needed for magic link auth
-  isVerified   Boolean   @default(false)
-  isDisabled   Boolean   @default(false) // Admin can disable KOL access
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  kol          KOL       @relation(fields: [kolId], references: [id], onDelete: Cascade)
-
-  @@map("kol_accounts")
-}
-
-model KOLInvitation {
-  id         String    @id @default(cuid())
-  kolId      String
-  token      String    @unique
-  expiresAt  DateTime
-  acceptedAt DateTime?
-  createdAt  DateTime  @default(now())
-
-  kol        KOL       @relation(fields: [kolId], references: [id], onDelete: Cascade)
-
-  @@map("kol_invitations")
-}
 
 model CampaignJoinRequest {
   id           String            @id @default(cuid())
@@ -682,21 +650,6 @@ model CampaignJoinRequest {
   @@map("campaign_join_requests")
 }
 
-model KOLWallet {
-  id        String        @id @default(cuid())
-  kolId     String
-  network   CryptoNetwork
-  address   String
-  label     String?
-  isPrimary Boolean       @default(false)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  kol       KOL           @relation(fields: [kolId], references: [id], onDelete: Cascade)
-
-  @@unique([kolId, network, address])
-  @@map("kol_wallets")
-}
 
 // ============================================
 // AUTHENTICATION & SECURITY

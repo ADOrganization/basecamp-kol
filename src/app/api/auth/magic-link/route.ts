@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const rawEmail = body.email?.toString() || "";
-    const userType = body.userType === "kol" ? "kol" : "user";
 
     // Sanitize and validate email
     const email = DOMPurify.sanitize(rawEmail).toLowerCase().trim();
@@ -54,43 +53,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if user/KOL account exists
-    let userExists = false;
-    let isDisabled = false;
-
-    if (userType === "kol") {
-      const kolAccount = await db.kOLAccount.findUnique({
-        where: { email },
-        select: { id: true, isDisabled: true },
-      });
-      userExists = !!kolAccount;
-      isDisabled = kolAccount?.isDisabled || false;
-    } else {
-      const user = await db.user.findUnique({
-        where: { email },
-        select: { id: true, isDisabled: true },
-      });
-      userExists = !!user;
-      isDisabled = user?.isDisabled || false;
-    }
+    // Check if user account exists
+    const user = await db.user.findUnique({
+      where: { email },
+      select: { id: true, isDisabled: true },
+    });
 
     // Always return success to prevent email enumeration attacks
     // But only actually send the email if the user exists and is not disabled
-    if (userExists && !isDisabled) {
+    if (user && !user.isDisabled) {
       const token = await createVerificationToken(email);
-      const result = await sendMagicLinkEmail(email, token, userType);
+      const result = await sendMagicLinkEmail(email, token);
 
       await logSecurityEvent({
         action: "MAGIC_LINK_SENT",
         ipAddress: ipAddress || undefined,
         userAgent: userAgent || undefined,
-        metadata: { email, userType, success: result.success },
+        metadata: { email, success: result.success },
       });
 
       if (!result.success) {
         console.error("Failed to send magic link email:", result.error);
       }
-    } else if (isDisabled) {
+    } else if (user?.isDisabled) {
       await logSecurityEvent({
         action: "LOGIN_FAILED",
         ipAddress: ipAddress || undefined,

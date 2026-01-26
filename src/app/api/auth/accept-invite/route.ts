@@ -149,7 +149,6 @@ export async function POST(request: NextRequest) {
         organizationType: invitation.organizationType as OrganizationType,
         organizationRole: invitation.role as OrganizationRole,
         organizationName: invitation.organizationName,
-        isKol: false,
       },
       secret: process.env.AUTH_SECRET!,
       salt: "authjs.session-token",

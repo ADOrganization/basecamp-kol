@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const email = body.email?.toString()?.toLowerCase()?.trim();
-    const userType = body.userType === "kol" ? "kol" : "user";
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(
@@ -33,59 +32,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user/KOL account exists
-    let userExists = false;
-    let accountInfo = null;
+    // Check if user account exists
+    const user = await db.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, isDisabled: true },
+    });
 
-    if (userType === "kol") {
-      const kolAccount = await db.kOLAccount.findUnique({
-        where: { email },
-        select: {
-          id: true,
-          isDisabled: true,
-          kol: {
-            select: { name: true, twitterHandle: true }
-          }
-        },
-      });
-      userExists = !!kolAccount;
-      if (kolAccount?.isDisabled) {
-        return NextResponse.json(
-          { error: "This KOL account is disabled" },
-          { status: 400 }
-        );
-      }
-      if (kolAccount) {
-        accountInfo = {
-          type: "kol",
-          name: kolAccount.kol?.name || email,
-          handle: kolAccount.kol?.twitterHandle,
-        };
-      }
-    } else {
-      const user = await db.user.findUnique({
-        where: { email },
-        select: { id: true, name: true, isDisabled: true },
-      });
-      userExists = !!user;
-      if (user?.isDisabled) {
-        return NextResponse.json(
-          { error: "This user account is disabled" },
-          { status: 400 }
-        );
-      }
-      if (user) {
-        accountInfo = {
-          type: "user",
-          name: user.name || email,
-        };
-      }
+    if (!user) {
+      return NextResponse.json(
+        { error: `No user account found with email: ${email}` },
+        { status: 404 }
+      );
     }
 
-    if (!userExists) {
+    if (user.isDisabled) {
       return NextResponse.json(
-        { error: `No ${userType} account found with email: ${email}` },
-        { status: 404 }
+        { error: "This user account is disabled" },
+        { status: 400 }
       );
     }
 
@@ -94,14 +57,15 @@ export async function POST(request: NextRequest) {
 
     // Build the callback URL
     const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const callbackPath = userType === "kol" ? "/api/auth/callback/kol-magic" : "/api/auth/callback/magic";
-    const loginUrl = `${baseUrl}${callbackPath}?token=${token}&email=${encodeURIComponent(email)}`;
+    const loginUrl = `${baseUrl}/api/auth/callback/magic?token=${token}&email=${encodeURIComponent(email)}`;
 
     return NextResponse.json({
       success: true,
       email,
-      userType,
-      accountInfo,
+      accountInfo: {
+        type: "user",
+        name: user.name || email,
+      },
       loginUrl,
       expiresIn: "15 minutes",
       note: "This link is for testing only. Click it or paste in browser to login.",

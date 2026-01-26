@@ -12,9 +12,6 @@ declare module "next-auth" {
     organizationType: OrganizationType;
     organizationRole: OrganizationRole;
     organizationName: string;
-    // KOL Portal fields
-    kolId?: string;
-    isKol?: boolean;
   }
 
   interface Session {
@@ -26,9 +23,6 @@ declare module "next-auth" {
       organizationType: OrganizationType;
       organizationRole: OrganizationRole;
       organizationName: string;
-      // KOL Portal fields
-      kolId?: string;
-      isKol?: boolean;
     };
   }
 }
@@ -42,9 +36,6 @@ declare module "@auth/core/jwt" {
     organizationType?: OrganizationType;
     organizationRole?: OrganizationRole;
     organizationName?: string;
-    // KOL Portal fields
-    kolId?: string;
-    isKol?: boolean;
   }
 }
 
@@ -54,7 +45,6 @@ declare module "@auth/core/jwt" {
  * Authentication is handled via magic links (passwordless).
  * Sessions are created by the magic link callback routes:
  * - /api/auth/callback/magic (for Agency/Client users)
- * - /api/auth/callback/kol-magic (for KOL users)
  * - /api/auth/accept-invite (for invited users)
  *
  * This configuration is used for:
@@ -76,8 +66,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.organizationType = user.organizationType;
           token.organizationRole = user.organizationRole;
           token.organizationName = user.organizationName;
-          token.kolId = user.kolId;
-          token.isKol = user.isKol;
         }
         return token;
       } catch (error) {
@@ -114,8 +102,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             organizationType: token.organizationType as OrganizationType,
             organizationRole: (token.organizationRole as OrganizationRole) ?? "MEMBER",
             organizationName: (token.organizationName as string) ?? "",
-            kolId: token.kolId as string | undefined,
-            isKol: token.isKol as boolean | undefined,
           },
         };
       } catch (error) {

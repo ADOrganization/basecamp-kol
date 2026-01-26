@@ -136,82 +136,20 @@ export const telegramChatFilterSchema = z.object({
 });
 
 // ============================================
-// KOL PORTAL VALIDATIONS
+// CAMPAIGN MANAGEMENT VALIDATIONS
 // ============================================
 
-// KOL Portal login
-export const kolLoginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-// KOL Portal registration (from invitation)
-export const kolRegisterSchema = z.object({
-  token: z.string().min(1, "Invitation token is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
-// KOL Profile update
-export const kolProfileSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").optional(),
-  bio: z.string().max(500, "Bio must be 500 characters or less").optional(),
-  categories: z.array(z.string()).max(10, "Maximum 10 categories").optional(),
-  twitterHandle: z.string().regex(/^@?[\w]+$/, "Invalid X handle").optional(),
-  telegramUsername: z.string().optional(),
-});
-
-// KOL Rates update
-export const kolRatesSchema = z.object({
-  ratePerPost: z.number().min(0, "Rate must be positive").optional(),
-  ratePerThread: z.number().min(0, "Rate must be positive").optional(),
-  ratePerRetweet: z.number().min(0, "Rate must be positive").optional(),
-  ratePerSpace: z.number().min(0, "Rate must be positive").optional(),
-});
-
-// Wallet address validation based on network
-const evmAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-const solanaAddressRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-export const kolWalletSchema = z.object({
-  network: z.enum(["ETHEREUM", "POLYGON", "ARBITRUM", "OPTIMISM", "BASE", "BSC", "SOLANA"]),
-  address: z.string().min(1, "Wallet address is required"),
-  label: z.string().max(50, "Label must be 50 characters or less").optional(),
-  isPrimary: z.boolean().optional(),
-}).refine((data) => {
-  if (data.network === "SOLANA") {
-    return solanaAddressRegex.test(data.address);
-  }
-  return evmAddressRegex.test(data.address);
-}, {
-  message: "Invalid wallet address for the selected network",
-  path: ["address"],
-});
-
-// Campaign join request
-export const joinRequestSchema = z.object({
-  message: z.string().max(500, "Message must be 500 characters or less").optional(),
-});
-
-// Join request response (for agency)
+// Join request response (for agency to respond to KOL requests)
 export const joinRequestResponseSchema = z.object({
   status: z.enum(["APPROVED", "DECLINED"]),
   responseNote: z.string().max(500).optional(),
 });
 
-// Campaign visibility update
+// Campaign visibility update (for agency workflow)
 export const campaignVisibilitySchema = z.object({
   visibility: z.enum(["PRIVATE", "OPEN"]),
   applicationDeadline: z.string().datetime().optional().nullable(),
   maxKolCount: z.number().min(1).optional().nullable(),
-});
-
-// KOL invitation
-export const kolInvitationSchema = z.object({
-  kolId: z.string().min(1, "KOL ID is required"),
 });
 
 // Type exports
@@ -229,13 +167,6 @@ export type TelegramSendToKolInput = z.infer<typeof telegramSendToKolSchema>;
 export type TelegramBroadcastInput = z.infer<typeof telegramBroadcastSchema>;
 export type TelegramChatFilterInput = z.infer<typeof telegramChatFilterSchema>;
 
-// KOL Portal type exports
-export type KOLLoginInput = z.infer<typeof kolLoginSchema>;
-export type KOLRegisterInput = z.infer<typeof kolRegisterSchema>;
-export type KOLProfileInput = z.infer<typeof kolProfileSchema>;
-export type KOLRatesInput = z.infer<typeof kolRatesSchema>;
-export type KOLWalletInput = z.infer<typeof kolWalletSchema>;
-export type JoinRequestInput = z.infer<typeof joinRequestSchema>;
+// Campaign management type exports
 export type JoinRequestResponseInput = z.infer<typeof joinRequestResponseSchema>;
 export type CampaignVisibilityInput = z.infer<typeof campaignVisibilitySchema>;
-export type KOLInvitationInput = z.infer<typeof kolInvitationSchema>;

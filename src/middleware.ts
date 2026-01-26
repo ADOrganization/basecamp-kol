@@ -119,12 +119,7 @@ const authMiddleware = auth((req) => {
 
     const isAgencyRoute = nextUrl.pathname.startsWith("/agency");
     const isClientRoute = nextUrl.pathname.startsWith("/client");
-    const isKolRoute = nextUrl.pathname.startsWith("/kol");
     const isAdminRoute = nextUrl.pathname.startsWith("/admin");
-
-    const isKolAuthPage =
-      nextUrl.pathname.startsWith("/kol/login") ||
-      nextUrl.pathname.startsWith("/kol/accept-invite");
 
     const isApiRoute = nextUrl.pathname.startsWith("/api");
 
@@ -140,7 +135,7 @@ const authMiddleware = auth((req) => {
     }
 
     // Allow public routes with security headers
-    if (isPublicRoute && !isAgencyRoute && !isClientRoute && !isKolRoute) {
+    if (isPublicRoute && !isAgencyRoute && !isClientRoute) {
       const response = NextResponse.next();
       return addSecurityHeaders(response);
     }
@@ -153,12 +148,9 @@ const authMiddleware = auth((req) => {
     }
 
     // Allow auth pages (login, verify-request, auth-error, accept-invite) with security headers
-    if (isAuthPage && !isAgencyRoute && !isClientRoute && !isKolRoute) {
+    if (isAuthPage && !isAgencyRoute && !isClientRoute) {
       // If already logged in, redirect to dashboard
       if (isLoggedIn && session?.user?.organizationType) {
-        if (session.user.isKol) {
-          return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
-        }
         const redirectTo =
           session.user.organizationType === "AGENCY"
             ? "/agency/dashboard"
@@ -169,52 +161,22 @@ const authMiddleware = auth((req) => {
       return addSecurityHeaders(response);
     }
 
-    // Allow KOL auth pages (login, accept-invite) without authentication
-    if (isKolAuthPage) {
-      // If KOL is already logged in, redirect to dashboard
-      if (isLoggedIn && session?.user?.isKol) {
-        return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
-      }
-      const response = NextResponse.next();
-      return addSecurityHeaders(response);
-    }
-
-    // KOL route protection
-    if (isKolRoute && !isKolAuthPage) {
-      if (!isLoggedIn || !session?.user?.isKol) {
-        return NextResponse.redirect(new URL("/kol/login", nextUrl));
-      }
-    }
-
-    // Redirect non-logged-in users to appropriate login
-    if (!isLoggedIn && !isKolRoute) {
+    // Redirect non-logged-in users to login
+    if (!isLoggedIn) {
       return NextResponse.redirect(new URL("/login", nextUrl));
     }
 
     // Check organization type for protected routes
     if (isLoggedIn && session?.user) {
       const userOrgType = session.user.organizationType;
-      const isKol = session.user.isKol;
-
-      // Prevent KOLs from accessing agency/client routes
-      if (isKol && (isAgencyRoute || isClientRoute)) {
-        return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
-      }
-
-      // Prevent agency/client users from accessing KOL routes
-      if (!isKol && isKolRoute && !isKolAuthPage) {
-        const redirectTo =
-          userOrgType === "AGENCY" ? "/agency/dashboard" : "/client/dashboard";
-        return NextResponse.redirect(new URL(redirectTo, nextUrl));
-      }
 
       // Agency users trying to access client routes
-      if (!isKol && isClientRoute && userOrgType === "AGENCY") {
+      if (isClientRoute && userOrgType === "AGENCY") {
         return NextResponse.redirect(new URL("/agency/dashboard", nextUrl));
       }
 
       // Client users trying to access agency routes
-      if (!isKol && isAgencyRoute && userOrgType === "CLIENT") {
+      if (isAgencyRoute && userOrgType === "CLIENT") {
         return NextResponse.redirect(new URL("/client/dashboard", nextUrl));
       }
     }

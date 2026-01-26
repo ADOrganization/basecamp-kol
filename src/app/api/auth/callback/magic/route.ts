@@ -130,7 +130,6 @@ export async function GET(request: NextRequest) {
         organizationType: membership.organization.type,
         organizationRole: membership.role,
         organizationName: membership.organization.name,
-        isKol: false,
       },
       secret: process.env.AUTH_SECRET!,
       salt: "authjs.session-token",

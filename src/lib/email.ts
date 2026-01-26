@@ -38,11 +38,9 @@ interface SendEmailResult {
  */
 export async function sendMagicLinkEmail(
   email: string,
-  token: string,
-  userType: "user" | "kol" = "user"
+  token: string
 ): Promise<SendEmailResult> {
-  const callbackPath = userType === "kol" ? "/api/auth/callback/kol-magic" : "/api/auth/callback/magic";
-  const magicLink = `${APP_URL}${callbackPath}?token=${token}&email=${encodeURIComponent(email)}`;
+  const magicLink = `${APP_URL}/api/auth/callback/magic?token=${token}&email=${encodeURIComponent(email)}`;
 
   const html = `
 <!DOCTYPE html>
