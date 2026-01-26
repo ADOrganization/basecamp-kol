@@ -2,12 +2,13 @@ import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Key, Users, Settings, Shield } from "lucide-react";
+import { Building2, User, Key, Users, Settings, Shield, UserCog } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
 import { TeamManagement } from "@/components/settings/team-management";
 import { TwitterIntegrationCard, TelegramIntegrationCard, NotificationsCard } from "@/components/settings/integrations-card";
 import { TwoFactorAuth } from "@/components/settings/two-factor-auth";
+import { AdminTeamManagement } from "@/components/settings/admin-team-management";
 
 export default async function SettingsPage() {
   const context = await getAgencyContext();
@@ -33,6 +34,7 @@ export default async function SettingsPage() {
 
   // For admin users, create a synthetic user object since they don't have a User record
   let user: { id: string; name: string | null; email: string; avatarUrl: string | null } | null = null;
+  let adminRole: string | null = null;
 
   if (context.isAdmin) {
     const adminUser = await db.adminUser.findUnique({
@@ -43,8 +45,9 @@ export default async function SettingsPage() {
         id: adminUser.id,
         name: adminUser.name,
         email: adminUser.email,
-        avatarUrl: null,
+        avatarUrl: adminUser.avatarUrl,
       };
+      adminRole = adminUser.role;
     }
   } else {
     const dbUser = await db.user.findUnique({
@@ -95,6 +98,12 @@ export default async function SettingsPage() {
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
+          {context.isAdmin && (
+            <TabsTrigger value="admin-team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+              <UserCog className="h-4 w-4" />
+              Admin Team
+            </TabsTrigger>
+          )}
           <TabsTrigger value="integrations" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <Key className="h-4 w-4" />
             Integrations
@@ -166,6 +175,27 @@ export default async function SettingsPage() {
             />
           </div>
         </TabsContent>
+
+        {/* Admin Team Tab */}
+        {context.isAdmin && (
+          <TabsContent value="admin-team" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <UserCog className="h-4 w-4 text-purple-500" />
+                </div>
+                <div>
+                  <h2 className="font-semibold">Admin Team</h2>
+                  <p className="text-sm text-muted-foreground">Manage admin portal access and permissions</p>
+                </div>
+              </div>
+              <AdminTeamManagement
+                currentAdminId={context.userId}
+                currentAdminRole={adminRole || "ADMIN"}
+              />
+            </div>
+          </TabsContent>
+        )}
 
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-6">

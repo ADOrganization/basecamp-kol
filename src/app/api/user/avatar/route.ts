@@ -41,15 +41,20 @@ export async function POST(request: NextRequest) {
     const base64 = buffer.toString("base64");
     const dataUrl = `data:${file.type};base64,${base64}`;
 
-    // Admin users - avatars not supported (AdminUser doesn't have avatarUrl field)
+    // Update avatar in database based on user type
     if (authContext.isAdmin) {
-      return NextResponse.json(
-        { error: "Avatar upload not supported for admin accounts" },
-        { status: 400 }
-      );
+      const updatedAdmin = await db.adminUser.update({
+        where: { id: authContext.userId },
+        data: { avatarUrl: dataUrl },
+        select: {
+          id: true,
+          avatarUrl: true,
+        },
+      });
+      return NextResponse.json({ avatarUrl: updatedAdmin.avatarUrl });
     }
 
-    // Update user avatar in database
+    // Regular user
     const updatedUser = await db.user.update({
       where: { id: authContext.userId },
       data: { avatarUrl: dataUrl },
@@ -76,15 +81,16 @@ export async function DELETE() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Admin users - avatars not supported
+    // Remove avatar based on user type
     if (authContext.isAdmin) {
-      return NextResponse.json(
-        { error: "Avatar removal not supported for admin accounts" },
-        { status: 400 }
-      );
+      await db.adminUser.update({
+        where: { id: authContext.userId },
+        data: { avatarUrl: null },
+      });
+      return NextResponse.json({ success: true });
     }
 
-    // Remove avatar
+    // Regular user
     await db.user.update({
       where: { id: authContext.userId },
       data: { avatarUrl: null },

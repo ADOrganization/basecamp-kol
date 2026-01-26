@@ -101,6 +101,8 @@ model AdminUser {
   email        String    @unique
   passwordHash String
   name         String?
+  avatarUrl    String?
+  role         AdminRole @default(ADMIN)
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
@@ -111,7 +113,17 @@ model AdminUser {
   twoFactorSecret  String?   // Encrypted TOTP secret
   backupCodes      String[]  // Hashed backup codes
 
+  // Invitation tracking
+  invitedBy    String?   // ID of admin who invited this user
+  invitedAt    DateTime?
+
   @@map("admin_users")
+}
+
+enum AdminRole {
+  SUPER_ADMIN  // Full access - can manage other admins
+  ADMIN        // Full access to data, cannot manage admins
+  VIEWER       // Read-only access
 }
 
 // ============================================
