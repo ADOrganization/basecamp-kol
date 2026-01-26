@@ -92,6 +92,33 @@ export async function POST(request: NextRequest) {
           },
         });
       }
+    } else {
+      // 2FA is not enabled - require setup for all admin accounts
+      // Create a temporary token for 2FA setup only
+      const setupToken = await new SignJWT({
+        sub: admin.id,
+        email: admin.email,
+        type: "admin_2fa_setup",
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("15m") // 15 minutes to complete setup
+        .sign(ADMIN_JWT_SECRET);
+
+      // Set a temporary cookie for 2FA setup
+      const cookieStore = await cookies();
+      cookieStore.set("admin_2fa_setup_token", setupToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 15 * 60, // 15 minutes
+        path: "/",
+      });
+
+      return NextResponse.json({
+        requires2FASetup: true,
+        message: "Two-factor authentication setup is required for all admin accounts",
+      });
     }
 
     // Update last login

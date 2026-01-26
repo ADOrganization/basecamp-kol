@@ -74,15 +74,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only SUPER_ADMIN can invite new admins
-    if (admin.role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { error: "Only super admins can invite team members" },
-        { status: 403 }
-      );
-    }
-
+    // SUPER_ADMIN can invite any role, ADMIN can only invite ADMIN or VIEWER
     const { email, name, role } = await request.json();
+
+    if (admin.role !== "SUPER_ADMIN") {
+      if (admin.role !== "ADMIN") {
+        return NextResponse.json(
+          { error: "You don't have permission to invite team members" },
+          { status: 403 }
+        );
+      }
+      // ADMIN can only create ADMIN or VIEWER, not SUPER_ADMIN
+      if (role === "SUPER_ADMIN") {
+        return NextResponse.json(
+          { error: "Only super admins can create other super admin accounts" },
+          { status: 403 }
+        );
+      }
+    }
 
     if (!email) {
       return NextResponse.json(

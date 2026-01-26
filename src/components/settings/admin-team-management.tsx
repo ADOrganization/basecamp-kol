@@ -97,7 +97,8 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
   const [deletingAdmin, setDeletingAdmin] = useState<AdminUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canManageTeam = currentAdminRole === "SUPER_ADMIN";
+  const canManageTeam = currentAdminRole === "SUPER_ADMIN" || currentAdminRole === "ADMIN";
+  const isSuperAdmin = currentAdminRole === "SUPER_ADMIN";
 
   useEffect(() => {
     fetchAdmins();
@@ -297,7 +298,7 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                     2FA
                   </Badge>
                 )}
-                {canManageTeam && !isCurrentUser && (
+                {canManageTeam && !isCurrentUser && (isSuperAdmin || admin.role !== "SUPER_ADMIN") && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -400,12 +401,14 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SUPER_ADMIN">
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4 text-purple-600" />
-                        Super Admin - Full access, can manage team
-                      </div>
-                    </SelectItem>
+                    {isSuperAdmin && (
+                      <SelectItem value="SUPER_ADMIN">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-4 w-4 text-purple-600" />
+                          Super Admin - Full access, can manage team
+                        </div>
+                      </SelectItem>
+                    )}
                     <SelectItem value="ADMIN">
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-blue-600" />
@@ -471,7 +474,7 @@ export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminT
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                  {isSuperAdmin && <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>}
                   <SelectItem value="ADMIN">Admin</SelectItem>
                   <SelectItem value="VIEWER">Viewer</SelectItem>
                 </SelectContent>

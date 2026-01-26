@@ -9,31 +9,48 @@ const ADMIN_JWT_SECRET = new TextEncoder().encode(
   process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
 );
 
-async function getAdminFromToken() {
+async function getAdminFromToken(): Promise<{ adminId: string; isSetupToken: boolean } | null> {
   const cookieStore = await cookies();
+
+  // First check for regular admin token
   const token = cookieStore.get("admin_token")?.value;
-
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
-    if (payload.type !== "admin" || !payload.sub) return null;
-    return payload.sub as string;
-  } catch {
-    return null;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
+      if (payload.type === "admin" && payload.sub) {
+        return { adminId: payload.sub as string, isSetupToken: false };
+      }
+    } catch {
+      // Token invalid, continue to check setup token
+    }
   }
+
+  // Check for 2FA setup token (for first-time setup during login)
+  const setupToken = cookieStore.get("admin_2fa_setup_token")?.value;
+  if (setupToken) {
+    try {
+      const { payload } = await jwtVerify(setupToken, ADMIN_JWT_SECRET);
+      if (payload.type === "admin_2fa_setup" && payload.sub) {
+        return { adminId: payload.sub as string, isSetupToken: true };
+      }
+    } catch {
+      // Setup token invalid
+    }
+  }
+
+  return null;
 }
 
 // GET - Generate new 2FA secret and QR code
 export async function GET() {
   try {
-    const adminId = await getAdminFromToken();
-    if (!adminId) {
+    const authResult = await getAdminFromToken();
+    if (!authResult) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const admin = await db.adminUser.findUnique({
-      where: { id: adminId },
+      where: { id: authResult.adminId },
       select: { email: true, twoFactorEnabled: true },
     });
 
@@ -77,8 +94,8 @@ export async function GET() {
 // POST - Verify and enable 2FA
 export async function POST(request: NextRequest) {
   try {
-    const adminId = await getAdminFromToken();
-    if (!adminId) {
+    const authResult = await getAdminFromToken();
+    if (!authResult) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -104,23 +121,57 @@ export async function POST(request: NextRequest) {
     // Generate backup codes
     const backupCodes: string[] = [];
     for (let i = 0; i < 10; i++) {
-      const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      backupCodes.push(code);
+      const backupCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      backupCodes.push(backupCode);
     }
 
     // Store the secret and enable 2FA
-    await db.adminUser.update({
-      where: { id: adminId },
+    const admin = await db.adminUser.update({
+      where: { id: authResult.adminId },
       data: {
         twoFactorEnabled: true,
         twoFactorSecret: secret,
-        backupCodes: backupCodes, // In production, hash these
+        backupCodes: backupCodes,
       },
     });
 
+    // If this was a setup token (first-time login), clear it and create full session
+    const cookieStore = await cookies();
+    if (authResult.isSetupToken) {
+      cookieStore.delete("admin_2fa_setup_token");
+
+      // Create full admin session token
+      const { SignJWT } = await import("jose");
+      const token = await new SignJWT({
+        sub: admin.id,
+        email: admin.email,
+        name: admin.name,
+        type: "admin",
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("8h")
+        .sign(ADMIN_JWT_SECRET);
+
+      cookieStore.set("admin_token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 8 * 60 * 60,
+        path: "/",
+      });
+
+      // Update last login
+      await db.adminUser.update({
+        where: { id: admin.id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      backupCodes, // Show these once to the user
+      backupCodes,
+      redirectTo: authResult.isSetupToken ? "/agency" : undefined,
     });
   } catch (error) {
     console.error("[2FA Setup] Enable error:", error);

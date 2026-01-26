@@ -40,6 +40,12 @@ export default function AdminLoginPage() {
         return;
       }
 
+      if (data.requires2FASetup) {
+        // New admin account - redirect to mandatory 2FA setup
+        router.push("/admin/setup-2fa");
+        return;
+      }
+
       if (!response.ok) {
         setError(data.error || "Invalid credentials");
         return;
