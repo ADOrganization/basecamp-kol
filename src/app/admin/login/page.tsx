@@ -33,7 +33,9 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin/dashboard");
+      // Redirect directly to agency dashboard
+      router.push("/agency/dashboard");
+      router.refresh();
     } catch {
       setError("An error occurred. Please try again.");
     } finally {

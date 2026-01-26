@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 /**
  * Add security headers to response
@@ -48,155 +48,152 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-export default auth((req) => {
-  try {
-    const { nextUrl, auth: session } = req;
-    const isLoggedIn = !!session?.user;
-    const hostname = req.headers.get("host") || "";
+// Main middleware function - handles admin subdomain separately from NextAuth
+export default async function middleware(req: NextRequest) {
+  const { nextUrl } = req;
+  const hostname = req.headers.get("host") || "";
 
-    // Handle admin subdomain
-    if (hostname.startsWith("admin.")) {
-      // Allow agency routes for admin subdomain (admin users access agency features)
-      if (nextUrl.pathname.startsWith("/agency") || nextUrl.pathname.startsWith("/api/")) {
-        const response = NextResponse.next();
-        return addSecurityHeaders(response);
-      }
-      // Rewrite root or /login to /admin/login
-      if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
-        const url = nextUrl.clone();
-        url.pathname = "/admin/login";
-        return NextResponse.rewrite(url);
-      }
-      // Allow /admin routes
-      if (nextUrl.pathname.startsWith("/admin")) {
-        const response = NextResponse.next();
-        return addSecurityHeaders(response);
-      }
-      // For other paths, rewrite to /admin prefix
+  // Handle admin subdomain - completely separate from NextAuth
+  if (hostname.startsWith("admin.")) {
+    // Rewrite root or /login to /admin/login
+    if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
       const url = nextUrl.clone();
-      url.pathname = `/admin${nextUrl.pathname}`;
-      return NextResponse.rewrite(url);
-    }
-
-    // Route classification
-    const isAuthPage =
-      nextUrl.pathname.startsWith("/login") ||
-      nextUrl.pathname.startsWith("/register") ||
-      nextUrl.pathname.startsWith("/verify-request") ||
-      nextUrl.pathname.startsWith("/auth-error") ||
-      nextUrl.pathname.startsWith("/accept-invite");
-
-    const isAgencyRoute = nextUrl.pathname.startsWith("/agency");
-    const isClientRoute = nextUrl.pathname.startsWith("/client");
-    const isKolRoute = nextUrl.pathname.startsWith("/kol");
-    const isAdminRoute = nextUrl.pathname.startsWith("/admin");
-
-    const isKolAuthPage =
-      nextUrl.pathname.startsWith("/kol/login") ||
-      nextUrl.pathname.startsWith("/kol/accept-invite");
-
-    const isApiRoute = nextUrl.pathname.startsWith("/api");
-
-    const isPublicRoute =
-      nextUrl.pathname === "/" ||
-      nextUrl.pathname.startsWith("/_next") ||
-      nextUrl.pathname === "/favicon.ico";
-
-    // API routes handle their own auth and security
-    if (isApiRoute) {
-      const response = NextResponse.next();
+      url.pathname = "/admin/login";
+      const response = NextResponse.rewrite(url);
       return addSecurityHeaders(response);
     }
 
-    // Allow public routes with security headers
-    if (isPublicRoute && !isAgencyRoute && !isClientRoute && !isKolRoute) {
-      const response = NextResponse.next();
-      return addSecurityHeaders(response);
-    }
-
-    // Admin routes have their own auth system (not NextAuth)
-    // Allow all admin routes to pass through - they handle their own auth
-    if (isAdminRoute) {
-      const response = NextResponse.next();
-      return addSecurityHeaders(response);
-    }
-
-    // Allow auth pages (login, verify-request, auth-error, accept-invite) with security headers
-    if (isAuthPage && !isAgencyRoute && !isClientRoute && !isKolRoute) {
-      // If already logged in, redirect to dashboard
-      if (isLoggedIn && session?.user?.organizationType) {
-        if (session.user.isKol) {
-          return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
-        }
-        const redirectTo =
-          session.user.organizationType === "AGENCY"
-            ? "/agency/dashboard"
-            : "/client/dashboard";
-        return NextResponse.redirect(new URL(redirectTo, nextUrl));
-      }
-      const response = NextResponse.next();
-      return addSecurityHeaders(response);
-    }
-
-    // Allow KOL auth pages (login, accept-invite) without authentication
-    if (isKolAuthPage) {
-      // If KOL is already logged in, redirect to dashboard
-      if (isLoggedIn && session?.user?.isKol) {
-        return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
-      }
-      const response = NextResponse.next();
-      return addSecurityHeaders(response);
-    }
-
-    // KOL route protection
-    if (isKolRoute && !isKolAuthPage) {
-      if (!isLoggedIn || !session?.user?.isKol) {
-        return NextResponse.redirect(new URL("/kol/login", nextUrl));
-      }
-    }
-
-    // Redirect non-logged-in users to appropriate login
-    if (!isLoggedIn && !isKolRoute) {
-      return NextResponse.redirect(new URL("/login", nextUrl));
-    }
-
-    // Check organization type for protected routes
-    if (isLoggedIn && session?.user) {
-      const userOrgType = session.user.organizationType;
-      const isKol = session.user.isKol;
-
-      // Prevent KOLs from accessing agency/client routes
-      if (isKol && (isAgencyRoute || isClientRoute)) {
-        return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
-      }
-
-      // Prevent agency/client users from accessing KOL routes
-      if (!isKol && isKolRoute && !isKolAuthPage) {
-        const redirectTo =
-          userOrgType === "AGENCY" ? "/agency/dashboard" : "/client/dashboard";
-        return NextResponse.redirect(new URL(redirectTo, nextUrl));
-      }
-
-      // Agency users trying to access client routes
-      if (!isKol && isClientRoute && userOrgType === "AGENCY") {
-        return NextResponse.redirect(new URL("/agency/dashboard", nextUrl));
-      }
-
-      // Client users trying to access agency routes
-      if (!isKol && isAgencyRoute && userOrgType === "CLIENT") {
-        return NextResponse.redirect(new URL("/client/dashboard", nextUrl));
-      }
-    }
-
-    const response = NextResponse.next();
-    return addSecurityHeaders(response);
-  } catch (error) {
-    console.error("Middleware error:", error);
-    // On error, allow the request through with security headers
+    // Allow all paths on admin subdomain - they handle their own auth
     const response = NextResponse.next();
     return addSecurityHeaders(response);
   }
-});
+
+  // For non-admin domains, use NextAuth middleware
+  return auth(async (authReq) => {
+    try {
+      const session = authReq.auth;
+      const isLoggedIn = !!session?.user;
+
+      // Route classification
+      const isAuthPage =
+        nextUrl.pathname.startsWith("/login") ||
+        nextUrl.pathname.startsWith("/register") ||
+        nextUrl.pathname.startsWith("/verify-request") ||
+        nextUrl.pathname.startsWith("/auth-error") ||
+        nextUrl.pathname.startsWith("/accept-invite");
+
+      const isAgencyRoute = nextUrl.pathname.startsWith("/agency");
+      const isClientRoute = nextUrl.pathname.startsWith("/client");
+      const isKolRoute = nextUrl.pathname.startsWith("/kol");
+      const isAdminRoute = nextUrl.pathname.startsWith("/admin");
+
+      const isKolAuthPage =
+        nextUrl.pathname.startsWith("/kol/login") ||
+        nextUrl.pathname.startsWith("/kol/accept-invite");
+
+      const isApiRoute = nextUrl.pathname.startsWith("/api");
+
+      const isPublicRoute =
+        nextUrl.pathname === "/" ||
+        nextUrl.pathname.startsWith("/_next") ||
+        nextUrl.pathname === "/favicon.ico";
+
+      // API routes handle their own auth and security
+      if (isApiRoute) {
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+
+      // Allow public routes with security headers
+      if (isPublicRoute && !isAgencyRoute && !isClientRoute && !isKolRoute) {
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+
+      // Admin routes have their own auth system (not NextAuth)
+      // Allow all admin routes to pass through - they handle their own auth
+      if (isAdminRoute) {
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+
+      // Allow auth pages (login, verify-request, auth-error, accept-invite) with security headers
+      if (isAuthPage && !isAgencyRoute && !isClientRoute && !isKolRoute) {
+        // If already logged in, redirect to dashboard
+        if (isLoggedIn && session?.user?.organizationType) {
+          if (session.user.isKol) {
+            return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
+          }
+          const redirectTo =
+            session.user.organizationType === "AGENCY"
+              ? "/agency/dashboard"
+              : "/client/dashboard";
+          return NextResponse.redirect(new URL(redirectTo, nextUrl));
+        }
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+
+      // Allow KOL auth pages (login, accept-invite) without authentication
+      if (isKolAuthPage) {
+        // If KOL is already logged in, redirect to dashboard
+        if (isLoggedIn && session?.user?.isKol) {
+          return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
+        }
+        const response = NextResponse.next();
+        return addSecurityHeaders(response);
+      }
+
+      // KOL route protection
+      if (isKolRoute && !isKolAuthPage) {
+        if (!isLoggedIn || !session?.user?.isKol) {
+          return NextResponse.redirect(new URL("/kol/login", nextUrl));
+        }
+      }
+
+      // Redirect non-logged-in users to appropriate login
+      if (!isLoggedIn && !isKolRoute) {
+        return NextResponse.redirect(new URL("/login", nextUrl));
+      }
+
+      // Check organization type for protected routes
+      if (isLoggedIn && session?.user) {
+        const userOrgType = session.user.organizationType;
+        const isKol = session.user.isKol;
+
+        // Prevent KOLs from accessing agency/client routes
+        if (isKol && (isAgencyRoute || isClientRoute)) {
+          return NextResponse.redirect(new URL("/kol/dashboard", nextUrl));
+        }
+
+        // Prevent agency/client users from accessing KOL routes
+        if (!isKol && isKolRoute && !isKolAuthPage) {
+          const redirectTo =
+            userOrgType === "AGENCY" ? "/agency/dashboard" : "/client/dashboard";
+          return NextResponse.redirect(new URL(redirectTo, nextUrl));
+        }
+
+        // Agency users trying to access client routes
+        if (!isKol && isClientRoute && userOrgType === "AGENCY") {
+          return NextResponse.redirect(new URL("/agency/dashboard", nextUrl));
+        }
+
+        // Client users trying to access agency routes
+        if (!isKol && isAgencyRoute && userOrgType === "CLIENT") {
+          return NextResponse.redirect(new URL("/client/dashboard", nextUrl));
+        }
+      }
+
+      const response = NextResponse.next();
+      return addSecurityHeaders(response);
+    } catch (error) {
+      console.error("Middleware error:", error);
+      // On error, allow the request through with security headers
+      const response = NextResponse.next();
+      return addSecurityHeaders(response);
+    }
+  })(req, {});
+}
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|api/healthcheck).*)"],
