@@ -64,36 +64,35 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
+    <Card className="border-border bg-card/50 backdrop-blur">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center">
           <span className="text-2xl font-bold text-white">B</span>
         </div>
-        <CardTitle className="text-2xl text-white">Create an account</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle className="text-2xl">Create an account</CardTitle>
+        <CardDescription>
           Get started with Basecamp
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           {error && (
-            <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-400">
+            <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-500 dark:text-rose-400">
               {error}
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-slate-200">Your Name</Label>
+            <Label htmlFor="name">Your Name</Label>
             <Input
               id="name"
               placeholder="John Doe"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-slate-200">Email</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
@@ -101,11 +100,10 @@ export default function RegisterPage() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-slate-200">Password</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
@@ -114,29 +112,27 @@ export default function RegisterPage() {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
               minLength={6}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="organizationName" className="text-slate-200">Organization Name</Label>
+            <Label htmlFor="organizationName">Organization Name</Label>
             <Input
               id="organizationName"
               placeholder="Your company name"
               value={formData.organizationName}
               onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
               required
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="organizationType" className="text-slate-200">Organization Type</Label>
+            <Label htmlFor="organizationType">Organization Type</Label>
             <Select
               value={formData.organizationType}
               onValueChange={(value: "AGENCY" | "CLIENT") =>
                 setFormData({ ...formData, organizationType: value })
               }
             >
-              <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+              <SelectTrigger>
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
@@ -154,9 +150,9 @@ export default function RegisterPage() {
           >
             {isLoading ? "Creating account..." : "Create account"}
           </Button>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-indigo-400 hover:text-indigo-300">
+            <Link href="/login" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
               Sign in
             </Link>
           </p>

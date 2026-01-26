@@ -89,33 +89,31 @@
   --sidebar-accent: #4f46e5;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #030712;
-    --foreground: #f8fafc;
-    --card: #0f172a;
-    --card-foreground: #f8fafc;
-    --popover: #0f172a;
-    --popover-foreground: #f8fafc;
-    --primary: #6366f1;
-    --primary-foreground: #ffffff;
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --accent: #2dd4bf;
-    --accent-foreground: #0f172a;
-    --destructive: #fb7185;
-    --destructive-foreground: #0f172a;
-    --border: #1e293b;
-    --input: #1e293b;
-    --ring: #6366f1;
+.dark {
+  --background: #030712;
+  --foreground: #f8fafc;
+  --card: #0f172a;
+  --card-foreground: #f8fafc;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #2dd4bf;
+  --accent-foreground: #0f172a;
+  --destructive: #fb7185;
+  --destructive-foreground: #0f172a;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #6366f1;
 
-    --sidebar-bg: #020617;
-    --sidebar-foreground: #f8fafc;
-    --sidebar-muted: #0f172a;
-    --sidebar-accent: #6366f1;
-  }
+  --sidebar-bg: #020617;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-muted: #0f172a;
+  --sidebar-accent: #6366f1;
 }
 
 @theme inline {
@@ -196,10 +194,8 @@ body {
   -webkit-backdrop-filter: blur(12px);
 }
 
-@media (prefers-color-scheme: dark) {
-  .glass {
-    background: rgba(15, 23, 42, 0.7);
-  }
+.dark .glass {
+  background: rgba(15, 23, 42, 0.7);
 }
 
 /* Gradient text utility */
@@ -229,10 +225,8 @@ body {
   box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
 }
 
-@media (prefers-color-scheme: dark) {
-  .card-hover:hover {
-    box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.4);
-  }
+.dark .card-hover:hover {
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.4);
 }
 
 /* Smooth transitions for interactive elements */

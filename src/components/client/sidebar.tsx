@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface ClientSidebarProps {
   user: {
@@ -44,14 +45,17 @@ export function ClientSidebar({ user }: ClientSidebarProps) {
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-slate-800">
+      <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-muted">
         <div className="h-8 w-8 rounded-lg bg-teal-600 flex items-center justify-center">
           <span className="text-lg font-bold text-white">B</span>
         </div>
         <span className="text-lg font-semibold">Basecamp</span>
-        <span className="ml-auto text-xs bg-teal-600/20 text-teal-400 px-2 py-0.5 rounded">
-          Client
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs bg-teal-600/20 text-teal-400 px-2 py-0.5 rounded">
+            Client
+          </span>
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Navigation */}
@@ -77,7 +81,7 @@ export function ClientSidebar({ user }: ClientSidebarProps) {
       </nav>
 
       {/* User Menu */}
-      <div className="border-t border-slate-800 p-4">
+      <div className="border-t border-sidebar-muted p-4">
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-muted">
             {user.avatarUrl ? (

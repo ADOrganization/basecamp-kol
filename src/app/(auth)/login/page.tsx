@@ -52,25 +52,25 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
+    <Card className="border-border bg-card/50 backdrop-blur">
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center">
           <span className="text-2xl font-bold text-white">B</span>
         </div>
-        <CardTitle className="text-2xl text-white">Welcome back</CardTitle>
-        <CardDescription className="text-slate-400">
+        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardDescription>
           Sign in to your Basecamp account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           {error && (
-            <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-400">
+            <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-500 dark:text-rose-400">
               {error}
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-slate-200">Email</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
@@ -81,11 +81,10 @@ export default function LoginPage() {
               required
               disabled={isLoading}
               autoComplete="email"
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-slate-200">Password</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               name="password"
@@ -96,7 +95,6 @@ export default function LoginPage() {
               required
               disabled={isLoading}
               autoComplete="current-password"
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
             />
           </div>
 
@@ -116,9 +114,9 @@ export default function LoginPage() {
               "Sign in"
             )}
           </Button>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-indigo-400 hover:text-indigo-300">
+            <Link href="/register" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300">
               Create one
             </Link>
           </p>

@@ -114,83 +114,83 @@ export default async function AgencyDashboard() {
       {/* Hero Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Impressions */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 border border-slate-800 hover:border-indigo-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-indigo-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 rounded-lg bg-indigo-500/20">
-                <Eye className="h-5 w-5 text-indigo-400" />
+                <Eye className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
               </div>
-              <span className="flex items-center text-xs text-emerald-400">
+              <span className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
                 <ArrowUpRight className="h-3 w-3 mr-0.5" />
                 12.5%
               </span>
             </div>
-            <p className="text-3xl font-bold text-white mb-1">
+            <p className="text-3xl font-bold text-foreground mb-1">
               {formatNumber(stats.totalImpressions)}
             </p>
-            <p className="text-sm text-slate-400">Total Impressions</p>
+            <p className="text-sm text-muted-foreground">Total Impressions</p>
           </div>
         </div>
 
         {/* Total Engagement */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 border border-slate-800 hover:border-teal-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-teal-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 rounded-lg bg-teal-500/20">
-                <Heart className="h-5 w-5 text-teal-400" />
+                <Heart className="h-5 w-5 text-teal-500 dark:text-teal-400" />
               </div>
-              <span className="flex items-center text-xs text-emerald-400">
+              <span className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
                 <ArrowUpRight className="h-3 w-3 mr-0.5" />
                 8.2%
               </span>
             </div>
-            <p className="text-3xl font-bold text-white mb-1">
+            <p className="text-3xl font-bold text-foreground mb-1">
               {formatNumber(stats.totalLikes + stats.totalRetweets)}
             </p>
-            <p className="text-sm text-slate-400">Total Engagement</p>
+            <p className="text-sm text-muted-foreground">Total Engagement</p>
           </div>
         </div>
 
         {/* Active Campaigns */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 border border-slate-800 hover:border-purple-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-purple-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 rounded-lg bg-purple-500/20">
-                <Megaphone className="h-5 w-5 text-purple-400" />
+                <Megaphone className="h-5 w-5 text-purple-500 dark:text-purple-400" />
               </div>
-              <span className="flex items-center text-xs text-emerald-400">
+              <span className="flex items-center text-xs text-emerald-600 dark:text-emerald-400">
                 <ArrowUpRight className="h-3 w-3 mr-0.5" />
                 2 new
               </span>
             </div>
-            <p className="text-3xl font-bold text-white mb-1">
+            <p className="text-3xl font-bold text-foreground mb-1">
               {stats.activeCampaignCount}
             </p>
-            <p className="text-sm text-slate-400">Active Campaigns</p>
+            <p className="text-sm text-muted-foreground">Active Campaigns</p>
           </div>
         </div>
 
         {/* Budget Utilization */}
-        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 border border-slate-800 hover:border-amber-500/50 transition-all duration-300">
+        <div className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-800 p-6 border border-border hover:border-amber-500/50 transition-all duration-300">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 rounded-lg bg-amber-500/20">
-                <TrendingUp className="h-5 w-5 text-amber-400" />
+                <TrendingUp className="h-5 w-5 text-amber-500 dark:text-amber-400" />
               </div>
-              <span className="text-xs text-slate-400">
+              <span className="text-xs text-muted-foreground">
                 {stats.totalBudget > 0 ? Math.round((stats.totalSpent / stats.totalBudget) * 100) : 0}% used
               </span>
             </div>
-            <p className="text-3xl font-bold text-white mb-1">
+            <p className="text-3xl font-bold text-foreground mb-1">
               {formatCurrency(stats.totalBudget)}
             </p>
-            <p className="text-sm text-slate-400">Total Budget</p>
+            <p className="text-sm text-muted-foreground">Total Budget</p>
             {/* Progress bar */}
-            <div className="mt-3 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className="mt-3 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-500"
                 style={{ width: `${stats.totalBudget > 0 ? (stats.totalSpent / stats.totalBudget) * 100 : 0}%` }}
