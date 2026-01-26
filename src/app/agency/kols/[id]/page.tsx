@@ -602,10 +602,10 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-medium text-muted-foreground">Campaign</th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">Amount</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Proof Link</th>
                     <th className="text-left p-4 font-medium text-muted-foreground">Submitted By</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Date</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Amount</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -624,9 +624,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                           <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="p-4 text-right font-medium">
-                        {formatCurrency(receipt.amount)}
-                      </td>
                       <td className="p-4">
                         <a
                           href={receipt.proofUrl}
@@ -643,6 +640,9 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                       </td>
                       <td className="p-4 text-right">
                         {formatDate(receipt.createdAt)}
+                      </td>
+                      <td className="p-4 text-right font-medium">
+                        {formatCurrency(receipt.amount)}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -670,10 +670,13 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                   {/* Total row */}
                   <tr className="border-t bg-muted/30 font-semibold">
                     <td className="p-4">Total</td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
+                    <td className="p-4"></td>
                     <td className="p-4 text-right">
                       {formatCurrency(kol.paymentReceipts.reduce((sum, r) => sum + r.amount, 0))}
                     </td>
-                    <td colSpan={4}></td>
+                    <td className="p-4"></td>
                   </tr>
                 </tbody>
               </table>
