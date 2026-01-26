@@ -47,6 +47,13 @@ export async function GET(
           orderBy: { createdAt: "desc" },
           take: 10,
         },
+        account: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true,
+          },
+        },
       },
     });
 

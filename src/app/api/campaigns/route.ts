@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
-import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey } from "@/lib/scraper/x-scraper";
+import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
 
 export async function GET(request: NextRequest) {
   try {
@@ -143,12 +143,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = campaignSchema.parse(body);
 
-    // Load organization's Apify API key for media fetching
+    // Load organization's API keys for media fetching
     const org = await db.organization.findUnique({
       where: { id: session.user.organizationId },
-      select: { apifyApiKey: true },
+      select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
+    // Set SocialData API key (primary)
+    if (org?.socialDataApiKey) {
+      setSocialDataApiKey(org.socialDataApiKey);
+    } else {
+      clearSocialDataApiKey();
+    }
+
+    // Set Apify API key (fallback)
     if (org?.apifyApiKey) {
       setApifyApiKey(org.apifyApiKey);
     } else {

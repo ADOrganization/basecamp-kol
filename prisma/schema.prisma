@@ -39,7 +39,8 @@ model Organization {
   twitterApiKey    String?  // twexapi.io or RapidAPI key
   twitterCookies   String?  // Browser cookies for direct API access
   twitterCsrfToken String?  // CSRF token for direct API
-  apifyApiKey      String?  // Apify API key for Twitter scraping
+  apifyApiKey      String?  // Apify API key for Twitter scraping (fallback)
+  socialDataApiKey String?  // SocialData.tools API key (primary)
 
   // Telegram bot integration
   telegramBotToken String?  // Bot token from @BotFather
@@ -52,22 +53,28 @@ model Organization {
   kols               KOL[]
   telegramChats      TelegramChat[]
   telegramBroadcasts TelegramBroadcast[]
+  userInvitations    UserInvitation[]
 
   @@map("organizations")
 }
 
 model User {
-  id               String   @id @default(cuid())
-  email            String   @unique
+  id               String    @id @default(cuid())
+  email            String    @unique
   name             String?
-  passwordHash     String
+  passwordHash     String?   // Optional - not needed for magic link auth
+  emailVerified    DateTime? // When email was verified via magic link
   twitterUsername  String?
   telegramUsername String?
   avatarUrl        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  isDisabled       Boolean   @default(false) // Admin can disable users
+  lastLoginAt      DateTime? // Track last login for security
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  memberships OrganizationMember[]
+  memberships      OrganizationMember[]
+  sentInvitations  UserInvitation[] @relation("SentInvitations")
+  auditLogs        SecurityAuditLog[]
 
   @@map("users")
 }
@@ -598,8 +605,9 @@ model KOLAccount {
   id           String    @id @default(cuid())
   kolId        String    @unique
   email        String    @unique
-  passwordHash String
+  passwordHash String?   // Optional - not needed for magic link auth
   isVerified   Boolean   @default(false)
+  isDisabled   Boolean   @default(false) // Admin can disable KOL access
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -654,4 +662,60 @@ model KOLWallet {
 
   @@unique([kolId, network, address])
   @@map("kol_wallets")
+}
+
+// ============================================
+// AUTHENTICATION & SECURITY
+// ============================================
+
+// Magic link verification tokens (for passwordless auth)
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String   // Email address
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([identifier, token])
+  @@index([expires])
+  @@map("verification_tokens")
+}
+
+// User invitations (for admin-managed access)
+model UserInvitation {
+  id             String           @id @default(cuid())
+  email          String
+  organizationId String
+  role           OrganizationRole @default(MEMBER)
+  invitedBy      String
+  token          String           @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime         @default(now())
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User             @relation("SentInvitations", fields: [invitedBy], references: [id])
+
+  @@index([email])
+  @@index([organizationId])
+  @@map("user_invitations")
+}
+
+// Security audit log for tracking auth events
+model SecurityAuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   // LOGIN_SUCCESS, LOGIN_FAILED, MAGIC_LINK_SENT, INVITE_SENT, USER_DISABLED, etc.
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?    // Additional context (email, reason, etc.)
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("security_audit_logs")
 }

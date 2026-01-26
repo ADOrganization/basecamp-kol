@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey } from "@/lib/scraper/x-scraper";
+import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
 
 // POST - Refresh avatars and banners for campaigns with Twitter handles
 // Use ?force=true to refresh ALL campaigns, not just those missing media

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
+import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {

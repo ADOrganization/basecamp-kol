@@ -5,9 +5,10 @@ import { z } from "zod";
 
 const twitterSettingsSchema = z.object({
   apifyApiKey: z.string().optional(),
+  socialDataApiKey: z.string().optional(),
 });
 
-// GET - Retrieve Twitter/Apify settings
+// GET - Retrieve Twitter/API settings
 export async function GET() {
   try {
     const session = await auth();
@@ -19,6 +20,7 @@ export async function GET() {
       where: { id: session.user.organizationId },
       select: {
         apifyApiKey: true,
+        socialDataApiKey: true,
       },
     });
 
@@ -26,14 +28,20 @@ export async function GET() {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
-    // Mask the API key for security (show only last 4 chars)
+    // Mask the API keys for security (show only last 4 chars)
     const maskedApifyKey = org.apifyApiKey
-      ? `${"\*".repeat(Math.max(0, org.apifyApiKey.length - 4))}${org.apifyApiKey.slice(-4)}`
+      ? `${"*".repeat(Math.max(0, org.apifyApiKey.length - 4))}${org.apifyApiKey.slice(-4)}`
+      : null;
+
+    const maskedSocialDataKey = org.socialDataApiKey
+      ? `${"*".repeat(Math.max(0, org.socialDataApiKey.length - 4))}${org.socialDataApiKey.slice(-4)}`
       : null;
 
     return NextResponse.json({
       hasApifyKey: !!org.apifyApiKey,
       maskedApifyKey: maskedApifyKey,
+      hasSocialDataKey: !!org.socialDataApiKey,
+      maskedSocialDataKey: maskedSocialDataKey,
     });
   } catch (error) {
     console.error("Error getting Twitter settings:", error);
@@ -71,10 +79,14 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = twitterSettingsSchema.parse(body);
 
-    const updateData: { apifyApiKey?: string | null } = {};
+    const updateData: { apifyApiKey?: string | null; socialDataApiKey?: string | null } = {};
 
     if (validatedData.apifyApiKey !== undefined) {
       updateData.apifyApiKey = validatedData.apifyApiKey || null;
+    }
+
+    if (validatedData.socialDataApiKey !== undefined) {
+      updateData.socialDataApiKey = validatedData.socialDataApiKey || null;
     }
 
     await db.organization.update({

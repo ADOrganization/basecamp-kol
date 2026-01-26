@@ -98,4 +98,16 @@ export const RATE_LIMITS = {
 
   // Auth endpoints - 10 requests per minute to prevent brute force
   auth: { limit: 10, windowMs: 60 * 1000 },
+
+  // Magic link requests - 5 per minute per IP (prevent spam)
+  magicLink: { limit: 5, windowMs: 60 * 1000 },
+
+  // Magic link callbacks - 10 per minute per IP
+  magicLinkCallback: { limit: 10, windowMs: 60 * 1000 },
+
+  // User invitations - 10 per minute per org (prevent spam)
+  invite: { limit: 10, windowMs: 60 * 1000 },
+
+  // Failed auth attempts - strict limit per IP
+  authFailed: { limit: 5, windowMs: 5 * 60 * 1000 }, // 5 attempts per 5 minutes
 } as const;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { fetchTwitterProfile, setApifyApiKey, clearApifyApiKey } from "@/lib/scraper/x-scraper";
+import { fetchTwitterProfile, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // POST - Refresh metrics for all KOLs in the organization
@@ -20,18 +20,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Load organization's Apify API key
+    // Load organization's API keys
     const org = await db.organization.findUnique({
       where: { id: session.user.organizationId },
-      select: { apifyApiKey: true },
+      select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
+    // Set SocialData API key (primary)
+    if (org?.socialDataApiKey) {
+      setSocialDataApiKey(org.socialDataApiKey);
+      console.log(`[Refresh All] SocialData API key loaded (primary)`);
+    } else {
+      clearSocialDataApiKey();
+    }
+
+    // Set Apify API key (fallback)
     if (org?.apifyApiKey) {
       setApifyApiKey(org.apifyApiKey);
-      console.log(`[Refresh All] Apify API key loaded`);
+      console.log(`[Refresh All] Apify API key loaded (fallback)`);
     } else {
       clearApifyApiKey();
-      console.log(`[Refresh All] No Apify API key configured`);
+    }
+
+    if (!org?.socialDataApiKey && !org?.apifyApiKey) {
+      console.log(`[Refresh All] No API keys configured`);
     }
 
     // Get all KOLs for this organization (exclude only BLACKLISTED)

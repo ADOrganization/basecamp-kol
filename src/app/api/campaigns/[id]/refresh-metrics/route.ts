@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, hasApifyApiKey } from "@/lib/scraper/x-scraper";
+import { scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasAnyScraperConfigured } from "@/lib/scraper/x-scraper";
 
 export async function POST(
   request: Request,
@@ -19,19 +19,30 @@ export async function POST(
   }
 
   try {
-    // Load organization's Apify API key
+    // Load organization's API keys
     const org = await db.organization.findUnique({
       where: { id: session.user.organizationId },
-      select: { apifyApiKey: true },
+      select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
-    // Set Apify API key for scraping
+    // Set SocialData API key (primary)
+    if (org?.socialDataApiKey) {
+      setSocialDataApiKey(org.socialDataApiKey);
+      console.log(`[Refresh Metrics] SocialData key configured (primary)`);
+    } else {
+      clearSocialDataApiKey();
+    }
+
+    // Set Apify API key (fallback)
     if (org?.apifyApiKey) {
       setApifyApiKey(org.apifyApiKey);
-      console.log(`[Refresh Metrics] Apify key configured`);
+      console.log(`[Refresh Metrics] Apify key configured (fallback)`);
     } else {
       clearApifyApiKey();
-      console.log(`[Refresh Metrics] No Apify key - using syndication API (may fail)`);
+    }
+
+    if (!org?.socialDataApiKey && !org?.apifyApiKey) {
+      console.log(`[Refresh Metrics] No API keys - using syndication API (may fail)`);
     }
 
     // Get campaign with posts
@@ -134,7 +145,7 @@ export async function POST(
       refreshed: successCount,
       failed: failCount,
       total: campaign.posts.length,
-      apifyConfigured: hasApifyApiKey(),
+      scraperConfigured: hasAnyScraperConfigured(),
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Return first 5 errors
     });
   } catch (error) {

@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, User, Key, Users } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
-import { PasswordForm } from "@/components/settings/password-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
 import { TeamManagement } from "@/components/settings/team-management";
 import { TwitterIntegrationCard, TelegramIntegrationCard, NotificationsCard } from "@/components/settings/integrations-card";
@@ -67,7 +66,6 @@ export default async function SettingsPage() {
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
           <ProfileForm user={user} variant="agency" />
-          <PasswordForm />
         </TabsContent>
 
         {/* Organization Tab */}

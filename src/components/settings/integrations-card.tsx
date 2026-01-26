@@ -18,6 +18,13 @@ interface IntegrationsCardProps {
 }
 
 export function TwitterIntegrationCard() {
+  // SocialData (primary)
+  const [socialDataKey, setSocialDataKey] = useState("");
+  const [hasSocialDataKey, setHasSocialDataKey] = useState(false);
+  const [maskedSocialDataKey, setMaskedSocialDataKey] = useState<string | null>(null);
+  const [showSocialDataKey, setShowSocialDataKey] = useState(false);
+
+  // Apify (fallback)
   const [apifyKey, setApifyKey] = useState("");
   const [hasApifyKey, setHasApifyKey] = useState(false);
   const [maskedApifyKey, setMaskedApifyKey] = useState<string | null>(null);
@@ -36,6 +43,8 @@ export function TwitterIntegrationCard() {
       const response = await fetch("/api/organization/twitter");
       if (response.ok) {
         const data = await response.json();
+        setHasSocialDataKey(data.hasSocialDataKey);
+        setMaskedSocialDataKey(data.maskedSocialDataKey);
         setHasApifyKey(data.hasApifyKey);
         setMaskedApifyKey(data.maskedApifyKey);
       }
@@ -43,6 +52,61 @@ export function TwitterIntegrationCard() {
       console.error("Failed to fetch settings:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveSocialData = async () => {
+    if (!socialDataKey.trim()) return;
+
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/twitter", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ socialDataApiKey: socialDataKey }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "SocialData API key saved" });
+        setSocialDataKey("");
+        fetchSettings();
+      } else {
+        const data = await response.json();
+        setMessage({ type: "error", text: data.error || "Failed to save" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to save API key" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClearSocialData = async () => {
+    if (!confirm("Remove the SocialData API key?")) return;
+
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/organization/twitter", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ socialDataApiKey: "" }),
+      });
+
+      if (response.ok) {
+        setMessage({ type: "success", text: "SocialData API key removed" });
+        setHasSocialDataKey(false);
+        setMaskedSocialDataKey(null);
+      } else {
+        setMessage({ type: "error", text: "Failed to remove" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Failed to remove API key" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -60,7 +124,7 @@ export function TwitterIntegrationCard() {
       });
 
       if (response.ok) {
-        setMessage({ type: "success", text: "API key saved successfully" });
+        setMessage({ type: "success", text: "Apify API key saved" });
         setApifyKey("");
         fetchSettings();
       } else {
@@ -88,7 +152,7 @@ export function TwitterIntegrationCard() {
       });
 
       if (response.ok) {
-        setMessage({ type: "success", text: "API key removed" });
+        setMessage({ type: "success", text: "Apify API key removed" });
         setHasApifyKey(false);
         setMaskedApifyKey(null);
       } else {
@@ -101,6 +165,8 @@ export function TwitterIntegrationCard() {
     }
   };
 
+  const isConnected = hasSocialDataKey || hasApifyKey;
+
   return (
     <Card>
       <CardHeader>
@@ -109,21 +175,19 @@ export function TwitterIntegrationCard() {
           X Post Scraping
         </CardTitle>
         <CardDescription>
-          Configure Apify for tweet scraping
+          Configure API keys for tweet scraping and metrics
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Status */}
+      <CardContent className="space-y-6">
+        {/* Overall Status */}
         <div className="flex items-center gap-2">
-          {hasApifyKey ? (
+          {isConnected ? (
             <>
               <CheckCircle className="h-4 w-4 text-green-600" />
               <Badge variant="secondary" className="bg-green-100 text-green-700">Connected</Badge>
-              {maskedApifyKey && (
-                <span className="text-sm text-muted-foreground font-mono">
-                  {maskedApifyKey}
-                </span>
-              )}
+              <span className="text-sm text-muted-foreground">
+                {hasSocialDataKey ? "SocialData (primary)" : "Apify only"}
+              </span>
             </>
           ) : (
             <>
@@ -133,11 +197,77 @@ export function TwitterIntegrationCard() {
           )}
         </div>
 
-        {/* Apify API Key Input */}
-        <div className="space-y-2">
-          <Label htmlFor="apify-api-key">
-            {hasApifyKey ? "Update API Key" : "Apify API Key"}
-          </Label>
+        {/* SocialData API Key (Primary) */}
+        <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="socialdata-api-key" className="text-sm font-medium">
+              SocialData API Key
+              <Badge variant="outline" className="ml-2 text-xs">Primary</Badge>
+            </Label>
+            {hasSocialDataKey && maskedSocialDataKey && (
+              <span className="text-xs text-muted-foreground font-mono">
+                {maskedSocialDataKey}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                id="socialdata-api-key"
+                type={showSocialDataKey ? "text" : "password"}
+                placeholder="Enter your SocialData API key..."
+                value={socialDataKey}
+                onChange={(e) => setSocialDataKey(e.target.value)}
+                className="pr-10 font-mono"
+                disabled={isLoading}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowSocialDataKey(!showSocialDataKey)}
+              >
+                {showSocialDataKey ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
+            <Button onClick={handleSaveSocialData} disabled={isSaving || !socialDataKey.trim() || isLoading}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Get your API key from socialdata.tools - includes full metrics (views, bookmarks, etc.)
+          </p>
+          {hasSocialDataKey && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSocialData}
+              disabled={isSaving}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+
+        {/* Apify API Key (Fallback) */}
+        <div className="space-y-2 p-4 border rounded-lg">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="apify-api-key" className="text-sm font-medium">
+              Apify API Key
+              <Badge variant="outline" className="ml-2 text-xs">Fallback</Badge>
+            </Label>
+            {hasApifyKey && maskedApifyKey && (
+              <span className="text-xs text-muted-foreground font-mono">
+                {maskedApifyKey}
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
@@ -168,22 +298,20 @@ export function TwitterIntegrationCard() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Get your API key from apify.com/account#/integrations
+            Get your API key from apify.com/account#/integrations - used as backup
           </p>
+          {hasApifyKey && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearApify}
+              disabled={isSaving}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              Remove
+            </Button>
+          )}
         </div>
-
-        {/* Remove button */}
-        {hasApifyKey && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearApify}
-            disabled={isSaving}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-          >
-            Remove API Key
-          </Button>
-        )}
 
         {/* Message */}
         {message && (

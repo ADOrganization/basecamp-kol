@@ -2,11 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Mail } from "lucide-react";
 
 interface InvitationData {
   kolId: string;
@@ -21,12 +18,11 @@ function AcceptInviteForm() {
   const token = searchParams.get("token");
 
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
   const [isExpired, setIsExpired] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -60,50 +56,25 @@ function AcceptInviteForm() {
     verifyInvitation();
   }, [token]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAccept = async () => {
     setError("");
-
-    if (password !== confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
     setIsLoading(true);
 
     try {
       const response = await fetch("/api/kol/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Registration failed");
+        setError(data.error || "Failed to accept invitation");
         return;
       }
 
-      // Auto-login after registration
-      const result = await signIn("kol-credentials", {
-        email: invitation?.email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Registration successful but login failed. Please try logging in.");
-        router.push("/kol/login");
-      } else {
-        router.push("/kol/dashboard");
-        router.refresh();
-      }
+      setIsComplete(true);
     } catch {
       setError("An error occurred. Please try again.");
     } finally {
@@ -160,6 +131,32 @@ function AcceptInviteForm() {
     );
   }
 
+  if (isComplete) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-full max-w-md space-y-8 p-8 text-center">
+          <div className="mx-auto h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Account Created!</h2>
+          <p className="text-muted-foreground">
+            Your KOL Portal account has been set up for <strong>{invitation?.email}</strong>
+          </p>
+          <div className="rounded-md bg-purple-500/10 border border-purple-500/20 p-4 text-sm text-purple-700 dark:text-purple-300">
+            <p>Click the button below to sign in. We&apos;ll send a secure sign-in link to your email.</p>
+          </div>
+          <Button
+            onClick={() => router.push("/kol/login")}
+            className="w-full bg-purple-600 hover:bg-purple-700"
+          >
+            <Mail className="mr-2 h-4 w-4" />
+            Continue to Sign In
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-8 p-8">
@@ -177,73 +174,42 @@ function AcceptInviteForm() {
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        {/* Info */}
+        <div className="space-y-4">
           {error && (
             <div className="rounded-md bg-rose-50 dark:bg-rose-900/20 p-4">
               <p className="text-sm text-rose-700 dark:text-rose-400">{error}</p>
             </div>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={invitation?.email || ""}
-                disabled
-                className="mt-1 bg-muted"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                This will be your login email
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="password">Create Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1"
-                placeholder="At least 8 characters"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1"
-                placeholder="Confirm your password"
-              />
-            </div>
+          <div className="rounded-md bg-muted p-4">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">Your email:</strong> {invitation?.email}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              You&apos;ll use this email to sign in via a secure magic link.
+            </p>
           </div>
 
           <Button
-            type="submit"
+            onClick={handleAccept}
             className="w-full bg-purple-600 hover:bg-purple-700"
             disabled={isLoading}
           >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating account...
+                Setting up account...
               </>
             ) : (
-              "Complete Registration"
+              "Accept Invitation"
             )}
           </Button>
-        </form>
+
+          <p className="text-center text-xs text-muted-foreground">
+            By accepting, you agree to join the KOL Portal and manage your campaigns with {invitation?.organizationName}.
+          </p>
+        </div>
       </div>
     </div>
   );

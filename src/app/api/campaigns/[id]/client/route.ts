@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, hashPassword } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { createInvitationToken } from "@/lib/magic-link";
+import { sendInvitationEmail } from "@/lib/email";
+import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 
 const createClientSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
   organizationName: z.string().min(2, "Organization name must be at least 2 characters"),
 });
 
@@ -74,10 +76,9 @@ export async function POST(
       counter++;
     }
 
-    // Hash password
-    const passwordHash = await hashPassword(validatedData.password);
+    const { ipAddress, userAgent } = getRequestMetadata(request);
 
-    // Create organization, user, and membership in a transaction
+    // Create organization and update campaign in a transaction
     const result = await db.$transaction(async (tx) => {
       // Create client organization
       const organization = await tx.organization.create({
@@ -88,48 +89,55 @@ export async function POST(
         },
       });
 
-      // Create user
-      const user = await tx.user.create({
-        data: {
-          email: validatedData.email,
-          name: validatedData.name,
-          passwordHash,
-        },
-      });
-
-      // Create membership
-      await tx.organizationMember.create({
-        data: {
-          organizationId: organization.id,
-          userId: user.id,
-          role: "OWNER",
-        },
-      });
-
       // Update campaign with client
       await tx.campaign.update({
         where: { id: campaignId },
         data: { clientId: organization.id },
       });
 
-      return {
-        organization,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        },
-      };
+      return { organization };
+    });
+
+    // Create invitation token for the client user
+    const token = await createInvitationToken(
+      validatedData.email,
+      result.organization.id,
+      session.user.id,
+      "OWNER"
+    );
+
+    // Send invitation email
+    const emailResult = await sendInvitationEmail(
+      validatedData.email,
+      token,
+      session.user.name || session.user.email,
+      result.organization.name,
+      "OWNER"
+    );
+
+    // Log the invitation
+    await logSecurityEvent({
+      userId: session.user.id,
+      action: "INVITE_SENT",
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: {
+        invitedEmail: validatedData.email,
+        organizationId: result.organization.id,
+        role: "OWNER",
+        emailSent: emailResult.success,
+        isClientInvite: true,
+        campaignId,
+      },
     });
 
     return NextResponse.json({
-      message: "Client account created successfully",
+      message: "Client account created and invitation sent",
       client: {
         organizationId: result.organization.id,
         organizationName: result.organization.name,
-        userId: result.user.id,
-        userEmail: result.user.email,
-        userName: result.user.name,
+        invitedEmail: validatedData.email,
+        invitationSent: emailResult.success,
       },
     }, { status: 201 });
   } catch (error) {
