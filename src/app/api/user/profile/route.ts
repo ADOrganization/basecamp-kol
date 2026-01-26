@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { fetchTwitterMedia } from "@/lib/scraper/x-scraper";
 
 const profileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -19,38 +20,81 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = profileSchema.parse(body);
 
+    // Fetch avatar from X if username provided
+    let avatarUrl: string | null = null;
+    if (validatedData.twitterUsername) {
+      const handle = validatedData.twitterUsername.replace(/^@/, "");
+      try {
+        // Get organization's API keys for scraping
+        const org = await db.organization.findUnique({
+          where: { id: authContext.organizationId },
+          select: { socialDataApiKey: true },
+        });
+
+        if (org?.socialDataApiKey) {
+          const { setSocialDataApiKey } = await import("@/lib/scraper/x-scraper");
+          setSocialDataApiKey(org.socialDataApiKey);
+        }
+
+        const media = await fetchTwitterMedia(handle);
+        if (media.avatarUrl) {
+          avatarUrl = media.avatarUrl;
+        }
+      } catch (err) {
+        console.log("Failed to fetch X avatar:", err);
+        // Continue without avatar update
+      }
+    }
+
     // Admin users update AdminUser table, regular users update User table
     if (authContext.isAdmin) {
+      const updateData: Record<string, unknown> = {
+        name: validatedData.name,
+        twitterUsername: validatedData.twitterUsername || null,
+      };
+
+      // Only update avatar if we fetched one
+      if (avatarUrl) {
+        updateData.avatarUrl = avatarUrl;
+      }
+
       const updatedAdmin = await db.adminUser.update({
         where: { id: authContext.userId },
-        data: {
-          name: validatedData.name,
-        },
+        data: updateData,
         select: {
           id: true,
           name: true,
           email: true,
+          avatarUrl: true,
+          twitterUsername: true,
         },
       });
 
       return NextResponse.json({
         ...updatedAdmin,
-        twitterUsername: null,
         telegramUsername: null,
       });
     }
 
+    const updateData: Record<string, unknown> = {
+      name: validatedData.name,
+      twitterUsername: validatedData.twitterUsername || null,
+      telegramUsername: validatedData.telegramUsername || null,
+    };
+
+    // Only update avatar if we fetched one
+    if (avatarUrl) {
+      updateData.avatarUrl = avatarUrl;
+    }
+
     const updatedUser = await db.user.update({
       where: { id: authContext.userId },
-      data: {
-        name: validatedData.name,
-        twitterUsername: validatedData.twitterUsername || null,
-        telegramUsername: validatedData.telegramUsername || null,
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
         email: true,
+        avatarUrl: true,
         twitterUsername: true,
         telegramUsername: true,
       },

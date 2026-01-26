@@ -33,7 +33,7 @@ export default async function SettingsPage() {
   }
 
   // For admin users, create a synthetic user object since they don't have a User record
-  let user: { id: string; name: string | null; email: string; avatarUrl: string | null } | null = null;
+  let user: { id: string; name: string | null; email: string; avatarUrl: string | null; twitterUsername?: string | null; telegramUsername?: string | null } | null = null;
   let adminRole: string | null = null;
 
   if (context.isAdmin) {
@@ -46,6 +46,7 @@ export default async function SettingsPage() {
         name: adminUser.name,
         email: adminUser.email,
         avatarUrl: adminUser.avatarUrl,
+        twitterUsername: adminUser.twitterUsername,
       };
       adminRole = adminUser.role;
     }
@@ -90,24 +91,31 @@ export default async function SettingsPage() {
             <User className="h-4 w-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
-            <Building2 className="h-4 w-4" />
-            Organization
-          </TabsTrigger>
-          <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
-            <Users className="h-4 w-4" />
-            Team
-          </TabsTrigger>
-          {context.isAdmin && (
+          {/* Non-super admins only see Profile and Security */}
+          {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
+            <>
+              <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+                <Building2 className="h-4 w-4" />
+                Organization
+              </TabsTrigger>
+              <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+                <Users className="h-4 w-4" />
+                Team
+              </TabsTrigger>
+            </>
+          )}
+          {adminRole === "SUPER_ADMIN" && (
             <TabsTrigger value="admin-team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
               <UserCog className="h-4 w-4" />
               Admin Team
             </TabsTrigger>
           )}
-          <TabsTrigger value="integrations" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
-            <Key className="h-4 w-4" />
-            Integrations
-          </TabsTrigger>
+          {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
+            <TabsTrigger value="integrations" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
+              <Key className="h-4 w-4" />
+              Integrations
+            </TabsTrigger>
+          )}
           <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <Shield className="h-4 w-4" />
             Security
@@ -130,54 +138,58 @@ export default async function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* Organization Tab */}
-        <TabsContent value="organization" className="space-y-6">
-          <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Building2 className="h-4 w-4 text-purple-500" />
+        {/* Organization Tab - Only for non-admins or SUPER_ADMIN */}
+        {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
+          <TabsContent value="organization" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-purple-500" />
+                </div>
+                <div>
+                  <h2 className="font-semibold">Organization Settings</h2>
+                  <p className="text-sm text-muted-foreground">Manage your organization details</p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-semibold">Organization Settings</h2>
-                <p className="text-sm text-muted-foreground">Manage your organization details</p>
-              </div>
+              <OrganizationForm organization={organization} variant="agency" />
             </div>
-            <OrganizationForm organization={organization} variant="agency" />
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
-        {/* Team Tab */}
-        <TabsContent value="team" className="space-y-6">
-          <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <Users className="h-4 w-4 text-blue-500" />
+        {/* Team Tab - Only for non-admins or SUPER_ADMIN */}
+        {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
+          <TabsContent value="team" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-blue-500" />
+                </div>
+                <div>
+                  <h2 className="font-semibold">Team Management</h2>
+                  <p className="text-sm text-muted-foreground">Manage team members and roles</p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-semibold">Team Management</h2>
-                <p className="text-sm text-muted-foreground">Manage team members and roles</p>
-              </div>
+              <TeamManagement
+                members={organization.members.map(m => ({
+                  id: m.id,
+                  userId: m.userId,
+                  role: m.role,
+                  user: {
+                    id: m.user.id,
+                    name: m.user.name,
+                    email: m.user.email,
+                    avatarUrl: m.user.avatarUrl,
+                  },
+                }))}
+                currentUserId={context.userId}
+                variant="agency"
+              />
             </div>
-            <TeamManagement
-              members={organization.members.map(m => ({
-                id: m.id,
-                userId: m.userId,
-                role: m.role,
-                user: {
-                  id: m.user.id,
-                  name: m.user.name,
-                  email: m.user.email,
-                  avatarUrl: m.user.avatarUrl,
-                },
-              }))}
-              currentUserId={context.userId}
-              variant="agency"
-            />
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
-        {/* Admin Team Tab */}
-        {context.isAdmin && (
+        {/* Admin Team Tab - Only for SUPER_ADMIN */}
+        {adminRole === "SUPER_ADMIN" && (
           <TabsContent value="admin-team" className="space-y-6">
             <div className="rounded-xl border bg-card p-6">
               <div className="flex items-center gap-3 mb-6">
@@ -197,25 +209,27 @@ export default async function SettingsPage() {
           </TabsContent>
         )}
 
-        {/* Integrations Tab */}
-        <TabsContent value="integrations" className="space-y-6">
-          <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                <Key className="h-4 w-4 text-amber-500" />
+        {/* Integrations Tab - Only for non-admins or SUPER_ADMIN */}
+        {(!context.isAdmin || adminRole === "SUPER_ADMIN") && (
+          <TabsContent value="integrations" className="space-y-6">
+            <div className="rounded-xl border bg-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <Key className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <h2 className="font-semibold">Integrations</h2>
+                  <p className="text-sm text-muted-foreground">Connect external services and APIs</p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-semibold">Integrations</h2>
-                <p className="text-sm text-muted-foreground">Connect external services and APIs</p>
+              <div className="space-y-4">
+                <TwitterIntegrationCard />
+                <TelegramIntegrationCard />
+                <NotificationsCard variant="agency" />
               </div>
             </div>
-            <div className="space-y-4">
-              <TwitterIntegrationCard />
-              <TelegramIntegrationCard />
-              <NotificationsCard variant="agency" />
-            </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">

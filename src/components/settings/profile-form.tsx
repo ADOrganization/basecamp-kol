@@ -56,6 +56,11 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
         throw new Error(data.error || "Failed to update profile");
       }
 
+      // Update avatar if returned from X profile fetch
+      if (data.avatarUrl) {
+        setAvatarUrl(data.avatarUrl);
+      }
+
       setSuccess(true);
 
       // Refresh server components to pick up new user data from database
@@ -194,13 +199,16 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
             {variant === "agency" ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="twitter">Twitter Username</Label>
+                  <Label htmlFor="twitter">X Username</Label>
                   <Input
                     id="twitter"
                     value={formData.twitterUsername}
                     onChange={(e) => setFormData({ ...formData, twitterUsername: e.target.value })}
                     placeholder="@username"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Your profile picture will be fetched from X automatically
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="telegram">Telegram Username</Label>

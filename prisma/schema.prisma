@@ -102,6 +102,7 @@ model AdminUser {
   passwordHash String
   name         String?
   avatarUrl    String?
+  twitterUsername String?  // X (Twitter) username
   role         AdminRole @default(USER)
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
