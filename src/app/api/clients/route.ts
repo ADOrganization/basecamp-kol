@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { getApiAuthContext } from "@/lib/api-auth";
+import { sendClientPortalAccessEmail } from "@/lib/email";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Valid email is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
   organizationName: z.string().min(1, "Organization name is required"),
   campaignId: z.string().min(1, "Campaign assignment is required"),
 });
@@ -139,15 +139,11 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Hash password
-      const passwordHash = await bcrypt.hash(validatedData.password, 12);
-
-      // Create the user
+      // Create the user (no password - magic link only)
       const user = await tx.user.create({
         data: {
           email: validatedData.email,
           name: validatedData.name,
-          passwordHash,
         },
       });
 
@@ -166,6 +162,18 @@ export async function POST(request: NextRequest) {
         data: { clientId: clientOrg.id },
       });
 
+      // Create verification token for magic link
+      const token = crypto.randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      await tx.verificationToken.create({
+        data: {
+          identifier: validatedData.email.toLowerCase(),
+          token,
+          expires,
+        },
+      });
+
       return {
         organization: clientOrg,
         user: {
@@ -177,10 +185,24 @@ export async function POST(request: NextRequest) {
           id: campaign.id,
           name: campaign.name,
         },
+        token,
       };
     });
 
-    return NextResponse.json(result, { status: 201 });
+    // Send invitation email with magic link
+    const emailResult = await sendClientPortalAccessEmail(
+      validatedData.email.toLowerCase(),
+      result.token,
+      campaign.name,
+      validatedData.name
+    );
+
+    return NextResponse.json({
+      organization: result.organization,
+      user: result.user,
+      campaign: result.campaign,
+      emailSent: emailResult.success,
+    }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

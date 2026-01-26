@@ -95,12 +95,12 @@ export default function ClientAccountsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false);
-  const [createdCredentials, setCreatedCredentials] = useState<{
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [createdClient, setCreatedClient] = useState<{
     email: string;
-    password: string;
     organizationName: string;
     campaignName: string;
+    emailSent: boolean;
   } | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -109,7 +109,6 @@ export default function ClientAccountsPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    password: "",
     organizationName: "",
     campaignId: "",
   });
@@ -121,7 +120,6 @@ export default function ClientAccountsPage() {
     organizationName: "",
     userName: "",
     userEmail: "",
-    newPassword: "",
   });
   const [updating, setUpdating] = useState(false);
 
@@ -162,15 +160,6 @@ export default function ClientAccountsPage() {
     }
   };
 
-  const generatePassword = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
-    let password = "";
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setFormData({ ...formData, password });
-  };
-
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -191,25 +180,24 @@ export default function ClientAccountsPage() {
         return;
       }
 
-      // Store credentials to show in dialog
-      setCreatedCredentials({
+      // Store created client info to show in dialog
+      setCreatedClient({
         email: formData.email,
-        password: formData.password,
         organizationName: formData.organizationName,
         campaignName: data.campaign.name,
+        emailSent: data.emailSent,
       });
 
       // Reset form
       setFormData({
         name: "",
         email: "",
-        password: "",
         organizationName: "",
         campaignId: "",
       });
 
       setShowCreateDialog(false);
-      setShowCredentialsDialog(true);
+      setShowSuccessDialog(true);
 
       // Refresh data
       fetchClients();
@@ -234,7 +222,6 @@ export default function ClientAccountsPage() {
       organizationName: client.name,
       userName: client.members[0]?.user.name || "",
       userEmail: client.members[0]?.user.email || "",
-      newPassword: "",
     });
     setShowEditDialog(true);
   };
@@ -603,30 +590,9 @@ export default function ClientAccountsPage() {
                 placeholder="client@company.com"
                 required
               />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password *</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={generatePassword}
-                >
-                  Generate
-                </Button>
-              </div>
-              <Input
-                id="password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                placeholder="Enter or generate password"
-                required
-                minLength={6}
-              />
+              <p className="text-xs text-muted-foreground">
+                A magic link login email will be sent to this address.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -675,42 +641,40 @@ export default function ClientAccountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Credentials Dialog */}
-      <Dialog open={showCredentialsDialog} onOpenChange={setShowCredentialsDialog}>
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Client Account Created</DialogTitle>
             <DialogDescription>
-              Share these credentials with the client. The password cannot be retrieved later.
+              {createdClient?.emailSent
+                ? "A login link has been sent to the client's email."
+                : "The account was created but the email could not be sent. You may need to send the login link manually."}
             </DialogDescription>
           </DialogHeader>
 
-          {createdCredentials && (
+          {createdClient && (
             <div className="space-y-4">
               <div className="bg-muted rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Organization</p>
-                    <p className="font-medium">{createdCredentials.organizationName}</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Organization</p>
+                  <p className="font-medium">{createdClient.organizationName}</p>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Campaign</p>
-                    <p className="font-medium">{createdCredentials.campaignName}</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Campaign</p>
+                  <p className="font-medium">{createdClient.campaignName}</p>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{createdCredentials.email}</p>
+                    <p className="font-medium">{createdClient.email}</p>
                   </div>
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => copyToClipboard(createdCredentials.email, "email")}
+                    onClick={() => copyToClipboard(createdClient.email, "email")}
                   >
                     {copiedField === "email" ? (
                       <Check className="h-4 w-4 text-green-500" />
@@ -719,35 +683,25 @@ export default function ClientAccountsPage() {
                     )}
                   </Button>
                 </div>
+              </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Password</p>
-                    <p className="font-mono font-medium">{createdCredentials.password}</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => copyToClipboard(createdCredentials.password, "password")}
-                  >
-                    {copiedField === "password" ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
+              {createdClient.emailSent ? (
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+                  <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                    The client will receive a magic link via email to access their dashboard. No password needed.
+                  </p>
                 </div>
-              </div>
-
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  Make sure to save these credentials. The password cannot be viewed again after closing this dialog.
-                </p>
-              </div>
+              ) : (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    Email sending failed. Check RESEND_API_KEY configuration. The client can request a login link at the login page.
+                  </p>
+                </div>
+              )}
 
               <Button
                 className="w-full"
-                onClick={() => setShowCredentialsDialog(false)}
+                onClick={() => setShowSuccessDialog(false)}
               >
                 Done
               </Button>
@@ -762,7 +716,7 @@ export default function ClientAccountsPage() {
           <DialogHeader>
             <DialogTitle>Edit Client Account</DialogTitle>
             <DialogDescription>
-              Update client details. Leave password blank to keep the current password.
+              Update client details. Clients use magic link authentication (no passwords).
             </DialogDescription>
           </DialogHeader>
 
@@ -808,19 +762,9 @@ export default function ClientAccountsPage() {
                 }
                 placeholder="client@company.com"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editPassword">New Password (optional)</Label>
-              <Input
-                id="editPassword"
-                type="password"
-                value={editFormData.newPassword}
-                onChange={(e) =>
-                  setEditFormData({ ...editFormData, newPassword: e.target.value })
-                }
-                placeholder="Leave blank to keep current"
-              />
+              <p className="text-xs text-muted-foreground">
+                The client will use this email to request magic link logins.
+              </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">

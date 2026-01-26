@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import bcrypt from "bcryptjs";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -12,7 +11,6 @@ const updateClientSchema = z.object({
   organizationName: z.string().min(1, "Organization name is required").optional(),
   userName: z.string().min(1, "Contact name is required").optional(),
   userEmail: z.string().email("Valid email is required").optional(),
-  newPassword: z.string().min(6, "Password must be at least 6 characters").optional(),
 });
 
 // GET - Get single client details
@@ -147,7 +145,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
 
       // Update user details
-      const userUpdateData: { name?: string; email?: string; passwordHash?: string } = {};
+      const userUpdateData: { name?: string; email?: string } = {};
 
       if (validatedData.userName) {
         userUpdateData.name = validatedData.userName;
@@ -155,10 +153,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       if (validatedData.userEmail) {
         userUpdateData.email = validatedData.userEmail;
-      }
-
-      if (validatedData.newPassword) {
-        userUpdateData.passwordHash = await bcrypt.hash(validatedData.newPassword, 12);
       }
 
       if (Object.keys(userUpdateData).length > 0) {
