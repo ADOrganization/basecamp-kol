@@ -10,27 +10,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // SECURITY: Apply rate limiting to prevent scraping (30 req/min for sensitive data)
-    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
-    if (rateLimitResponse) return rateLimitResponse;
+    const { id } = await params;
+    console.log(`[KOL API] Request for KOL: ${id}`);
 
+    // Get auth context
     const authContext = await getApiAuthContext();
-    console.log(`[KOL API] Auth context:`, authContext ? { orgId: authContext.organizationId, isAdmin: authContext.isAdmin } : null);
+    console.log(`[KOL API] Auth context:`, authContext ? { orgId: authContext.organizationId, isAdmin: authContext.isAdmin } : "null");
 
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // SECURITY: Only agency users can access individual KOL details
-    // Clients can only see KOL data through campaign endpoints
     if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = await params;
-    console.log(`[KOL API] Fetching KOL ${id} for org ${authContext.organizationId}`);
+    console.log(`[KOL API] Querying KOL ${id} for org ${authContext.organizationId}`);
 
-    // Query KOL with relations
+    // Simple query first
     const kol = await db.kOL.findFirst({
       where: {
         id,
@@ -54,48 +51,37 @@ export async function GET(
       },
     });
 
-    // Add paymentReceipts separately to avoid potential schema issues
-    let paymentReceipts: any[] = [];
-    if (kol) {
-      try {
-        const receipts = await db.paymentReceipt.findMany({
-          where: { kolId: kol.id },
-          orderBy: { createdAt: "desc" },
-          include: {
-            campaign: {
-              select: { id: true, name: true },
-            },
-          },
-        });
-        paymentReceipts = receipts;
-      } catch (e) {
-        console.log("[KOL API] Could not fetch paymentReceipts:", e);
-      }
-    }
+    console.log(`[KOL API] KOL found: ${kol ? kol.name : "null"}`);
 
     if (!kol) {
-      // Check if KOL exists but belongs to different org
-      const kolAnyOrg = await db.kOL.findUnique({
+      // Debug: check if KOL exists at all
+      const kolExists = await db.kOL.findUnique({
         where: { id },
         select: { id: true, organizationId: true, name: true },
       });
-      console.log(`[KOL API] KOL not found for org. KOL exists?`, kolAnyOrg);
+      console.log(`[KOL API] KOL exists in any org?`, kolExists);
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
-    const kolData = { ...kol, paymentReceipts };
+    // Try to get payment receipts separately
+    let paymentReceipts: any[] = [];
+    try {
+      paymentReceipts = await db.paymentReceipt.findMany({
+        where: { kolId: kol.id },
+        orderBy: { createdAt: "desc" },
+        include: {
+          campaign: { select: { id: true, name: true } },
+        },
+      });
+    } catch (e) {
+      console.log("[KOL API] PaymentReceipts query failed:", e);
+    }
 
-    // Add security headers to prevent caching of sensitive data
-    const response = NextResponse.json(kolData);
-    return addSecurityHeaders(response);
+    return NextResponse.json({ ...kol, paymentReceipts });
   } catch (error) {
-    console.error("Error fetching KOL:", error);
-    // Include more error details for debugging
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error("Error details:", { message: errorMessage, stack: errorStack });
+    console.error("[KOL API] Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch KOL", details: errorMessage },
+      { error: "Failed to fetch KOL", details: error instanceof Error ? error.message : "Unknown" },
       { status: 500 }
     );
   }
