@@ -123,6 +123,8 @@ model AdminUser {
 enum AdminRole {
   SUPER_ADMIN  // Full access - can create/manage admin accounts
   USER         // Full access to all features except admin account management
+  ADMIN        // Legacy - treated same as USER
+  VIEWER       // Legacy - treated same as USER
 }
 
 // ============================================

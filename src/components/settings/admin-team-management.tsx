@@ -63,9 +63,9 @@ interface AdminTeamManagementProps {
 const ROLE_LABELS: Record<string, { label: string; icon: typeof Shield; color: string }> = {
   SUPER_ADMIN: { label: "Super Admin", icon: ShieldCheck, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
   USER: { label: "User", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  // Legacy roles for backwards compatibility
-  ADMIN: { label: "Admin", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  VIEWER: { label: "Viewer", icon: Eye, color: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
+  // Legacy roles - displayed as "User" for backwards compatibility
+  ADMIN: { label: "User", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  VIEWER: { label: "User", icon: Shield, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
 };
 
 export function AdminTeamManagement({ currentAdminId, currentAdminRole }: AdminTeamManagementProps) {
