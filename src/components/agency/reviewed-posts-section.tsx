@@ -28,6 +28,8 @@ interface Post {
   likes: number;
   retweets: number;
   replies: number;
+  quotes: number;
+  bookmarks: number;
   kol: {
     name: string;
     twitterHandle: string;

@@ -64,39 +64,59 @@ export async function POST(
       }
     }
 
-    // Extract tweet ID from URL if not stored
-    const tweetId = post.tweetId || extractTweetId(post.tweetUrl);
-    if (!tweetId) {
+    // Use full tweet URL if available (needed for Apify to extract author handle)
+    // Fall back to tweet ID if URL not available
+    const tweetUrlOrId = post.tweetUrl || post.tweetId;
+    if (!tweetUrlOrId) {
       return NextResponse.json(
-        { error: "Could not extract tweet ID from URL" },
+        { error: "No tweet URL or ID available" },
         { status: 400 }
       );
     }
 
+    // Extract tweet ID for logging
+    const tweetId = post.tweetId || extractTweetId(post.tweetUrl);
+
     // Load API keys from organization settings
     const org = post.campaign.agency;
+    console.log(`[RefreshMetrics] Organization ${org.id}: socialDataApiKey=${org.socialDataApiKey ? 'set' : 'NOT SET'}, apifyApiKey=${org.apifyApiKey ? 'set' : 'NOT SET'}`);
+
     if (org.socialDataApiKey) {
       setSocialDataApiKey(org.socialDataApiKey);
+      console.log(`[RefreshMetrics] Set SocialData API key (${org.socialDataApiKey.slice(0, 8)}...)`);
     }
     if (org.apifyApiKey) {
       setApifyApiKey(org.apifyApiKey);
+      console.log(`[RefreshMetrics] Set Apify API key (${org.apifyApiKey.slice(0, 8)}...)`);
     }
 
-    // Try scraper first (uses SocialData POST API), fallback to syndication
-    let metrics = await fetchTweetMetricsViaScraper(tweetId);
+    console.log(`[RefreshMetrics] After setting: hasSocialData=${hasSocialDataApiKey()}, hasApify=${hasApifyApiKey()}`);
+    console.log(`[RefreshMetrics] Attempting to refresh tweet ID: ${tweetId}`);
+    console.log(`[RefreshMetrics] Tweet URL was: ${post.tweetUrl}`);
+    console.log(`[RefreshMetrics] Post tweetId field: ${post.tweetId}`);
+    console.log(`[RefreshMetrics] Extracted tweetId: ${tweetId}`);
+
+    // Try scraper first (uses SocialData/Apify APIs), fallback to syndication
+    console.log(`[RefreshMetrics] Starting metrics fetch for ${tweetId} (using ${tweetUrlOrId})...`);
+    let metrics = await fetchTweetMetricsViaScraper(tweetUrlOrId);
+    console.log(`[RefreshMetrics] Scraper returned:`, metrics ? JSON.stringify(metrics) : 'null');
 
     // Fallback to syndication API if scraper fails
-    if (!metrics) {
+    if (!metrics && tweetId) {
       console.log(`[RefreshMetrics] Scraper failed, trying syndication API for ${tweetId}`);
       metrics = await fetchTweetMetricsSyndication(tweetId);
+      console.log(`[RefreshMetrics] Syndication returned:`, metrics ? JSON.stringify(metrics) : 'null');
     }
 
     if (!metrics) {
+      console.log(`[RefreshMetrics] ALL methods failed for ${tweetId}`);
       return NextResponse.json(
         { error: "Failed to fetch metrics from X" },
         { status: 502 }
       );
     }
+
+    console.log(`[RefreshMetrics] SUCCESS - Updating post with metrics:`, JSON.stringify(metrics));
 
     // Calculate engagement rate
     const totalEngagements = metrics.likes + metrics.retweets + metrics.replies + metrics.quotes;
@@ -173,9 +193,10 @@ interface MetricsResult {
 }
 
 /**
- * Fetch tweet metrics via x-scraper (uses SocialData POST API as primary)
+ * Fetch tweet metrics via x-scraper (uses SocialData/Apify APIs)
+ * @param tweetUrlOrId - Full tweet URL (preferred) or just the tweet ID
  */
-async function fetchTweetMetricsViaScraper(tweetId: string): Promise<MetricsResult | null> {
+async function fetchTweetMetricsViaScraper(tweetUrlOrId: string): Promise<MetricsResult | null> {
   // Check if any API key is configured
   if (!hasSocialDataApiKey() && !hasApifyApiKey()) {
     console.log(`[RefreshMetrics] No API keys configured, skipping scraper`);
@@ -183,11 +204,11 @@ async function fetchTweetMetricsViaScraper(tweetId: string): Promise<MetricsResu
   }
 
   try {
-    console.log(`[RefreshMetrics] Fetching tweet ${tweetId} via scraper...`);
-    const tweet = await scrapeSingleTweet(tweetId);
+    console.log(`[RefreshMetrics] Fetching tweet via scraper: ${tweetUrlOrId}`);
+    const tweet = await scrapeSingleTweet(tweetUrlOrId);
 
     if (!tweet) {
-      console.log(`[RefreshMetrics] Scraper returned null for ${tweetId}`);
+      console.log(`[RefreshMetrics] Scraper returned null for ${tweetUrlOrId}`);
       return null;
     }
 
@@ -200,20 +221,20 @@ async function fetchTweetMetricsViaScraper(tweetId: string): Promise<MetricsResu
       bookmarks: tweet.metrics.bookmarks,
     };
 
-    console.log(`[RefreshMetrics] Scraper metrics for ${tweetId}:`, JSON.stringify(metrics));
+    console.log(`[RefreshMetrics] Scraper metrics:`, JSON.stringify(metrics));
 
     // Only return if we have valid data
     const hasAnyData = metrics.impressions > 0 || metrics.likes > 0 ||
                        metrics.retweets > 0 || metrics.replies > 0;
 
     if (!hasAnyData) {
-      console.log(`[RefreshMetrics] No valid metrics from scraper for ${tweetId}`);
+      console.log(`[RefreshMetrics] No valid metrics from scraper`);
       return null;
     }
 
     return metrics;
   } catch (error) {
-    console.error(`[RefreshMetrics] Scraper error for ${tweetId}:`, error);
+    console.error(`[RefreshMetrics] Scraper error:`, error);
     return null;
   }
 }

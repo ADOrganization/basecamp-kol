@@ -20,10 +20,15 @@ export async function POST(
 
   try {
     // Load organization's API keys
+    console.log(`[Refresh Metrics] Loading API keys for org: ${session.user.organizationId}`);
     const org = await db.organization.findUnique({
       where: { id: session.user.organizationId },
-      select: { apifyApiKey: true, socialDataApiKey: true },
+      select: { id: true, name: true, apifyApiKey: true, socialDataApiKey: true },
     });
+
+    console.log(`[Refresh Metrics] Org found: ${org?.id}, name: ${org?.name}`);
+    console.log(`[Refresh Metrics] SocialData key in DB: ${org?.socialDataApiKey ? `yes (${org.socialDataApiKey.slice(0, 8)}...)` : 'NOT SET'}`);
+    console.log(`[Refresh Metrics] Apify key in DB: ${org?.apifyApiKey ? `yes (${org.apifyApiKey.slice(0, 8)}...)` : 'NOT SET'}`);
 
     // Set SocialData API key (primary)
     if (org?.socialDataApiKey) {
@@ -31,6 +36,7 @@ export async function POST(
       console.log(`[Refresh Metrics] SocialData key configured (primary)`);
     } else {
       clearSocialDataApiKey();
+      console.log(`[Refresh Metrics] No SocialData key - cleared`);
     }
 
     // Set Apify API key (fallback)
@@ -39,11 +45,14 @@ export async function POST(
       console.log(`[Refresh Metrics] Apify key configured (fallback)`);
     } else {
       clearApifyApiKey();
+      console.log(`[Refresh Metrics] No Apify key - cleared`);
     }
 
     if (!org?.socialDataApiKey && !org?.apifyApiKey) {
-      console.log(`[Refresh Metrics] No API keys - using syndication API (may fail)`);
+      console.log(`[Refresh Metrics] WARNING: No API keys configured - using syndication API (may fail)`);
     }
+
+    console.log(`[Refresh Metrics] hasAnyScraperConfigured() = ${hasAnyScraperConfigured()}`);
 
     // Get campaign with posts
     const campaign = await db.campaign.findFirst({
@@ -93,10 +102,13 @@ export async function POST(
         }
 
         // Use the scraper to get fresh metrics
+        console.log(`[Refresh] Scraping post ${post.id}, URL: ${tweetUrl}`);
         const tweet = await scrapeSingleTweet(tweetUrl);
+        console.log(`[Refresh] Scraper result for post ${post.id}:`, tweet ? 'SUCCESS' : 'FAILED');
 
         if (!tweet) {
           // Keep existing data if scrape fails
+          console.log(`[Refresh] Post ${post.id}: scrapeSingleTweet returned null`);
           errors.push(`Post ${post.id}: Could not fetch tweet data`);
           failCount++;
           continue;

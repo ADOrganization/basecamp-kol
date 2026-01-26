@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { fetchTwitterProfile as fetchProfile } from "@/lib/scraper/x-scraper";
+import {
+  fetchTwitterProfile as fetchProfile,
+  scrapeSingleTweet,
+  setSocialDataApiKey,
+  setApifyApiKey,
+} from "@/lib/scraper/x-scraper";
 
 // Secret for protecting cron endpoint
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -13,6 +18,34 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Load API keys from all organizations that have them
+    const orgsWithKeys = await db.organization.findMany({
+      where: {
+        OR: [
+          { socialDataApiKey: { not: null } },
+          { apifyApiKey: { not: null } },
+        ],
+      },
+      select: {
+        id: true,
+        socialDataApiKey: true,
+        apifyApiKey: true,
+      },
+    });
+
+    // Use the first org's keys (cron job context)
+    if (orgsWithKeys.length > 0) {
+      const org = orgsWithKeys[0];
+      if (org.socialDataApiKey) {
+        setSocialDataApiKey(org.socialDataApiKey);
+        console.log(`[Cron] Using SocialData API key from org ${org.id}`);
+      }
+      if (org.apifyApiKey) {
+        setApifyApiKey(org.apifyApiKey);
+        console.log(`[Cron] Using Apify API key from org ${org.id}`);
+      }
+    }
+
     // Get all POSTED/VERIFIED posts from last 30 days
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -214,13 +247,28 @@ async function fetchTweetMetrics(tweetId: string): Promise<{
   bookmarks: number;
 } | null> {
   try {
+    // Use the scraper which tries SocialData first, then Apify, then syndication
+    const tweet = await scrapeSingleTweet(tweetId);
+
+    if (tweet) {
+      return {
+        impressions: tweet.metrics.views,
+        likes: tweet.metrics.likes,
+        retweets: tweet.metrics.retweets,
+        replies: tweet.metrics.replies,
+        quotes: tweet.metrics.quotes,
+        bookmarks: tweet.metrics.bookmarks,
+      };
+    }
+
+    // Fallback to syndication API if scraper fails
     const response = await fetch(
       `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`,
       {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         },
-        next: { revalidate: 0 },
+        cache: "no-store",
       }
     );
 

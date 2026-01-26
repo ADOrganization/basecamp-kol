@@ -44,6 +44,8 @@ export default async function ContentReviewPage() {
     likes: post.likes,
     retweets: post.retweets,
     replies: post.replies,
+    quotes: post.quotes,
+    bookmarks: post.bookmarks,
     kol: {
       name: post.kol.name,
       twitterHandle: post.kol.twitterHandle,

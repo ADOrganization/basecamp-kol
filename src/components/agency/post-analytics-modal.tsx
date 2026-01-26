@@ -24,6 +24,7 @@ interface PostAnalyticsModalProps {
   postId: string;
   isOpen: boolean;
   onClose: () => void;
+  onRefresh?: () => Promise<void>;
 }
 
 type Period = "7d" | "14d" | "30d" | "90d" | "365d";
@@ -84,7 +85,7 @@ interface AnalyticsData {
   snapshotCount: number;
 }
 
-export function PostAnalyticsModal({ postId, isOpen, onClose }: PostAnalyticsModalProps) {
+export function PostAnalyticsModal({ postId, isOpen, onClose, onRefresh }: PostAnalyticsModalProps) {
   const [period, setPeriod] = useState<Period>("7d");
   const [primaryMetric, setPrimaryMetric] = useState<Metric>("impressions");
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -129,6 +130,10 @@ export function PostAnalyticsModal({ postId, isOpen, onClose }: PostAnalyticsMod
       }
       // Refetch analytics after refresh
       await fetchAnalytics();
+      // Notify parent to refresh their data too
+      if (onRefresh) {
+        await onRefresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh metrics");
     } finally {
@@ -226,6 +231,24 @@ export function PostAnalyticsModal({ postId, isOpen, onClose }: PostAnalyticsMod
                 label="Retweets"
                 value={data.currentKPIs.retweets}
                 delta={data.deltas?.retweets}
+                format="compact"
+              />
+              <KPITile
+                label="Replies"
+                value={data.currentKPIs.replies}
+                delta={data.deltas?.replies}
+                format="compact"
+              />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <KPITile
+                label="Quotes"
+                value={data.currentKPIs.quotes}
+                format="compact"
+              />
+              <KPITile
+                label="Bookmarks"
+                value={data.currentKPIs.bookmarks}
                 format="compact"
               />
               <KPITile

@@ -99,93 +99,6 @@ export interface ScrapeResult {
 // SOCIALDATA.TOOLS API (PRIMARY)
 // ============================================
 
-/**
- * Scrape a single tweet using SocialData.tools POST API (primary method)
- * This endpoint returns all metrics per post including views and bookmarks
- * Endpoint: POST https://api.socialdata.tools/twitter/statuses/lookup
- */
-async function scrapeSingleTweetWithSocialDataPost(tweetId: string): Promise<ScrapedTweet | null> {
-  const apiKey = getSocialDataApiKey();
-  if (!apiKey) return null;
-
-  console.log(`[SocialData POST] Fetching tweet ${tweetId}...`);
-
-  try {
-    const response = await fetch(
-      'https://api.socialdata.tools/twitter/statuses/lookup',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          tweetIds: [tweetId],
-        }),
-        signal: AbortSignal.timeout(15000),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log(`[SocialData POST] HTTP ${response.status}: ${errorText.slice(0, 200)}`);
-      return null;
-    }
-
-    const result = await response.json();
-    console.log(`[SocialData POST] Raw response keys:`, Object.keys(result));
-
-    // Extract the tweet from the response (may be in 'tweets' array or direct)
-    const data = Array.isArray(result) ? result[0] : (result.tweets?.[0] || result);
-
-    if (!data) {
-      console.log(`[SocialData POST] No tweet data in response`);
-      return null;
-    }
-
-    // Extract tweet content
-    const content = data.full_text || data.text || '';
-    if (!content) {
-      console.log(`[SocialData POST] No content found in response`);
-      return null;
-    }
-
-    // Extract author info
-    const user = data.user || {};
-    const authorHandle = user.screen_name || '';
-
-    // Extract metrics - POST API should return all metrics
-    const metrics = {
-      likes: Number(data.favorite_count || 0),
-      retweets: Number(data.retweet_count || 0),
-      replies: Number(data.reply_count || 0),
-      quotes: Number(data.quote_count || 0),
-      views: Number(data.views_count || data.views?.count || 0),
-      bookmarks: Number(data.bookmark_count || 0),
-    };
-
-    console.log(`[SocialData POST] Extracted metrics for ${tweetId}:`, JSON.stringify(metrics));
-
-    return {
-      id: data.id_str || tweetId,
-      url: `https://x.com/${authorHandle}/status/${tweetId}`,
-      content,
-      authorHandle,
-      authorName: user.name || authorHandle,
-      postedAt: data.created_at ? new Date(data.created_at) : new Date(),
-      metrics,
-      mediaUrls: extractMediaUrls(data),
-      isRetweet: !!data.retweeted_status,
-      isQuote: !!data.is_quote_status,
-      quotedTweetUrl: data.quoted_status_permalink?.expanded || undefined,
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.log(`[SocialData POST] Error fetching tweet ${tweetId}:`, errorMsg);
-    return null;
-  }
-}
 
 /**
  * Extract media URLs from tweet data
@@ -285,173 +198,14 @@ async function scrapeSingleTweetWithSocialDataGet(tweetId: string): Promise<Scra
 }
 
 /**
- * Scrape a single tweet using SocialData (tries POST first, then GET as fallback)
+ * Scrape a single tweet using SocialData GET API
  */
 async function scrapeSingleTweetWithSocialData(tweetId: string): Promise<ScrapedTweet | null> {
-  // Try POST API first (better metrics)
-  const postResult = await scrapeSingleTweetWithSocialDataPost(tweetId);
-  if (postResult) {
-    return postResult;
-  }
-
-  // Fallback to GET API
-  console.log(`[SocialData] POST failed, trying GET fallback...`);
   return scrapeSingleTweetWithSocialDataGet(tweetId);
 }
 
 /**
- * Search tweets using SocialData.tools POST API (primary)
- * Uses advanced search with full metrics per post
- */
-async function scrapeFromSocialDataPost(options: ScrapeOptions): Promise<ScrapeResult> {
-  const apiKey = getSocialDataApiKey();
-
-  if (!apiKey) {
-    return {
-      success: false,
-      tweets: [],
-      error: 'No SocialData API key configured.',
-      method: 'socialdata'
-    };
-  }
-
-  const { handle, keywords, maxTweets = 100, sinceDate } = options;
-  const cleanHandle = handle.replace('@', '');
-
-  console.log(`[SocialData POST] Starting search for @${cleanHandle}...`);
-
-  try {
-    // Build search terms with date range if specified
-    let searchQuery = `from:${cleanHandle}`;
-    if (sinceDate) {
-      const since = sinceDate.toISOString().replace('T', '_').replace(/\.\d+Z$/, '_UTC');
-      searchQuery += ` since:${since}`;
-    }
-
-    const response = await fetch(
-      'https://api.socialdata.tools/twitter/search',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          searchTerms: [searchQuery],
-          maxItems: maxTweets,
-          'include:nativeretweets': false,
-        }),
-        signal: AbortSignal.timeout(60000),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.log(`[SocialData POST] HTTP ${response.status}: ${errorText.slice(0, 200)}`);
-
-      if (response.status === 402) {
-        return {
-          success: false,
-          tweets: [],
-          error: 'SocialData: Not enough credits. Please top up your account.',
-          method: 'socialdata'
-        };
-      }
-
-      // If POST fails, return failure to trigger fallback
-      return {
-        success: false,
-        tweets: [],
-        error: `SocialData POST: HTTP ${response.status}`,
-        method: 'socialdata'
-      };
-    }
-
-    const data = await response.json();
-    const tweets = data.tweets || (Array.isArray(data) ? data : []);
-
-    console.log(`[SocialData POST] Received ${tweets.length} tweets`);
-
-    const allTweets: ScrapedTweet[] = [];
-
-    for (const item of tweets) {
-      try {
-        const content = item.full_text || item.text || '';
-
-        // Skip retweets
-        if (content.startsWith('RT @')) continue;
-
-        // Skip replies (unless they're from the user we're searching)
-        if (item.in_reply_to_status_id_str && !content.startsWith(`@${cleanHandle}`)) continue;
-
-        const user = item.user || {};
-        const authorHandle = user.screen_name || cleanHandle;
-
-        allTweets.push({
-          id: item.id_str || String(item.id),
-          url: `https://x.com/${authorHandle}/status/${item.id_str || item.id}`,
-          content,
-          authorHandle,
-          authorName: user.name || authorHandle,
-          postedAt: item.created_at ? new Date(item.created_at) : new Date(),
-          metrics: {
-            likes: Number(item.favorite_count || 0),
-            retweets: Number(item.retweet_count || 0),
-            replies: Number(item.reply_count || 0),
-            quotes: Number(item.quote_count || 0),
-            views: Number(item.views_count || item.views?.count || 0),
-            bookmarks: Number(item.bookmark_count || 0),
-          },
-          mediaUrls: extractMediaUrls(item),
-          isRetweet: false,
-          isQuote: !!item.is_quote_status,
-        });
-      } catch {
-        continue;
-      }
-    }
-
-    console.log(`[SocialData POST] Parsed ${allTweets.length} tweets from @${cleanHandle}`);
-
-    // Apply keyword filtering if specified
-    let filteredTweets = allTweets;
-    if (keywords && keywords.length > 0 && allTweets.length > 0) {
-      const beforeFilter = allTweets.length;
-      const lowerKeywords = keywords.map(kw => kw.toLowerCase());
-
-      filteredTweets = allTweets.filter(tweet => {
-        const lowerContent = tweet.content.toLowerCase();
-        return lowerKeywords.some(kw => lowerContent.includes(kw));
-      });
-
-      console.log(`[SocialData POST] Keyword filter: ${beforeFilter} → ${filteredTweets.length} tweets`);
-
-      if (filteredTweets.length === 0) {
-        return {
-          success: false,
-          tweets: [],
-          error: `Found ${beforeFilter} tweets from @${cleanHandle} but none matched keywords: ${keywords.join(', ')}`,
-          method: 'socialdata',
-        };
-      }
-    }
-
-    return {
-      success: filteredTweets.length > 0,
-      tweets: filteredTweets.slice(0, maxTweets),
-      error: filteredTweets.length === 0 ? `No tweets found for @${cleanHandle}` : undefined,
-      method: 'socialdata',
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.log(`[SocialData POST] Error:`, errorMsg);
-    return { success: false, tweets: [], error: `SocialData POST: ${errorMsg}`, method: 'socialdata' };
-  }
-}
-
-/**
- * Search tweets using SocialData.tools GET API (fallback)
+ * Search tweets using SocialData.tools GET API
  * Endpoint: GET https://api.socialdata.tools/twitter/search
  * Supports search operators: from:user, since:date, until:date
  */
@@ -610,17 +364,9 @@ async function scrapeFromSocialDataGet(options: ScrapeOptions): Promise<ScrapeRe
 }
 
 /**
- * Search tweets using SocialData.tools API (tries POST first, then GET)
+ * Search tweets using SocialData.tools API
  */
 async function scrapeFromSocialData(options: ScrapeOptions): Promise<ScrapeResult> {
-  // Try POST API first (better metrics)
-  const postResult = await scrapeFromSocialDataPost(options);
-  if (postResult.success || postResult.tweets.length > 0) {
-    return postResult;
-  }
-
-  // Fallback to GET API
-  console.log(`[SocialData] POST failed, trying GET fallback...`);
   return scrapeFromSocialDataGet(options);
 }
 
@@ -992,7 +738,8 @@ export async function scrapeTweets(options: ScrapeOptions): Promise<ScrapeResult
 }
 
 /**
- * Batch fetch multiple tweets by ID using SocialData POST API
+ * Batch fetch multiple tweets by ID using Apify KaitoEasyAPI
+ * Uses tweetIDs parameter to fetch all tweets in a single actor run
  * Returns a map of tweet ID to ScrapedTweet (or null if not found)
  */
 export async function scrapeTweetsByIds(tweetIds: string[]): Promise<Map<string, ScrapedTweet | null>> {
@@ -1002,99 +749,155 @@ export async function scrapeTweetsByIds(tweetIds: string[]): Promise<Map<string,
     return results;
   }
 
-  const apiKey = getSocialDataApiKey();
+  const apiKey = getApifyApiKey();
 
+  // If Apify isn't configured, fall back to individual fetches
   if (!apiKey) {
-    console.log(`[Batch] No SocialData API key, falling back to individual fetches`);
-    // Fallback to individual fetches
+    console.log(`[Batch] No Apify API key, falling back to individual fetches`);
     for (const tweetId of tweetIds) {
       results.set(tweetId, await scrapeSingleTweet(tweetId));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     return results;
   }
 
-  console.log(`[Batch] Fetching ${tweetIds.length} tweets via SocialData POST...`);
+  console.log(`[Batch] Fetching ${tweetIds.length} tweets via KaitoEasyAPI searchTerms...`);
 
   try {
-    const response = await fetch(
-      'https://api.socialdata.tools/twitter/statuses/lookup',
+    const actorId = 'CJdippxWmn9uRfooo';
+
+    // Convert tweet IDs to URLs for searchTerms (tweetIDs param doesn't work reliably)
+    const tweetUrls = tweetIds.map(id => `https://x.com/i/status/${id}`);
+
+    // Start actor with tweet URLs
+    const runResponse = await fetch(
+      `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tweetIds: tweetIds,
+          searchTerms: tweetUrls,
+          maxItems: tweetIds.length,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(60000),
       }
     );
 
-    if (!response.ok) {
-      console.log(`[Batch] POST API failed: HTTP ${response.status}, falling back to individual fetches`);
-      // Fallback to individual fetches
+    if (!runResponse.ok) {
+      console.log(`[Batch] Failed to start actor: ${runResponse.status}, falling back to individual fetches`);
+      for (const tweetId of tweetIds) {
+        results.set(tweetId, await scrapeSingleTweet(tweetId));
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      return results;
+    }
+
+    const runData = await runResponse.json();
+    const runId = runData.data?.id;
+
+    if (!runId) {
+      console.log(`[Batch] No run ID returned, falling back to individual fetches`);
       for (const tweetId of tweetIds) {
         results.set(tweetId, await scrapeSingleTweet(tweetId));
       }
       return results;
     }
 
-    const data = await response.json();
-    const tweets = Array.isArray(data) ? data : (data.tweets || []);
+    // Poll for completion (max 120 seconds for batch)
+    let attempts = 0;
+    const maxAttempts = 60;
 
-    console.log(`[Batch] Received ${tweets.length} tweets`);
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
 
-    // Create a map of received tweets
-    const receivedTweets = new Map<string, ScrapedTweet>();
+      const statusResponse = await fetch(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`
+      );
 
-    for (const item of tweets) {
-      try {
-        const tweetId = String(item.id_str || item.id);
-        const content = item.full_text || item.text || '';
-        const user = item.user || {};
-        const authorHandle = user.screen_name || '';
+      if (!statusResponse.ok) continue;
 
-        receivedTweets.set(tweetId, {
-          id: tweetId,
-          url: `https://x.com/${authorHandle}/status/${tweetId}`,
-          content,
-          authorHandle,
-          authorName: user.name || authorHandle,
-          postedAt: item.created_at ? new Date(item.created_at) : new Date(),
-          metrics: {
-            likes: Number(item.favorite_count || 0),
-            retweets: Number(item.retweet_count || 0),
-            replies: Number(item.reply_count || 0),
-            quotes: Number(item.quote_count || 0),
-            views: Number(item.views_count || item.views?.count || 0),
-            bookmarks: Number(item.bookmark_count || 0),
-          },
-          mediaUrls: extractMediaUrls(item),
-          isRetweet: !!item.retweeted_status,
-          isQuote: !!item.is_quote_status,
-          quotedTweetUrl: item.quoted_status_permalink?.expanded || undefined,
-        });
-      } catch {
-        continue;
+      const statusData = await statusResponse.json();
+      const status = statusData.data?.status;
+
+      console.log(`[Batch] Run status: ${status} (${attempts * 2}s)`);
+
+      if (status === 'SUCCEEDED') {
+        const datasetId = statusData.data?.defaultDatasetId;
+        if (!datasetId) break;
+
+        const itemsResponse = await fetch(
+          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}&limit=${tweetIds.length}`
+        );
+
+        if (!itemsResponse.ok) break;
+
+        const items = await itemsResponse.json();
+        console.log(`[Batch] Received ${items?.length || 0} items from actor`);
+
+        // Parse all returned tweets into a map
+        const receivedTweets = new Map<string, ScrapedTweet>();
+
+        for (const item of items || []) {
+          try {
+            const id = String(item.id || '');
+            if (!id) continue;
+
+            const content = String(item.text || item.full_text || '');
+            if (content.includes('KaitoEasyAPI') && content.includes('mock data')) {
+              continue;
+            }
+
+            receivedTweets.set(id, {
+              id,
+              url: item.url || item.twitterUrl || `https://x.com/i/status/${id}`,
+              content,
+              authorHandle: item.author?.userName || item.user?.screen_name || '',
+              authorName: item.author?.name || item.user?.name || '',
+              postedAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+              metrics: {
+                likes: Number(item.likeCount || item.favorite_count || 0),
+                retweets: Number(item.retweetCount || item.retweet_count || 0),
+                replies: Number(item.replyCount || item.reply_count || 0),
+                quotes: Number(item.quoteCount || item.quote_count || 0),
+                views: Number(item.viewCount || item.views?.count || item.view_count || 0),
+                bookmarks: Number(item.bookmarkCount || item.bookmark_count || 0),
+              },
+              mediaUrls: [],
+              isRetweet: false,
+              isQuote: false,
+            });
+          } catch {
+            continue;
+          }
+        }
+
+        // Map results to requested tweet IDs
+        for (const tweetId of tweetIds) {
+          results.set(tweetId, receivedTweets.get(tweetId) || null);
+        }
+
+        const foundCount = Array.from(results.values()).filter(t => t !== null).length;
+        console.log(`[Batch] Matched ${foundCount}/${tweetIds.length} tweets`);
+
+        return results;
+      } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+        console.log(`[Batch] Run failed: ${status}`);
+        break;
       }
     }
 
-    // Map results to original tweet IDs
+    // If batch failed, fall back to individual fetches
+    console.log(`[Batch] Batch failed, falling back to individual fetches`);
     for (const tweetId of tweetIds) {
-      results.set(tweetId, receivedTweets.get(tweetId) || null);
+      results.set(tweetId, await scrapeSingleTweet(tweetId));
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
-
-    const foundCount = Array.from(results.values()).filter(t => t !== null).length;
-    console.log(`[Batch] Mapped ${foundCount}/${tweetIds.length} tweets successfully`);
 
     return results;
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.log(`[Batch] Error:`, errorMsg, `- falling back to individual fetches`);
-
-    // Fallback to individual fetches
+    console.log(`[Batch] Error:`, error);
+    // Fall back to individual fetches
     for (const tweetId of tweetIds) {
       results.set(tweetId, await scrapeSingleTweet(tweetId));
     }
@@ -1113,6 +916,10 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
 
   if (!tweetId || !/^\d+$/.test(tweetId)) return null;
 
+  // Try to extract author handle from URL (e.g., https://x.com/elonmusk/status/123)
+  const handleMatch = urlOrId.match(/(?:x\.com|twitter\.com)\/([^/]+)\/status/);
+  const authorHandle = handleMatch ? handleMatch[1] : undefined;
+
   // Try SocialData first (primary - most reliable for metrics)
   if (hasSocialDataApiKey()) {
     try {
@@ -1126,10 +933,10 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
     }
   }
 
-  // Fallback to Apify
-  if (hasApifyApiKey()) {
+  // Fallback to Apify (requires author handle to search tweets)
+  if (hasApifyApiKey() && authorHandle) {
     try {
-      const tweet = await scrapeSingleTweetWithApify(tweetId);
+      const tweet = await scrapeSingleTweetWithApify(tweetId, authorHandle);
       if (tweet) {
         console.log(`[ScrapeSingleTweet] Apify success for ${tweetId}`);
         return tweet;
@@ -1137,6 +944,8 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
     } catch (error) {
       console.log(`[ScrapeSingleTweet] Apify failed for ${tweetId}:`, error);
     }
+  } else if (hasApifyApiKey() && !authorHandle) {
+    console.log(`[ScrapeSingleTweet] Skipping Apify - no author handle in URL: ${urlOrId}`);
   }
 
   // Last resort: syndication API (may not work, limited metrics)
@@ -1185,29 +994,35 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
 
 /**
  * Scrape a single tweet using Apify KaitoEasyAPI actor
- * Uses the same actor (CJdippxWmn9uRfooo) as the rest of the codebase
+ * Uses searchTerms with author handle since tweetIDs/URLs don't work reliably
+ * Actor: CJdippxWmn9uRfooo (kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest)
  */
-async function scrapeSingleTweetWithApify(tweetId: string): Promise<ScrapedTweet | null> {
+async function scrapeSingleTweetWithApify(tweetId: string, authorHandle?: string): Promise<ScrapedTweet | null> {
   const apiKey = getApifyApiKey();
   if (!apiKey) return null;
 
-  // Use the same actor as scrapeFromApify for consistency
   const actorId = 'CJdippxWmn9uRfooo';
-  const tweetUrl = `https://x.com/i/status/${tweetId}`;
 
-  console.log(`[Apify] Fetching single tweet ${tweetId} via KaitoEasyAPI...`);
+  // If we don't have the author handle, we can't use Apify effectively
+  // The tweetIDs and URL-based searches don't work with this actor
+  if (!authorHandle) {
+    console.log(`[Apify] No author handle provided for tweet ${tweetId}, skipping Apify`);
+    return null;
+  }
+
+  const cleanHandle = authorHandle.replace('@', '');
+  console.log(`[Apify] Fetching tweets from @${cleanHandle} to find tweet ${tweetId}...`);
 
   try {
-    // Start the actor run - use searchTerms format like the rest of the codebase
-    // KaitoEasyAPI accepts tweet URLs in searchTerms
+    // Search for recent tweets from this user
     const runResponse = await fetch(
       `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          searchTerms: [tweetUrl],
-          maxItems: 1,
+          searchTerms: [`from:${cleanHandle}`],
+          maxItems: 50, // Fetch more to find our specific tweet
         }),
         signal: AbortSignal.timeout(30000),
       }
@@ -1255,52 +1070,55 @@ async function scrapeSingleTweetWithApify(tweetId: string): Promise<ScrapedTweet
           return null;
         }
 
-        const item = items[0];
+        console.log(`[Apify] Received ${items.length} items, searching for tweet ${tweetId}...`);
 
-        // Log the raw item to see what fields are available
-        console.log(`[Apify] Raw item keys for ${tweetId}:`, Object.keys(item));
-        console.log(`[Apify] Raw item sample:`, JSON.stringify(item).slice(0, 500));
+        // Find the specific tweet by ID
+        for (const item of items) {
+          // Skip mock data
+          const content = String(item.text || item.full_text || item.content || '');
+          if (content.includes('KaitoEasyAPI') && content.includes('mock data')) {
+            continue;
+          }
 
-        // Check for mock data (KaitoEasyAPI returns this when no results found)
-        const content = String(item.text || item.full_text || item.content || '');
-        if (content.includes('KaitoEasyAPI') && content.includes('mock data')) {
-          console.log(`[Apify] Received mock data for tweet ${tweetId}, skipping`);
-          return null;
+          // Check if this is our tweet
+          const itemId = String(item.id || '');
+          if (itemId !== tweetId) {
+            continue;
+          }
+
+          console.log(`[Apify] Found matching tweet ${tweetId}`);
+          console.log(`[Apify] Raw item keys:`, Object.keys(item));
+
+          // Extract metrics
+          const metrics = {
+            likes: Number(item.likeCount || item.favorite_count || 0),
+            retweets: Number(item.retweetCount || item.retweet_count || 0),
+            replies: Number(item.replyCount || item.reply_count || 0),
+            quotes: Number(item.quoteCount || item.quote_count || 0),
+            views: Number(item.viewCount || item.views?.count || item.view_count || 0),
+            bookmarks: Number(item.bookmarkCount || item.bookmark_count || 0),
+          };
+
+          console.log(`[Apify] Extracted metrics for ${tweetId}:`, JSON.stringify(metrics));
+
+          const actualUrl = item.url || item.twitterUrl || `https://x.com/${cleanHandle}/status/${tweetId}`;
+
+          return {
+            id: itemId,
+            url: actualUrl,
+            content,
+            authorHandle: item.author?.userName || item.user?.screen_name || cleanHandle,
+            authorName: item.author?.name || item.user?.name || cleanHandle,
+            postedAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+            metrics,
+            mediaUrls: [],
+            isRetweet: false,
+            isQuote: false,
+          };
         }
 
-        // Extract metrics with better logging
-        const metrics = {
-          likes: Number(item.likeCount || item.favorite_count || 0),
-          retweets: Number(item.retweetCount || item.retweet_count || 0),
-          replies: Number(item.replyCount || item.reply_count || 0),
-          quotes: Number(item.quoteCount || item.quote_count || 0),
-          views: Number(item.viewCount || item.views?.count || item.view_count || 0),
-          bookmarks: Number(item.bookmarkCount || item.bookmark_count || 0),
-        };
-
-        console.log(`[Apify] Extracted metrics for ${tweetId}:`, JSON.stringify(metrics));
-
-        // Validate we got some real data (at least views or likes)
-        if (metrics.views === 0 && metrics.likes === 0 && metrics.retweets === 0) {
-          console.log(`[Apify] No valid metrics found for tweet ${tweetId}`);
-          return null;
-        }
-
-        // Get actual tweet URL from response if available
-        const actualUrl = item.url || item.twitterUrl || tweetUrl;
-
-        return {
-          id: String(item.id || tweetId),
-          url: actualUrl,
-          content,
-          authorHandle: item.author?.userName || item.user?.screen_name || '',
-          authorName: item.author?.name || item.user?.name || '',
-          postedAt: item.createdAt ? new Date(item.createdAt) : new Date(),
-          metrics,
-          mediaUrls: [],
-          isRetweet: false,
-          isQuote: false,
-        };
+        console.log(`[Apify] Tweet ${tweetId} not found in results from @${cleanHandle}`);
+        return null;
       } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
         console.log(`[Apify] Run failed with status: ${status}`);
         return null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,8 @@ import {
   Bookmark,
   ExternalLink,
   Calendar,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 
 interface Post {
@@ -51,6 +54,7 @@ interface PostDetailModalProps {
   post: Post | null;
   open: boolean;
   onClose: () => void;
+  onRefresh?: () => Promise<void>;
 }
 
 function formatDate(dateString: string | null): string {
@@ -79,7 +83,30 @@ function calculateEngagementRate(post: Post): string {
   return ((engagement / impressions) * 100).toFixed(2);
 }
 
-export function PostDetailModal({ post, open, onClose }: PostDetailModalProps) {
+export function PostDetailModal({ post, open, onClose, onRefresh }: PostDetailModalProps) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!post || !onRefresh) return;
+    setIsRefreshing(true);
+    try {
+      // Call the individual post refresh endpoint
+      const response = await fetch(`/api/posts/${post.id}/refresh-metrics`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to refresh");
+      }
+      // Call the parent's refresh to update all data
+      await onRefresh();
+    } catch (error) {
+      console.error("Failed to refresh:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!post) return null;
 
   const metrics = [
@@ -112,6 +139,21 @@ export function PostDetailModal({ post, open, onClose }: PostDetailModalProps) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {onRefresh && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  title="Refresh metrics"
+                >
+                  {isRefreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
               <Badge className={getStatusColor(post.status || "POSTED")} variant="secondary">
                 {(post.status || "POSTED").replace("_", " ")}
               </Badge>

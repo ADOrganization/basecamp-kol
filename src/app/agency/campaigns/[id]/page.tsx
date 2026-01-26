@@ -213,6 +213,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Update selected post when campaign data refreshes
+  useEffect(() => {
+    if (selectedPost && campaign && showPostDetail) {
+      const updatedPost = campaign.posts.find(p => p.id === selectedPost.id);
+      if (updatedPost && JSON.stringify(updatedPost) !== JSON.stringify(selectedPost)) {
+        setSelectedPost(updatedPost);
+      }
+    }
+    // Only run when campaign changes, not when selectedPost changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign]);
+
   const fetchTelegramChats = async () => {
     try {
       const response = await fetch("/api/telegram/chats");
@@ -592,8 +604,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           )}
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">Total Likes</p>
-          <p className="text-2xl font-bold">{formatNumber(totalLikes)}</p>
+          <p className="text-sm text-muted-foreground">Total Engagement</p>
+          <p className="text-2xl font-bold">{formatNumber(totalEngagement)}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {formatNumber(totalLikes)} likes
+          </p>
         </div>
       </div>
 
@@ -819,7 +834,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <th className="text-left p-4 font-medium text-muted-foreground">Keywords</th>
                     )}
                     <th className="text-left p-4 font-medium text-muted-foreground">Posted</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Views</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Likes</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Retweets</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Replies</th>
                     <th className="w-[50px]"></th>
                   </tr>
                 </thead>
@@ -883,7 +901,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                           day: "numeric",
                         }) : "-"}
                       </td>
-                      <td className="p-4 text-right">{formatNumber(post.likes || 0)}</td>
+                      <td className="p-4 text-right text-sm">{formatNumber(post.impressions || 0)}</td>
+                      <td className="p-4 text-right text-sm">{formatNumber(post.likes || 0)}</td>
+                      <td className="p-4 text-right text-sm">{formatNumber(post.retweets || 0)}</td>
+                      <td className="p-4 text-right text-sm">{formatNumber(post.replies || 0)}</td>
                       <td className="p-4">
                         {post.tweetUrl && (
                           <a
@@ -1179,6 +1200,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         post={selectedPost}
         open={showPostDetail}
         onClose={() => setShowPostDetail(false)}
+        onRefresh={async () => {
+          await fetchCampaign();
+        }}
       />
 
       {/* Report Generator */}

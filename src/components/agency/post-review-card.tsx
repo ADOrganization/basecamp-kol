@@ -13,6 +13,10 @@ import {
   Loader2,
   Send,
   Edit3,
+  Eye,
+  Repeat2,
+  MessageCircle,
+  Bookmark,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -36,6 +40,8 @@ interface Post {
   likes: number;
   retweets: number;
   replies: number;
+  quotes: number;
+  bookmarks: number;
   kol: {
     name: string;
     twitterHandle: string;
@@ -223,11 +229,27 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
                 {!showActions && post.content && (
                   <p className="text-sm mt-2 line-clamp-2">{post.content}</p>
                 )}
-                {currentStatus === "POSTED" && (
-                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                {(currentStatus === "POSTED" || currentStatus === "VERIFIED") && (
+                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground flex-wrap">
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      {(post.impressions ?? 0).toLocaleString()}
+                    </span>
                     <span className="flex items-center gap-1">
                       <Heart className="h-4 w-4" />
-                      {(post.likes ?? 0).toLocaleString()} likes
+                      {(post.likes ?? 0).toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Repeat2 className="h-4 w-4" />
+                      {(post.retweets ?? 0).toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="h-4 w-4" />
+                      {(post.replies ?? 0).toLocaleString()}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Bookmark className="h-4 w-4" />
+                      {(post.bookmarks ?? 0).toLocaleString()}
                     </span>
                   </div>
                 )}

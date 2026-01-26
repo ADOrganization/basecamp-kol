@@ -11,7 +11,7 @@ async function getDashboardStats(organizationId: string) {
   const [kols, campaigns, posts] = await Promise.all([
     db.kOL.findMany({
       where: { organizationId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { followersCount: "desc" },
     }),
     db.campaign.findMany({
       where: { agencyId: organizationId },
@@ -86,7 +86,7 @@ async function getDashboardStats(organizationId: string) {
     totalRetweets,
     totalReplies,
     totalPosts: posts.length,
-    recentKols: kols.slice(0, 5),
+    topKols: kols.slice(0, 5),
     activeCampaigns: activeCampaigns.slice(0, 5),
     tierDistribution,
     trendData: last7Days,
@@ -264,7 +264,7 @@ export default async function AgencyDashboard() {
               <ArrowUpRight className="h-3 w-3" />
             </Link>
           </div>
-          {stats.recentKols.length === 0 ? (
+          {stats.topKols.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Users className="h-12 w-12 text-muted-foreground mb-3" />
               <p className="text-muted-foreground">No KOLs added yet</p>
@@ -277,7 +277,7 @@ export default async function AgencyDashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {stats.recentKols.map((kol, index) => (
+              {stats.topKols.map((kol, index) => (
                 <Link
                   key={kol.id}
                   href={`/agency/kols/${kol.id}`}
