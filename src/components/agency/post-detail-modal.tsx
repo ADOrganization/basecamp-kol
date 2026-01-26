@@ -112,7 +112,7 @@ export function PostDetailModal({ post, open, onClose, onRefresh }: PostDetailMo
   const metrics = [
     { label: "Impressions", value: post.impressions || 0, icon: Eye },
     { label: "Likes", value: post.likes || 0, icon: Heart },
-    { label: "Retweets", value: post.retweets || 0, icon: Repeat2 },
+    { label: "Reposts", value: post.retweets || 0, icon: Repeat2 },
     { label: "Replies", value: post.replies || 0, icon: MessageCircle },
     { label: "Quotes", value: post.quotes || 0, icon: Quote },
     { label: "Bookmarks", value: post.bookmarks || 0, icon: Bookmark },

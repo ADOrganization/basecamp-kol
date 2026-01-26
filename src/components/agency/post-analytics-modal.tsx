@@ -41,7 +41,7 @@ const PERIOD_LABELS: Record<Period, string> = {
 const METRIC_OPTIONS: { value: Metric; label: string }[] = [
   { value: "impressions", label: "Impressions" },
   { value: "likes", label: "Likes" },
-  { value: "retweets", label: "Retweets" },
+  { value: "retweets", label: "Reposts" },
   { value: "replies", label: "Replies" },
   { value: "engagementRate", label: "Engagement Rate" },
 ];

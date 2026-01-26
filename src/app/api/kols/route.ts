@@ -44,27 +44,52 @@ export async function GET(request: NextRequest) {
         campaignKols: {
           select: {
             assignedBudget: true,
+            status: true,
+          },
+        },
+        posts: {
+          where: {
+            status: { in: ["POSTED", "VERIFIED"] },
+          },
+          orderBy: { postedAt: "desc" },
+          take: 1,
+          select: {
+            postedAt: true,
           },
         },
         _count: {
           select: {
             campaignKols: true,
-            posts: true,
+            posts: {
+              where: {
+                status: { in: ["POSTED", "VERIFIED"] },
+              },
+            },
           },
         },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate total earnings for each KOL (assignedBudget is in cents)
+    // Calculate total earnings and active campaigns for each KOL
     const kolsWithEarnings = kols.map((kol) => {
       const totalEarningsCents = kol.campaignKols.reduce(
         (sum, ck) => sum + (ck.assignedBudget || 0),
         0
       );
-      // Remove campaignKols from response to avoid exposing individual budget data
-      const { campaignKols: _, ...kolData } = kol;
-      return { ...kolData, totalEarnings: totalEarningsCents / 100 };
+      const activeCampaigns = kol.campaignKols.filter(
+        ck => ck.status === "PENDING" || ck.status === "CONFIRMED"
+      ).length;
+      const lastPostDate = kol.posts[0]?.postedAt || null;
+
+      // Remove internal data from response
+      const { campaignKols: _, posts: __, ...kolData } = kol;
+      return {
+        ...kolData,
+        totalEarnings: totalEarningsCents / 100,
+        activeCampaigns,
+        lastPostDate,
+      };
     });
 
     // Add security headers to prevent caching of sensitive data

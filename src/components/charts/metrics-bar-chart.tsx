@@ -27,7 +27,7 @@ interface MetricsBarChartProps {
 const METRIC_LABELS: Record<string, string> = {
   impressions: "Impressions",
   likes: "Likes",
-  retweets: "Retweets",
+  retweets: "Reposts",
   replies: "Replies",
   quotes: "Quotes",
   bookmarks: "Bookmarks",

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -31,6 +32,11 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
+  Megaphone,
+  Search,
+  ArrowUpRight,
+  Sparkles,
+  Shield,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,6 +54,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  ACTIVE: { bg: "bg-emerald-500/10", text: "text-emerald-600", border: "border-emerald-500/30" },
+  COMPLETED: { bg: "bg-blue-500/10", text: "text-blue-600", border: "border-blue-500/30" },
+  DRAFT: { bg: "bg-slate-500/10", text: "text-slate-600", border: "border-slate-500/30" },
+  PENDING_APPROVAL: { bg: "bg-amber-500/10", text: "text-amber-600", border: "border-amber-500/30" },
+  PAUSED: { bg: "bg-orange-500/10", text: "text-orange-600", border: "border-orange-500/30" },
+  CANCELLED: { bg: "bg-rose-500/10", text: "text-rose-600", border: "border-rose-500/30" },
+};
 
 interface Campaign {
   id: string;
@@ -286,23 +301,50 @@ export default function ClientAccountsPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
-      case "COMPLETED":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
-      case "DRAFT":
-        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400";
-      default:
-        return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-    }
-  };
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter clients by search
+  const filteredClients = useMemo(() => {
+    if (!searchQuery) return clients;
+    return clients.filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.members[0]?.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.members[0]?.user.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [clients, searchQuery]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const activeCampaigns = clients.filter((c) =>
+      c.clientCampaigns.some((campaign) => campaign.status === "ACTIVE")
+    ).length;
+    return { total: clients.length, active: activeCampaigns };
+  }, [clients]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-8 w-40 bg-muted animate-pulse rounded-lg" />
+            <div className="h-4 w-64 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="h-10 w-44 bg-muted animate-pulse rounded-lg" />
+        </div>
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+        {/* Cards skeleton */}
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-28 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -310,105 +352,199 @@ export default function ClientAccountsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Client Accounts</h1>
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Building2 className="h-5 w-5 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">Client Accounts</h1>
+          </div>
           <p className="text-muted-foreground">
-            Create and manage client portal access
+            Manage client portal access and campaign assignments.
           </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
+        <Button
+          onClick={() => setShowCreateDialog(true)}
+          className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 shadow-lg shadow-blue-500/25"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Create Client Account
         </Button>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-muted/50 border rounded-lg p-4">
-        <p className="text-sm text-muted-foreground">
-          Client accounts provide access to the client portal where they can view their assigned campaign&apos;s progress, posts, and analytics. Each client can only see their specific campaign.
-        </p>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="rounded-xl border bg-card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <Building2 className="h-4 w-4 text-blue-500" />
+            </div>
+            <span className="text-xs text-muted-foreground font-medium">Total Clients</span>
+          </div>
+          <p className="text-2xl font-bold">{stats.total}</p>
+          <p className="text-xs text-muted-foreground">accounts created</p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-emerald-500" />
+            </div>
+            <span className="text-xs text-muted-foreground font-medium">Active</span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-600">{stats.active}</p>
+          <p className="text-xs text-muted-foreground">with active campaigns</p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4 hover:shadow-md transition-shadow col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <Megaphone className="h-4 w-4 text-purple-500" />
+            </div>
+            <span className="text-xs text-muted-foreground font-medium">Available</span>
+          </div>
+          <p className="text-2xl font-bold">{campaigns.length}</p>
+          <p className="text-xs text-muted-foreground">unassigned campaigns</p>
+        </div>
       </div>
+
+      {/* Info Banner */}
+      <div className="rounded-xl border bg-gradient-to-r from-blue-500/5 to-cyan-500/5 p-4">
+        <div className="flex items-start gap-3">
+          <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+            <Shield className="h-4 w-4 text-blue-500" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Client Portal Access</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Client accounts provide secure access to the client portal where they can view their campaign&apos;s progress, posts, and analytics. Each client can only see their assigned campaign.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Search */}
+      {clients.length > 0 && (
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search clients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-10 pl-10 pr-4 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+          />
+        </div>
+      )}
 
       {/* Clients List */}
       {clients.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-lg border">
-          <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Client Accounts</h3>
-          <p className="text-muted-foreground mb-4">
-            Create your first client account to give them access to their campaign.
+        <div className="text-center py-16 bg-card rounded-xl border">
+          <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center mb-4">
+            <Building2 className="h-8 w-8 text-blue-500" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">No Client Accounts</h3>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            Create your first client account to give them secure access to their campaign dashboard.
           </p>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Create Client Account
           </Button>
         </div>
+      ) : filteredClients.length === 0 ? (
+        <div className="text-center py-12 bg-card rounded-xl border">
+          <p className="text-muted-foreground">No clients match your search.</p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => setSearchQuery("")}
+          >
+            Clear Search
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-4">
-          {clients.map((client) => (
-            <div
-              key={client.id}
-              className="bg-card rounded-lg border p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{client.name}</h3>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                      {client.members[0] && (
-                        <>
-                          <span className="flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" />
-                            {client.members[0].user.name || "No name"}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Mail className="h-3.5 w-3.5" />
-                            {client.members[0].user.email}
-                          </span>
-                        </>
-                      )}
+          {filteredClients.map((client) => {
+            const activeCampaign = client.clientCampaigns.find((c) => c.status === "ACTIVE");
+
+            return (
+              <div
+                key={client.id}
+                className="group bg-card rounded-xl border p-5 hover:shadow-lg hover:border-primary/30 transition-all"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 min-w-0">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
+                      {client.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
+                        {client.name}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+                        {client.members[0] && (
+                          <>
+                            <span className="flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5" />
+                              {client.members[0].user.name || "No name"}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Mail className="h-3.5 w-3.5" />
+                              {client.members[0].user.email}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="text-right">
-                    {client.clientCampaigns.map((campaign) => (
-                      <div key={campaign.id} className="flex items-center gap-2">
-                        <Target className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{campaign.name}</span>
-                        <Badge className={getStatusColor(campaign.status)}>
-                          {campaign.status}
-                        </Badge>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {client.clientCampaigns.length > 0 ? (
+                      <div className="text-right">
+                        {client.clientCampaigns.map((campaign) => {
+                          const statusStyle = STATUS_STYLES[campaign.status] || STATUS_STYLES.DRAFT;
+                          return (
+                            <div key={campaign.id} className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{campaign.name}</span>
+                              <Badge className={cn(statusStyle.bg, statusStyle.text, statusStyle.border, "border text-xs")}>
+                                {campaign.status.replace("_", " ")}
+                              </Badge>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">No campaign assigned</span>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditClick(client)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteClick(client)}
+                          className="text-rose-600 focus:text-rose-600 focus:bg-rose-500/10"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditClick(client)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteClick(client)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

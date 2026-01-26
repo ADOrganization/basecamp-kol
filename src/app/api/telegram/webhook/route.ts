@@ -670,7 +670,17 @@ async function handleBudgetCommand(
     );
 
     if (!matchedCampaign) {
-      await sendResponse(`Could not find a campaign matching this group: "${groupTitle}"`);
+      // Show available campaigns
+      if (allCampaigns.length > 0) {
+        const campaignList = allCampaigns.slice(0, 5).map(c => `• ${c.name}`).join("\n");
+        await sendResponse(
+          `Could not find a campaign matching this group: "${groupTitle}"\n\n` +
+          `Available active campaigns:\n${campaignList}\n\n` +
+          `Tip: The group name should contain the campaign name.`
+        );
+      } else {
+        await sendResponse(`Could not find a campaign matching this group: "${groupTitle}"\n\nNo active campaigns found in your organization.`);
+      }
       return;
     }
 
@@ -1213,7 +1223,7 @@ async function handleSubmitCommandFromGroup(
     }
   } else {
     console.log(`[Submit Group] SKIPPED: No client telegram group - clientGroupId="${clientGroupId}", client=${!!client}`);
-    clientNotifyError = `No client group configured for campaign "${campaignKol.campaign.name}" (ID: ${campaignKol.campaign.id})`;
+    clientNotifyError = `No client Telegram group is linked to campaign "${campaignKol.campaign.name}". Go to the campaign settings to link a client group.`;
   }
 
   // 2. Reply success to the KOL in the group chat

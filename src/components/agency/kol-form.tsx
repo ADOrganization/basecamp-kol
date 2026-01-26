@@ -443,7 +443,7 @@ export function KOLForm({ kol, telegramChats = [], open, onClose }: KOLFormProps
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ratePerRetweet">Rate per Retweet</Label>
+                <Label htmlFor="ratePerRetweet">Rate per Repost</Label>
                 <Input
                   id="ratePerRetweet"
                   type="number"

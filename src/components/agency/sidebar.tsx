@@ -14,7 +14,7 @@ import {
   LogOut,
   ChevronDown,
   UserPlus,
-  Shield,
+  ChevronRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -36,13 +36,12 @@ interface AgencySidebarProps {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/agency/dashboard", icon: LayoutDashboard },
-  { name: "KOLs", href: "/agency/kols", icon: Users },
-  { name: "Campaigns", href: "/agency/campaigns", icon: Megaphone },
-  { name: "Content Review", href: "/agency/content/review", icon: FileText },
-  { name: "Client Accounts", href: "/agency/clients", icon: UserPlus },
-  { name: "Telegram", href: "/agency/telegram", icon: MessageSquare },
-  { name: "Settings", href: "/agency/settings", icon: Settings },
+  { name: "Dashboard", href: "/agency/dashboard", icon: LayoutDashboard, description: "Overview & metrics" },
+  { name: "KOL Roster", href: "/agency/kols", icon: Users, description: "Manage influencers" },
+  { name: "Campaigns", href: "/agency/campaigns", icon: Megaphone, description: "Active promotions" },
+  { name: "Content Review", href: "/agency/content/review", icon: FileText, description: "Approve posts" },
+  { name: "Clients", href: "/agency/clients", icon: UserPlus, description: "Client accounts" },
+  { name: "Telegram", href: "/agency/telegram", icon: MessageSquare, description: "Messages & chats" },
 ];
 
 export function AgencySidebar({ user, isAdmin = false }: AgencySidebarProps) {
@@ -51,83 +50,164 @@ export function AgencySidebar({ user, isAdmin = false }: AgencySidebarProps) {
 
   const handleLogout = async () => {
     if (isAdmin) {
-      // Admin logout - call admin logout endpoint
       await fetch("/api/admin/auth/logout", { method: "POST" });
       router.push("/admin/login");
     } else {
-      // Regular user logout
       signOut({ callbackUrl: "/login" });
     }
   };
 
   return (
-    <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground border-r border-border">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-muted">
-        <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+    <div className="flex h-full w-64 flex-col bg-card border-r border-border">
+      {/* Logo Header */}
+      <div className="flex h-16 items-center gap-3 px-5 border-b border-border">
+        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <span className="text-lg font-bold text-white">B</span>
         </div>
-        <span className="text-lg font-semibold">Basecamp</span>
-        {isAdmin && (
-          <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-purple-600/20 text-purple-400 rounded-full border border-purple-500/30">
-            Admin
-          </span>
-        )}
-        <div className="ml-auto">
-          <ThemeToggle />
+        <div className="flex-1">
+          <span className="text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">Basecamp</span>
+          {isAdmin && (
+            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-purple-500/20 text-purple-500 rounded border border-purple-500/30">
+              ADMIN
+            </span>
+          )}
         </div>
+        <ThemeToggle />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col justify-start gap-2 px-3 py-6">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <div className="px-3 mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Main Menu
+          </p>
+        </div>
+
         {navigation.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = pathname === item.href ||
+            (item.href !== "/agency/dashboard" && pathname.startsWith(item.href));
+
           return (
             <Link
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-4 py-3.5 text-base font-medium transition-colors",
+                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-accent text-white"
-                  : "text-sidebar-text-muted hover:bg-sidebar-muted hover:text-sidebar-foreground"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <item.icon className="h-5 w-5" />
-              {item.name}
+              <div className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                isActive
+                  ? "bg-primary-foreground/20"
+                  : "bg-muted group-hover:bg-background"
+              )}>
+                <item.icon className={cn(
+                  "h-4 w-4 transition-transform group-hover:scale-110",
+                  isActive ? "text-primary-foreground" : ""
+                )} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  "truncate",
+                  isActive ? "text-primary-foreground" : ""
+                )}>
+                  {item.name}
+                </p>
+                {!isActive && (
+                  <p className="text-[10px] text-muted-foreground truncate group-hover:text-muted-foreground/80">
+                    {item.description}
+                  </p>
+                )}
+              </div>
+              {isActive && (
+                <ChevronRight className="h-4 w-4 text-primary-foreground/70" />
+              )}
             </Link>
           );
         })}
+
+        {/* Settings - Separated */}
+        <div className="pt-4 mt-4 border-t border-border">
+          <div className="px-3 mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              System
+            </p>
+          </div>
+          <Link
+            href="/agency/settings"
+            className={cn(
+              "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+              pathname.startsWith("/agency/settings")
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <div className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+              pathname.startsWith("/agency/settings")
+                ? "bg-primary-foreground/20"
+                : "bg-muted group-hover:bg-background"
+            )}>
+              <Settings className={cn(
+                "h-4 w-4 transition-transform group-hover:scale-110",
+                pathname.startsWith("/agency/settings") ? "text-primary-foreground" : ""
+              )} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={cn(
+                "truncate",
+                pathname.startsWith("/agency/settings") ? "text-primary-foreground" : ""
+              )}>
+                Settings
+              </p>
+              {!pathname.startsWith("/agency/settings") && (
+                <p className="text-[10px] text-muted-foreground truncate">
+                  Preferences & config
+                </p>
+              )}
+            </div>
+            {pathname.startsWith("/agency/settings") && (
+              <ChevronRight className="h-4 w-4 text-primary-foreground/70" />
+            )}
+          </Link>
+        </div>
       </nav>
 
       {/* User Menu */}
-      <div className="border-t border-sidebar-muted p-4">
+      <div className="border-t border-border p-3">
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-muted">
+          <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.name || "User avatar"}
-                className="h-8 w-8 rounded-full object-cover"
+                className="h-9 w-9 rounded-lg object-cover ring-2 ring-border"
               />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-medium text-white">
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg shadow-indigo-500/20">
                 {user.name?.charAt(0) || user.email.charAt(0).toUpperCase()}
               </div>
             )}
-            <div className="flex-1 text-left">
-              <p className="font-medium text-sidebar-foreground truncate">
-                {user.name || user.email}
+            <div className="flex-1 text-left min-w-0">
+              <p className="font-medium text-foreground truncate text-sm">
+                {user.name || user.email.split('@')[0]}
               </p>
-              <p className="text-xs text-sidebar-text-muted truncate">
+              <p className="text-xs text-muted-foreground truncate">
                 {user.organizationName}
               </p>
             </div>
-            <ChevronDown className="h-4 w-4 text-sidebar-text-muted" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{user.email}</span>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/agency/settings">
+              <Link href="/agency/settings" className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </Link>
@@ -135,7 +215,7 @@ export function AgencySidebar({ user, isAdmin = false }: AgencySidebarProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}
-              className="text-rose-600"
+              className="text-rose-600 focus:text-rose-600 focus:bg-rose-500/10 cursor-pointer"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Sign out

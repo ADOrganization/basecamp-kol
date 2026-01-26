@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Download,
   Search,
   Loader2,
@@ -88,19 +95,24 @@ export function TweetScraper({
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("scrape");
 
-  // Apify auth state
-  const [orgHasApiKey, setOrgHasApiKey] = useState(false);
+  // API key status
+  const [hasSocialDataKey, setHasSocialDataKey] = useState(false);
+  const [hasApifyKey, setHasApifyKey] = useState(false);
 
   // Load saved auth on mount - check org settings first
   useEffect(() => {
     const loadAuth = async () => {
-      // Check organization settings for Apify key
+      // Check organization settings for API keys
       try {
         const response = await fetch("/api/organization/twitter");
         if (response.ok) {
           const data = await response.json();
+          if (data.hasSocialDataKey) {
+            setHasSocialDataKey(true);
+            console.log("[TweetScraper] Org has SocialData API key configured");
+          }
           if (data.hasApifyKey) {
-            setOrgHasApiKey(true);
+            setHasApifyKey(true);
             console.log("[TweetScraper] Org has Apify API key configured");
           }
         }
@@ -117,7 +129,7 @@ export function TweetScraper({
   const [scrapedTweets, setScrapedTweets] = useState<ScrapedTweet[]>([]);
   const [selectedTweets, setSelectedTweets] = useState<Set<string>>(new Set());
   const [showOnlyKeywordMatches, setShowOnlyKeywordMatches] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<{ apifyConfigured: boolean } | null>(null);
+  const [debugInfo, setDebugInfo] = useState<{ socialDataConfigured?: boolean; apifyConfigured?: boolean } | null>(null);
 
   // Keyword filter state - filter BEFORE scraping
   const [filterByKeywords, setFilterByKeywords] = useState(true);
@@ -125,6 +137,7 @@ export function TweetScraper({
   const [newKeyword, setNewKeyword] = useState("");
 
   // Manual import state
+  const [manualKolId, setManualKolId] = useState<string>(kols[0]?.id || "");
   const [manualUrls, setManualUrls] = useState("");
   const [manualResults, setManualResults] = useState<ScrapedTweet[]>([]);
 
@@ -250,6 +263,47 @@ export function TweetScraper({
     }
   };
 
+  const handleImportManual = async () => {
+    if (manualResults.length === 0 || !manualKolId) return;
+
+    setIsLoading(true);
+
+    try {
+      // Import all manual results
+      for (const tweet of manualResults) {
+        await fetch("/api/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            campaignId,
+            kolId: manualKolId,
+            type: "POST",
+            content: tweet.content,
+            tweetUrl: tweet.url,
+            postedAt: tweet.postedAt,
+            impressions: tweet.metrics.views || 0,
+            likes: tweet.metrics.likes,
+            retweets: tweet.metrics.retweets,
+            replies: tweet.metrics.replies,
+            quotes: tweet.metrics.quotes,
+          }),
+        });
+      }
+
+      // Clear manual results after import
+      setManualResults([]);
+      setManualUrls("");
+
+      if (onImportComplete) {
+        onImportComplete();
+      }
+    } catch (error) {
+      console.error("Manual import failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const toggleSelectAll = () => {
     // Filter out already imported tweets from selection
     const selectableTweets = displayedTweets.filter(t => !t.alreadyImported);
@@ -300,24 +354,47 @@ export function TweetScraper({
             </TabsTrigger>
           </TabsList>
 
-          {/* Apify Status */}
+          {/* API Key Status */}
           <div className="mt-3 p-3 border rounded-lg bg-muted/50">
             <div className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              {orgHasApiKey ? (
+              <span className="text-sm font-medium">API Status:</span>
+            </div>
+            <div className="mt-2 space-y-1">
+              {hasSocialDataKey ? (
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <span className="text-sm text-green-700 dark:text-green-400">
-                    Apify API key configured
+                    SocialData API key configured (primary)
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm text-amber-700 dark:text-amber-400">
-                    No Apify key - go to Settings → Integrations to add your key
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    No SocialData key
                   </span>
                 </div>
+              )}
+              {hasApifyKey ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700 dark:text-green-400">
+                    Apify API key configured (fallback)
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    No Apify key
+                  </span>
+                </div>
+              )}
+              {!hasSocialDataKey && !hasApifyKey && (
+                <p className="text-sm text-amber-600 mt-1">
+                  Go to Settings → Integrations to add your API keys
+                </p>
               )}
             </div>
           </div>
@@ -691,13 +768,33 @@ export function TweetScraper({
 
           <TabsContent value="manual" className="flex-1 overflow-hidden flex flex-col mt-4">
             <div className="space-y-4">
+              {/* KOL Selector */}
+              <div className="space-y-2">
+                <Label>Assign to KOL</Label>
+                <Select value={manualKolId} onValueChange={setManualKolId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select KOL to assign posts to" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kols.map((kol) => (
+                      <SelectItem key={kol.id} value={kol.id}>
+                        {kol.name} (@{kol.handle})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  All imported posts will be assigned to this KOL and count toward their deliverables
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label>Post URLs</Label>
                 <Textarea
                   value={manualUrls}
                   onChange={(e) => setManualUrls(e.target.value)}
                   placeholder="Paste post URLs, one per line...&#10;https://twitter.com/user/status/123456&#10;https://x.com/user/status/789012"
-                  rows={6}
+                  rows={5}
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -707,10 +804,10 @@ export function TweetScraper({
 
               <Button
                 onClick={handleManualScrape}
-                disabled={isLoading || !manualUrls.trim()}
+                disabled={isLoading || !manualUrls.trim() || !manualKolId}
                 className="w-full"
               >
-                {isLoading ? (
+                {isLoading && manualResults.length === 0 ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Fetching...
@@ -725,29 +822,58 @@ export function TweetScraper({
 
               {/* Manual Results */}
               {manualResults.length > 0 && (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  <p className="font-medium text-sm">Fetched Posts</p>
-                  {manualResults.map((tweet) => (
-                    <div key={tweet.id} className="p-3 rounded-lg border">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">@{tweet.authorHandle}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {new Date(tweet.postedAt).toLocaleDateString()}
-                        </span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-sm">Fetched Posts ({manualResults.length})</p>
+                    <Button
+                      size="sm"
+                      onClick={handleImportManual}
+                      disabled={isLoading || !manualKolId}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Import className="h-4 w-4 mr-1" />
+                      )}
+                      Import {manualResults.length} to Campaign
+                    </Button>
+                  </div>
+                  <div className="max-h-[250px] overflow-y-auto space-y-2">
+                    {manualResults.map((tweet) => (
+                      <div key={tweet.id} className="p-3 rounded-lg border">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm">@{tweet.authorHandle}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {new Date(tweet.postedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm line-clamp-2">{tweet.content}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            {formatNumber(tweet.metrics.views)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <ThumbsUp className="h-3 w-3" />
+                            {formatNumber(tweet.metrics.likes)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Repeat2 className="h-3 w-3" />
+                            {formatNumber(tweet.metrics.retweets)}
+                          </span>
+                          <a
+                            href={tweet.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1 ml-auto"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View
+                          </a>
+                        </div>
                       </div>
-                      <p className="text-sm line-clamp-2">{tweet.content}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <ThumbsUp className="h-3 w-3" />
-                          {formatNumber(tweet.metrics.likes)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Repeat2 className="h-3 w-3" />
-                          {formatNumber(tweet.metrics.retweets)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

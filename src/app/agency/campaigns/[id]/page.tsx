@@ -27,7 +27,30 @@ import {
   X,
   RefreshCw,
   Loader2,
+  MoreVertical,
+  CheckCircle,
+  Archive,
+  Play,
+  Pause,
+  XCircle,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -181,6 +204,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [twitterCookies, setTwitterCookies] = useState("");
   const [twitterCsrfToken, setTwitterCsrfToken] = useState("");
 
+  // Campaign actions state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   // Load auth from localStorage
   useEffect(() => {
     const savedApiKey = localStorage.getItem("twitter_api_key");
@@ -248,6 +275,45 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       }
     } catch (error) {
       console.error("Failed to fetch KOLs:", error);
+    }
+  };
+
+  const handleUpdateCampaignStatus = async (status: string) => {
+    setIsUpdatingStatus(true);
+    try {
+      const response = await fetch(`/api/campaigns/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (response.ok) {
+        fetchCampaign();
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to update campaign status");
+      }
+    } catch (error) {
+      console.error("Failed to update campaign status:", error);
+      alert("Failed to update campaign status");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleDeleteCampaign = async () => {
+    try {
+      const response = await fetch(`/api/campaigns/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        router.push("/agency/campaigns");
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to delete campaign");
+      }
+    } catch (error) {
+      console.error("Failed to delete campaign:", error);
+      alert("Failed to delete campaign");
     }
   };
 
@@ -572,12 +638,73 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           </Button>
           <Button variant="outline" onClick={() => setShowScraper(true)}>
             <FileText className="h-4 w-4 mr-2" />
-            Scrape Tweets
+            Scrape Posts
           </Button>
           <Button onClick={() => setShowForm(true)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" disabled={isUpdatingStatus}>
+                {isUpdatingStatus ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MoreVertical className="h-4 w-4" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {campaign.status === "DRAFT" && (
+                <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("ACTIVE")}>
+                  <Play className="h-4 w-4 mr-2 text-emerald-500" />
+                  Activate Campaign
+                </DropdownMenuItem>
+              )}
+              {campaign.status === "ACTIVE" && (
+                <>
+                  <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("PAUSED")}>
+                    <Pause className="h-4 w-4 mr-2 text-amber-500" />
+                    Pause Campaign
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("COMPLETED")}>
+                    <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
+                    Mark Complete
+                  </DropdownMenuItem>
+                </>
+              )}
+              {campaign.status === "PAUSED" && (
+                <>
+                  <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("ACTIVE")}>
+                    <Play className="h-4 w-4 mr-2 text-emerald-500" />
+                    Resume Campaign
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("COMPLETED")}>
+                    <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
+                    Mark Complete
+                  </DropdownMenuItem>
+                </>
+              )}
+              {(campaign.status === "COMPLETED" || campaign.status === "CANCELLED") && (
+                <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("ACTIVE")}>
+                  <Play className="h-4 w-4 mr-2 text-emerald-500" />
+                  Reactivate
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleUpdateCampaignStatus("CANCELLED")}>
+                <XCircle className="h-4 w-4 mr-2 text-orange-500" />
+                Cancel Campaign
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-rose-600 focus:text-rose-600 focus:bg-rose-500/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Campaign
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -836,8 +963,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <th className="text-left p-4 font-medium text-muted-foreground">Posted</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Views</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Likes</th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">Retweets</th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">Replies</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Reposts</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Comments</th>
+                    <th className="text-right p-4 font-medium text-muted-foreground">Bookmarks</th>
                     <th className="w-[50px]"></th>
                   </tr>
                 </thead>
@@ -905,6 +1033,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <td className="p-4 text-right text-sm">{formatNumber(post.likes || 0)}</td>
                       <td className="p-4 text-right text-sm">{formatNumber(post.retweets || 0)}</td>
                       <td className="p-4 text-right text-sm">{formatNumber(post.replies || 0)}</td>
+                      <td className="p-4 text-right text-sm">{formatNumber(post.bookmarks || 0)}</td>
                       <td className="p-4">
                         {post.tweetUrl && (
                           <a
@@ -986,13 +1115,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               <Input
                 type="number"
                 step="0.01"
+                min="0"
                 value={assignedBudget}
-                readOnly
-                className="bg-muted"
-                placeholder="Auto-calculated"
+                onChange={(e) => setAssignedBudget(e.target.value)}
+                placeholder="Enter budget"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Auto-calculated from KOL rates × deliverables
+                Auto-suggested from rates, but you can override
               </p>
             </div>
 
@@ -1214,6 +1343,27 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         open={showReportGenerator}
         onClose={() => setShowReportGenerator(false)}
       />
+
+      {/* Delete Campaign Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &ldquo;{campaign.name}&rdquo;? This will permanently remove the campaign, all associated KOL assignments, and {campaign.posts.length} posts. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCampaign}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Delete Campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

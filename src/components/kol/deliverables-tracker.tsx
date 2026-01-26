@@ -35,7 +35,7 @@ export function DeliverablesTracker({ deliverables }: DeliverablesTrackerProps) 
       color: "blue",
     },
     {
-      label: "Retweets",
+      label: "Reposts",
       icon: Repeat2,
       required: deliverables.requiredRetweets,
       completed: deliverables.completedRetweets,

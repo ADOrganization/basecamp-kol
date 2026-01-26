@@ -77,7 +77,7 @@ export function RatesForm({ initialData }: RatesFormProps) {
       icon: FileText,
       value: ratePerPost,
       onChange: setRatePerPost,
-      description: "Single tweet/post",
+      description: "Single post",
     },
     {
       id: "ratePerThread",
@@ -85,15 +85,15 @@ export function RatesForm({ initialData }: RatesFormProps) {
       icon: MessageSquare,
       value: ratePerThread,
       onChange: setRatePerThread,
-      description: "Multi-tweet thread",
+      description: "Multi-post thread",
     },
     {
       id: "ratePerRetweet",
-      label: "Retweet Rate",
+      label: "Repost Rate",
       icon: Repeat2,
       value: ratePerRetweet,
       onChange: setRatePerRetweet,
-      description: "Quote tweet or retweet",
+      description: "Quote post or repost",
     },
     {
       id: "ratePerSpace",
@@ -101,7 +101,7 @@ export function RatesForm({ initialData }: RatesFormProps) {
       icon: Radio,
       value: ratePerSpace,
       onChange: setRatePerSpace,
-      description: "Twitter/X Space appearance",
+      description: "X Space appearance",
     },
   ];
 

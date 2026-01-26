@@ -2,7 +2,7 @@ import { getAgencyContext } from "@/lib/get-agency-context";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Key, Users } from "lucide-react";
+import { Building2, User, Key, Users, Settings } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
 import { TeamManagement } from "@/components/settings/team-management";
@@ -64,29 +64,37 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your account and organization settings
-        </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center shadow-lg shadow-slate-500/20">
+              <Settings className="h-5 w-5 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">Settings</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Manage your account, organization, and integrations.
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="profile" className="gap-2">
+        <TabsList className="bg-muted/50 p-1 rounded-lg">
+          <TabsTrigger value="profile" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <User className="h-4 w-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="organization" className="gap-2">
+          <TabsTrigger value="organization" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <Building2 className="h-4 w-4" />
             Organization
           </TabsTrigger>
-          <TabsTrigger value="team" className="gap-2">
+          <TabsTrigger value="team" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
-          <TabsTrigger value="integrations" className="gap-2">
+          <TabsTrigger value="integrations" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md">
             <Key className="h-4 w-4" />
             Integrations
           </TabsTrigger>
@@ -94,38 +102,84 @@ export default async function SettingsPage() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <ProfileForm user={user} variant="agency" />
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                <User className="h-4 w-4 text-indigo-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold">Personal Profile</h2>
+                <p className="text-sm text-muted-foreground">Update your personal information</p>
+              </div>
+            </div>
+            <ProfileForm user={user} variant="agency" />
+          </div>
         </TabsContent>
 
         {/* Organization Tab */}
         <TabsContent value="organization" className="space-y-6">
-          <OrganizationForm organization={organization} variant="agency" />
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Building2 className="h-4 w-4 text-purple-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold">Organization Settings</h2>
+                <p className="text-sm text-muted-foreground">Manage your organization details</p>
+              </div>
+            </div>
+            <OrganizationForm organization={organization} variant="agency" />
+          </div>
         </TabsContent>
 
         {/* Team Tab */}
         <TabsContent value="team" className="space-y-6">
-          <TeamManagement
-            members={organization.members.map(m => ({
-              id: m.id,
-              userId: m.userId,
-              role: m.role,
-              user: {
-                id: m.user.id,
-                name: m.user.name,
-                email: m.user.email,
-                avatarUrl: m.user.avatarUrl,
-              },
-            }))}
-            currentUserId={context.userId}
-            variant="agency"
-          />
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Users className="h-4 w-4 text-blue-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold">Team Management</h2>
+                <p className="text-sm text-muted-foreground">Manage team members and roles</p>
+              </div>
+            </div>
+            <TeamManagement
+              members={organization.members.map(m => ({
+                id: m.id,
+                userId: m.userId,
+                role: m.role,
+                user: {
+                  id: m.user.id,
+                  name: m.user.name,
+                  email: m.user.email,
+                  avatarUrl: m.user.avatarUrl,
+                },
+              }))}
+              currentUserId={context.userId}
+              variant="agency"
+            />
+          </div>
         </TabsContent>
 
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-6">
-          <TwitterIntegrationCard />
-          <TelegramIntegrationCard />
-          <NotificationsCard variant="agency" />
+          <div className="rounded-xl border bg-card p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Key className="h-4 w-4 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="font-semibold">Integrations</h2>
+                <p className="text-sm text-muted-foreground">Connect external services and APIs</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <TwitterIntegrationCard />
+              <TelegramIntegrationCard />
+              <NotificationsCard variant="agency" />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

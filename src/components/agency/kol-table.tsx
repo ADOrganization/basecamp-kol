@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatNumber, getTierColor, getStatusColor } from "@/lib/utils";
+import { formatNumber, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2, CheckCircle, AlertCircle, Filter, X } from "lucide-react";
+import { Search, Plus, MoreHorizontal, ExternalLink, Trash2, Edit, RefreshCw, Loader2, CheckCircle, AlertCircle, Filter, Users, TrendingUp, ArrowUpRight } from "lucide-react";
+
+const TIER_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  SMALL: { bg: "bg-slate-500/10", text: "text-slate-600", border: "border-slate-500/30" },
+  MID: { bg: "bg-blue-500/10", text: "text-blue-600", border: "border-blue-500/30" },
+  LARGE: { bg: "bg-purple-500/10", text: "text-purple-600", border: "border-purple-500/30" },
+  MACRO: { bg: "bg-amber-500/10", text: "text-amber-600", border: "border-amber-500/30" },
+};
+
+const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  ACTIVE: { bg: "bg-emerald-500/10", text: "text-emerald-600", border: "border-emerald-500/30" },
+  INACTIVE: { bg: "bg-slate-500/10", text: "text-slate-600", border: "border-slate-500/30" },
+  PENDING: { bg: "bg-amber-500/10", text: "text-amber-600", border: "border-amber-500/30" },
+  BLACKLISTED: { bg: "bg-rose-500/10", text: "text-rose-600", border: "border-rose-500/30" },
+};
 
 interface KOL {
   id: string;
@@ -36,8 +50,12 @@ interface KOL {
   tier: string;
   status: string;
   followersCount: number;
-  avgEngagementRate: number;
+  avgLikes: number;
+  avgRetweets: number;
+  ratePerPost: number | null;
   totalEarnings: number;
+  activeCampaigns: number;
+  lastPostDate: string | null;
   tags: { id: string; name: string; color: string }[];
   _count: {
     campaignKols: number;
@@ -63,11 +81,11 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
   // Additional column filters
   const [followersMin, setFollowersMin] = useState<string>("");
   const [followersMax, setFollowersMax] = useState<string>("");
-  const [engagementMin, setEngagementMin] = useState<string>("");
-  const [engagementMax, setEngagementMax] = useState<string>("");
+  const [postsMin, setPostsMin] = useState<string>("");
   const [campaignsMin, setCampaignsMin] = useState<string>("");
   const [earningsMin, setEarningsMin] = useState<string>("");
   const [earningsMax, setEarningsMax] = useState<string>("");
+  const [hasRate, setHasRate] = useState<boolean>(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -78,18 +96,18 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
 
   // Count active filters
   const activeFilterCount = [
-    followersMin, followersMax, engagementMin, engagementMax,
+    followersMin, followersMax, postsMin,
     campaignsMin, earningsMin, earningsMax
-  ].filter(Boolean).length + (selectedTagIds.length > 0 ? 1 : 0);
+  ].filter(Boolean).length + (selectedTagIds.length > 0 ? 1 : 0) + (hasRate ? 1 : 0);
 
   const clearAllFilters = () => {
     setFollowersMin("");
     setFollowersMax("");
-    setEngagementMin("");
-    setEngagementMax("");
+    setPostsMin("");
     setCampaignsMin("");
     setEarningsMin("");
     setEarningsMax("");
+    setHasRate(false);
     setSelectedTagIds([]);
   };
 
@@ -112,10 +130,9 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
     const maxFollowers = followersMax ? parseInt(followersMax) : Infinity;
     const matchesFollowers = kol.followersCount >= minFollowers && kol.followersCount <= maxFollowers;
 
-    // Engagement filter (input is percentage, stored as decimal)
-    const minEngagement = engagementMin ? parseFloat(engagementMin) / 100 : 0;
-    const maxEngagement = engagementMax ? parseFloat(engagementMax) / 100 : Infinity;
-    const matchesEngagement = kol.avgEngagementRate >= minEngagement && kol.avgEngagementRate <= maxEngagement;
+    // Posts filter
+    const minPosts = postsMin ? parseInt(postsMin) : 0;
+    const matchesPosts = kol._count.posts >= minPosts;
 
     // Campaigns filter
     const minCampaigns = campaignsMin ? parseInt(campaignsMin) : 0;
@@ -126,13 +143,16 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
     const maxEarnings = earningsMax ? parseFloat(earningsMax) : Infinity;
     const matchesEarnings = kol.totalEarnings >= minEarnings && kol.totalEarnings <= maxEarnings;
 
+    // Rate filter
+    const matchesRate = !hasRate || (kol.ratePerPost && kol.ratePerPost > 0);
+
     // Tags filter
     const matchesTags = selectedTagIds.length === 0 ||
       selectedTagIds.some(tagId => kol.tags.some(t => t.id === tagId));
 
     return matchesSearch && matchesTier && matchesStatus &&
-           matchesFollowers && matchesEngagement && matchesCampaigns &&
-           matchesEarnings && matchesTags;
+           matchesFollowers && matchesPosts && matchesCampaigns &&
+           matchesEarnings && matchesRate && matchesTags;
   });
 
   const handleDelete = async (id: string) => {
@@ -185,209 +205,264 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search KOLs..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={tierFilter} onValueChange={setTierFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Tier" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="SMALL">Small</SelectItem>
-            <SelectItem value="MID">Mid</SelectItem>
-            <SelectItem value="LARGE">Large</SelectItem>
-            <SelectItem value="MACRO">Macro</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="INACTIVE">Inactive</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
-          </SelectContent>
-        </Select>
-        <Popover open={showFilters} onOpenChange={setShowFilters}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="relative">
-              <Filter className="h-4 w-4 mr-2" />
-              More Filters
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="start">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">Filters</h4>
-                {activeFilterCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="h-auto p-1 text-xs text-muted-foreground"
-                  >
-                    Clear all
-                  </Button>
-                )}
-              </div>
+      {/* Filters Bar */}
+      <div className="rounded-xl border bg-card p-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or handle..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 bg-background"
+            />
+          </div>
 
-              {/* Followers Range */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Followers</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min"
-                    value={followersMin}
-                    onChange={(e) => setFollowersMin(e.target.value)}
-                    className="h-8"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="number"
-                    placeholder="Max"
-                    value={followersMax}
-                    onChange={(e) => setFollowersMax(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
-              </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Tier Filter */}
+            <Select value={tierFilter} onValueChange={setTierFilter}>
+              <SelectTrigger className="w-[130px] bg-background">
+                <SelectValue placeholder="Tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tiers</SelectItem>
+                <SelectItem value="SMALL">Small</SelectItem>
+                <SelectItem value="MID">Mid</SelectItem>
+                <SelectItem value="LARGE">Large</SelectItem>
+                <SelectItem value="MACRO">Macro</SelectItem>
+              </SelectContent>
+            </Select>
 
-              {/* Engagement Range */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Engagement Rate (%)</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    placeholder="Min %"
-                    value={engagementMin}
-                    onChange={(e) => setEngagementMin(e.target.value)}
-                    className="h-8"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    placeholder="Max %"
-                    value={engagementMax}
-                    onChange={(e) => setEngagementMax(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
-              </div>
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[130px] bg-background">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
+              </SelectContent>
+            </Select>
 
-              {/* Campaigns Min */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Min Campaigns</Label>
-                <Input
-                  type="number"
-                  placeholder="Minimum campaigns"
-                  value={campaignsMin}
-                  onChange={(e) => setCampaignsMin(e.target.value)}
-                  className="h-8"
-                />
-              </div>
-
-              {/* Earnings Range */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Earnings ($)</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min $"
-                    value={earningsMin}
-                    onChange={(e) => setEarningsMin(e.target.value)}
-                    className="h-8"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    type="number"
-                    placeholder="Max $"
-                    value={earningsMax}
-                    onChange={(e) => setEarningsMax(e.target.value)}
-                    className="h-8"
-                  />
-                </div>
-              </div>
-
-              {/* Tags */}
-              {allTags.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Tags</Label>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                    {allTags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => {
-                          if (selectedTagIds.includes(tag.id)) {
-                            setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id));
-                          } else {
-                            setSelectedTagIds([...selectedTagIds, tag.id]);
-                          }
-                        }}
-                        className={`text-xs px-2 py-1 rounded-full cursor-pointer transition-all ${
-                          selectedTagIds.includes(tag.id)
-                            ? "ring-2 ring-primary ring-offset-1"
-                            : "opacity-70 hover:opacity-100"
-                        }`}
-                        style={{
-                          backgroundColor: tag.color + "20",
-                          color: tag.color,
-                        }}
+            {/* More Filters */}
+            <Popover open={showFilters} onOpenChange={setShowFilters}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="relative bg-background">
+                  <Filter className="h-4 w-4 mr-2" />
+                  More
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center shadow-sm">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="font-semibold">Advanced Filters</h4>
+                    {activeFilterCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearAllFilters}
+                        className="h-auto px-2 py-1 text-xs text-primary hover:text-primary"
                       >
-                        {tag.name}
-                      </button>
-                    ))}
+                        Clear all
+                      </Button>
+                    )}
                   </div>
+
+                  {/* Followers Range */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                      Followers
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={followersMin}
+                        onChange={(e) => setFollowersMin(e.target.value)}
+                        className="h-8"
+                      />
+                      <span className="text-muted-foreground text-sm">to</span>
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={followersMax}
+                        onChange={(e) => setFollowersMax(e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Posts Min */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Min Posts Delivered</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 5"
+                      value={postsMin}
+                      onChange={(e) => setPostsMin(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+
+                  {/* Has Rate */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                    <input
+                      type="checkbox"
+                      id="hasRate"
+                      checked={hasRate}
+                      onChange={(e) => setHasRate(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="hasRate" className="text-sm cursor-pointer">
+                      Has rate configured
+                    </Label>
+                  </div>
+
+                  {/* Campaigns Min */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Min Campaigns</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 2"
+                      value={campaignsMin}
+                      onChange={(e) => setCampaignsMin(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+
+                  {/* Earnings Range */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Earnings ($)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min $"
+                        value={earningsMin}
+                        onChange={(e) => setEarningsMin(e.target.value)}
+                        className="h-8"
+                      />
+                      <span className="text-muted-foreground text-sm">to</span>
+                      <Input
+                        type="number"
+                        placeholder="Max $"
+                        value={earningsMax}
+                        onChange={(e) => setEarningsMax(e.target.value)}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  {allTags.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Tags</Label>
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+                        {allTags.map((tag) => (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => {
+                              if (selectedTagIds.includes(tag.id)) {
+                                setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id));
+                              } else {
+                                setSelectedTagIds([...selectedTagIds, tag.id]);
+                              }
+                            }}
+                            className={cn(
+                              "text-xs px-2.5 py-1 rounded-full cursor-pointer transition-all border",
+                              selectedTagIds.includes(tag.id)
+                                ? "ring-2 ring-primary ring-offset-1"
+                                : "opacity-70 hover:opacity-100"
+                            )}
+                            style={{
+                              backgroundColor: tag.color + "15",
+                              color: tag.color,
+                              borderColor: tag.color + "30",
+                            }}
+                          >
+                            {tag.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="h-6 w-px bg-border hidden lg:block" />
+
+            {/* Refresh Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshAll}
+              disabled={isRefreshing}
+              className="bg-background"
+            >
+              {isRefreshing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
               )}
-            </div>
-          </PopoverContent>
-        </Popover>
-        <Button
-          variant="outline"
-          onClick={handleRefreshAll}
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          {isRefreshing ? "Refreshing..." : "Refresh Metrics"}
-        </Button>
-        <Button onClick={onAddNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add KOL
-        </Button>
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+
+            {/* Add KOL Button */}
+            <Button
+              onClick={onAddNew}
+              size="sm"
+              className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg shadow-purple-500/25"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add KOL
+            </Button>
+          </div>
+        </div>
+
+        {/* Active filter count */}
+        {(tierFilter !== "all" || statusFilter !== "all" || search || activeFilterCount > 0) && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+            <span className="text-xs text-muted-foreground">
+              Showing {filteredKols.length} of {kols.length} KOLs
+            </span>
+            {(tierFilter !== "all" || statusFilter !== "all" || search || activeFilterCount > 0) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearch("");
+                  setTierFilter("all");
+                  setStatusFilter("all");
+                  clearAllFilters();
+                }}
+                className="h-auto px-2 py-1 text-xs"
+              >
+                Clear all filters
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Refresh Status Message */}
       {refreshStatus.type && (
-        <div className={`flex items-center gap-2 p-3 rounded-lg ${
+        <div className={cn(
+          "flex items-center gap-2 p-3 rounded-lg border",
           refreshStatus.type === 'success'
-            ? 'bg-green-50 text-green-700 border border-green-200'
-            : 'bg-red-50 text-red-700 border border-red-200'
-        }`}>
+            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+            : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
+        )}>
           {refreshStatus.type === 'success' ? (
             <CheckCircle className="h-4 w-4" />
           ) : (
@@ -398,137 +473,191 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
       )}
 
       {/* Table */}
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="text-left p-4 font-medium text-muted-foreground">KOL</th>
-              <th className="text-left p-4 font-medium text-muted-foreground">Tier</th>
-              <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-              <th className="text-right p-4 font-medium text-muted-foreground">Followers</th>
-              <th className="text-right p-4 font-medium text-muted-foreground">Engagement</th>
-              <th className="text-right p-4 font-medium text-muted-foreground">Campaigns</th>
-              <th className="text-right p-4 font-medium text-muted-foreground">Earnings</th>
-              <th className="text-center p-4 font-medium text-muted-foreground">Tags</th>
-              <th className="w-[50px]"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredKols.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                  {kols.length === 0
-                    ? "No KOLs added yet. Click 'Add KOL' to get started."
-                    : "No KOLs match your filters."}
-                </td>
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-muted/30 border-b">
+                <th className="text-left p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">KOL</th>
+                <th className="text-left p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Tier</th>
+                <th className="text-left p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Status</th>
+                <th className="text-right p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Followers</th>
+                <th className="text-right p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Posts</th>
+                <th className="text-right p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Active</th>
+                <th className="text-right p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Rate</th>
+                <th className="text-right p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Earned</th>
+                <th className="text-center p-4 font-medium text-xs uppercase tracking-wider text-muted-foreground">Tags</th>
+                <th className="w-[50px]"></th>
               </tr>
-            ) : (
-              filteredKols.map((kol) => (
-                <tr
-                  key={kol.id}
-                  className="border-t hover:bg-muted/50 cursor-pointer"
-                  onClick={() => router.push(`/agency/kols/${kol.id}`)}
-                >
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      {kol.avatarUrl ? (
-                        <img
-                          src={kol.avatarUrl}
-                          alt={kol.name}
-                          className="h-10 w-10 rounded-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                      ) : null}
-                      <div className={`h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium ${kol.avatarUrl ? 'hidden' : ''}`}>
-                        {kol.name.charAt(0).toUpperCase()}
+            </thead>
+            <tbody>
+              {filteredKols.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="p-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                        <Users className="h-8 w-8 text-purple-500" />
                       </div>
                       <div>
-                        <p className="font-medium">{kol.name}</p>
-                        <a
-                          href={`https://x.com/${kol.twitterHandle}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          @{kol.twitterHandle}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+                        <p className="font-medium">
+                          {kols.length === 0 ? "No KOLs yet" : "No matching KOLs"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {kols.length === 0
+                            ? "Add your first KOL to get started."
+                            : "Try adjusting your filters."}
+                        </p>
                       </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <Badge className={getTierColor(kol.tier)} variant="secondary">
-                      {kol.tier}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <Badge className={getStatusColor(kol.status)} variant="secondary">
-                      {kol.status}
-                    </Badge>
-                  </td>
-                  <td className="p-4 text-right font-medium">
-                    {formatNumber(kol.followersCount)}
-                  </td>
-                  <td className="p-4 text-right">
-                    {(kol.avgEngagementRate * 100).toFixed(2)}%
-                  </td>
-                  <td className="p-4 text-right">
-                    {kol._count.campaignKols}
-                  </td>
-                  <td className="p-4 text-right font-medium text-green-600">
-                    ${formatNumber(kol.totalEarnings)}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex justify-center gap-1 flex-wrap">
-                      {kol.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: tag.color + "20", color: tag.color }}
+                      {kols.length === 0 && (
+                        <Button
+                          onClick={onAddNew}
+                          className="mt-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
                         >
-                          {tag.name}
-                        </span>
-                      ))}
-                      {kol.tags.length > 3 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{kol.tags.length - 3}
-                        </span>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Your First KOL
+                        </Button>
                       )}
                     </div>
                   </td>
-                  <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/agency/kols/${kol.id}`}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            View/Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(kol.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filteredKols.map((kol) => {
+                  const tierStyle = TIER_STYLES[kol.tier] || TIER_STYLES.SMALL;
+                  const statusStyle = STATUS_STYLES[kol.status] || STATUS_STYLES.PENDING;
+
+                  return (
+                    <tr
+                      key={kol.id}
+                      className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors group"
+                      onClick={() => router.push(`/agency/kols/${kol.id}`)}
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          {kol.avatarUrl ? (
+                            <img
+                              src={kol.avatarUrl}
+                              alt={kol.name}
+                              className="h-10 w-10 rounded-xl object-cover ring-2 ring-border group-hover:ring-primary/30 transition-all"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={cn(
+                            "h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-medium shadow-lg",
+                            kol.avatarUrl ? 'hidden' : ''
+                          )}>
+                            {kol.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium group-hover:text-primary transition-colors">{kol.name}</p>
+                            <a
+                              href={`https://x.com/${kol.twitterHandle}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              @{kol.twitterHandle}
+                              <ArrowUpRight className="h-3 w-3" />
+                            </a>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <Badge className={cn(tierStyle.bg, tierStyle.text, tierStyle.border, "border text-xs")}>
+                          {kol.tier}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <Badge className={cn(statusStyle.bg, statusStyle.text, statusStyle.border, "border text-xs")}>
+                          {kol.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4 text-right">
+                        <p className="font-semibold">{formatNumber(kol.followersCount)}</p>
+                      </td>
+                      <td className="p-4 text-right">
+                        <p className="font-medium">{kol._count.posts}</p>
+                        {kol.lastPostDate && (
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(kol.lastPostDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </p>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        {kol.activeCampaigns > 0 ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs">
+                            {kol.activeCampaigns}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground/50">-</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        {kol.ratePerPost ? (
+                          <span className="font-medium">${(kol.ratePerPost / 100).toLocaleString()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">Not set</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className="font-semibold text-emerald-600">${formatNumber(kol.totalEarnings)}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-center gap-1 flex-wrap">
+                          {kol.tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag.id}
+                              className="text-xs px-2 py-0.5 rounded-full border"
+                              style={{
+                                backgroundColor: tag.color + "15",
+                                color: tag.color,
+                                borderColor: tag.color + "30",
+                              }}
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                          {kol.tags.length > 2 && (
+                            <span className="text-xs text-muted-foreground px-1">
+                              +{kol.tags.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/agency/kols/${kol.id}`}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                View/Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(kol.id)}
+                              className="text-rose-600 focus:text-rose-600 focus:bg-rose-500/10"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ interface DeliverablesProgressProps {
 const deliverableConfig = {
   POST: { label: "Posts", icon: FileText, color: "text-blue-600", bg: "bg-blue-100" },
   THREAD: { label: "Threads", icon: MessageSquare, color: "text-violet-600", bg: "bg-violet-100" },
-  RETWEET: { label: "Retweets", icon: Repeat2, color: "text-teal-600", bg: "bg-teal-100" },
+  RETWEET: { label: "Reposts", icon: Repeat2, color: "text-teal-600", bg: "bg-teal-100" },
   SPACE: { label: "Spaces", icon: Radio, color: "text-amber-600", bg: "bg-amber-100" },
 };
 

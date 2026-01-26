@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import {
   CheckCircle,
   XCircle,
@@ -20,6 +19,7 @@ import {
   Bookmark,
   RefreshCw,
   EyeOff,
+  ArrowUpRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -54,15 +54,15 @@ interface Post {
   };
 }
 
-const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  DRAFT: "secondary",
-  PENDING_APPROVAL: "outline",
-  CHANGES_REQUESTED: "outline",
-  APPROVED: "default",
-  REJECTED: "destructive",
-  SCHEDULED: "secondary",
-  POSTED: "default",
-  VERIFIED: "default",
+const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  DRAFT: { bg: "bg-slate-500/10", text: "text-slate-600", border: "border-slate-500/30" },
+  PENDING_APPROVAL: { bg: "bg-amber-500/10", text: "text-amber-600", border: "border-amber-500/30" },
+  CHANGES_REQUESTED: { bg: "bg-orange-500/10", text: "text-orange-600", border: "border-orange-500/30" },
+  APPROVED: { bg: "bg-emerald-500/10", text: "text-emerald-600", border: "border-emerald-500/30" },
+  REJECTED: { bg: "bg-rose-500/10", text: "text-rose-600", border: "border-rose-500/30" },
+  SCHEDULED: { bg: "bg-blue-500/10", text: "text-blue-600", border: "border-blue-500/30" },
+  POSTED: { bg: "bg-emerald-500/10", text: "text-emerald-600", border: "border-emerald-500/30" },
+  VERIFIED: { bg: "bg-indigo-500/10", text: "text-indigo-600", border: "border-indigo-500/30" },
 };
 
 interface PostReviewCardProps {
@@ -267,168 +267,183 @@ export function PostReviewCard({ post, showActions = false, onStatusChange }: Po
   const isApproved = currentStatus === "APPROVED";
   const isPosted = currentStatus === "POSTED" || currentStatus === "VERIFIED";
 
+  const statusStyle = STATUS_STYLES[currentStatus] || STATUS_STYLES.DRAFT;
+
   return (
     <>
-      <Card className={`card-hover ${needsReview ? "border-amber-200 dark:border-amber-900" : ""}`}>
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4 flex-1">
-              <Avatar className={`h-12 w-12 ${showActions ? "" : "h-10 w-10"}`}>
-                <AvatarFallback className="bg-indigo-100 text-indigo-600">
-                  {post.kol.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold">{post.kol.name}</span>
-                  <span className="text-muted-foreground">@{post.kol.twitterHandle}</span>
-                  <Badge variant={statusColors[currentStatus]}>
-                    {currentStatus.replace("_", " ")}
-                  </Badge>
-                  <Badge variant="outline">{post.type}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Campaign: {post.campaign.name}
-                </p>
-                {showActions && post.content && (
-                  <div className="bg-muted p-4 rounded-lg mt-2">
-                    <p className="text-sm whitespace-pre-wrap">{post.content}</p>
-                  </div>
-                )}
-                {!showActions && post.content && (
-                  <p className="text-sm mt-2 line-clamp-2">{post.content}</p>
-                )}
-                {/* Always show metrics */}
-                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground flex-wrap">
-                  <span className="flex items-center gap-1" title="Views">
-                    <Eye className="h-4 w-4" />
-                    {(metrics.impressions ?? 0).toLocaleString()}
-                  </span>
-                  <span className="flex items-center gap-1" title="Reposts">
-                    <Repeat2 className="h-4 w-4" />
-                    {(metrics.retweets ?? 0).toLocaleString()}
-                  </span>
-                  <span className="flex items-center gap-1" title="Comments">
-                    <MessageCircle className="h-4 w-4" />
-                    {(metrics.replies ?? 0).toLocaleString()}
-                  </span>
-                  <span className="flex items-center gap-1" title="Bookmarks">
-                    <Bookmark className="h-4 w-4" />
-                    {(metrics.bookmarks ?? 0).toLocaleString()}
-                  </span>
-                  <span className="flex items-center gap-1" title="Likes">
-                    <Heart className="h-4 w-4" />
-                    {(metrics.likes ?? 0).toLocaleString()}
-                  </span>
-                </div>
-                {error && (
-                  <div className="mt-2 p-2 rounded bg-red-50 text-red-600 text-sm">
-                    {error}
-                  </div>
-                )}
-              </div>
+      <div className={cn(
+        "group rounded-xl border bg-card p-5 hover:shadow-lg transition-all",
+        needsReview ? "border-amber-500/30 bg-amber-500/5" : ""
+      )}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4 flex-1">
+            <div className={cn(
+              "h-11 w-11 rounded-xl flex items-center justify-center font-semibold text-white shadow-lg flex-shrink-0",
+              "bg-gradient-to-br from-indigo-500 to-purple-600"
+            )}>
+              {post.kol.name.charAt(0).toUpperCase()}
             </div>
-            <div className="flex gap-2 items-center flex-wrap justify-end">
-              {showActions && needsReview && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-rose-600 hover:text-rose-700"
-                    onClick={() => setShowRejectDialog(true)}
-                    disabled={isLoading}
-                  >
-                    {isLoading && actionType === "reject" ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <XCircle className="h-4 w-4 mr-1" />
-                    )}
-                    Reject
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-amber-600 hover:text-amber-700"
-                    onClick={() => setShowChangesDialog(true)}
-                    disabled={isLoading}
-                  >
-                    {isLoading && actionType === "changes" ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Edit3 className="h-4 w-4 mr-1" />
-                    )}
-                    Request Changes
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-teal-600 hover:bg-teal-700"
-                    onClick={handleApprove}
-                    disabled={isLoading}
-                  >
-                    {isLoading && actionType === "approve" ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                    )}
-                    Approve
-                  </Button>
-                </>
+            <div className="flex-1 space-y-2 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold">{post.kol.name}</span>
+                <a
+                  href={`https://x.com/${post.kol.twitterHandle}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-primary flex items-center gap-0.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  @{post.kol.twitterHandle}
+                  <ArrowUpRight className="h-3 w-3" />
+                </a>
+                <Badge className={cn(statusStyle.bg, statusStyle.text, statusStyle.border, "border text-xs")}>
+                  {currentStatus.replace("_", " ")}
+                </Badge>
+                <Badge variant="outline" className="text-xs">{post.type}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Campaign: <span className="font-medium text-foreground">{post.campaign.name}</span>
+              </p>
+              {showActions && post.content && (
+                <div className="bg-muted/50 p-4 rounded-lg mt-2 border">
+                  <p className="text-sm whitespace-pre-wrap">{post.content}</p>
+                </div>
               )}
-              {showActions && isApproved && (
+              {!showActions && post.content && (
+                <p className="text-sm mt-2 line-clamp-2 text-muted-foreground">{post.content}</p>
+              )}
+              {/* Metrics */}
+              <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground flex-wrap">
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md" title="Views">
+                  <Eye className="h-3.5 w-3.5" />
+                  {(metrics.impressions ?? 0).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md" title="Reposts">
+                  <Repeat2 className="h-3.5 w-3.5" />
+                  {(metrics.retweets ?? 0).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md" title="Comments">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  {(metrics.replies ?? 0).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5 bg-muted/50 px-2 py-1 rounded-md" title="Bookmarks">
+                  <Bookmark className="h-3.5 w-3.5" />
+                  {(metrics.bookmarks ?? 0).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5 bg-rose-500/10 text-rose-600 px-2 py-1 rounded-md" title="Likes">
+                  <Heart className="h-3.5 w-3.5" />
+                  {(metrics.likes ?? 0).toLocaleString()}
+                </span>
+              </div>
+              {error && (
+                <div className="mt-2 p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 text-sm">
+                  {error}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 items-center flex-wrap justify-end">
+            {showActions && needsReview && (
+              <>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleMarkPosted}
+                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-500/30"
+                  onClick={() => setShowRejectDialog(true)}
                   disabled={isLoading}
                 >
-                  {isLoading ? (
+                  {isLoading && actionType === "reject" ? (
                     <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                   ) : (
-                    <Send className="h-4 w-4 mr-1" />
+                    <XCircle className="h-4 w-4 mr-1" />
                   )}
-                  Mark as Posted
+                  Reject
                 </Button>
-              )}
-              {post.tweetUrl && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleRefreshMetrics}
-                    disabled={isLoading}
-                    title="Refresh metrics from X"
-                  >
-                    {isLoading && actionType === "refresh" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href={post.tweetUrl} target="_blank">
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      View
-                    </Link>
-                  </Button>
-                </>
-              )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 border-amber-500/30"
+                  onClick={() => setShowChangesDialog(true)}
+                  disabled={isLoading}
+                >
+                  {isLoading && actionType === "changes" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Edit3 className="h-4 w-4 mr-1" />
+                  )}
+                  Changes
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25"
+                  onClick={handleApprove}
+                  disabled={isLoading}
+                >
+                  {isLoading && actionType === "approve" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                  )}
+                  Approve
+                </Button>
+              </>
+            )}
+            {showActions && isApproved && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleHideFromReview}
+                onClick={handleMarkPosted}
                 disabled={isLoading}
-                title="Hide from review"
               >
-                {isLoading && actionType === "hide" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                 ) : (
-                  <EyeOff className="h-4 w-4" />
+                  <Send className="h-4 w-4 mr-1" />
                 )}
+                Mark Posted
               </Button>
-            </div>
+            )}
+            {post.tweetUrl && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRefreshMetrics}
+                  disabled={isLoading}
+                  title="Refresh metrics from X"
+                  className="opacity-70 group-hover:opacity-100 transition-opacity"
+                >
+                  {isLoading && actionType === "refresh" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href={post.tweetUrl} target="_blank">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    View
+                  </Link>
+                </Button>
+              </>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleHideFromReview}
+              disabled={isLoading}
+              title="Hide from review"
+              className="opacity-70 group-hover:opacity-100 transition-opacity"
+            >
+              {isLoading && actionType === "hide" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent>

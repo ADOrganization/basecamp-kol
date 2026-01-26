@@ -449,7 +449,7 @@ export function TweetMonitor({
                       {tweet.metrics && (
                         <>
                           <span>{formatNumber(tweet.metrics.likes)} likes</span>
-                          <span>{formatNumber(tweet.metrics.retweets)} RTs</span>
+                          <span>{formatNumber(tweet.metrics.retweets)} reposts</span>
                         </>
                       )}
                     </div>

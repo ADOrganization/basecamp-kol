@@ -196,7 +196,7 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
                 <SelectContent>
                   <SelectItem value="POST">Post</SelectItem>
                   <SelectItem value="THREAD">Thread</SelectItem>
-                  <SelectItem value="RETWEET">Retweet</SelectItem>
+                  <SelectItem value="RETWEET">Repost</SelectItem>
                   <SelectItem value="QUOTE">Quote Tweet</SelectItem>
                   <SelectItem value="SPACE">Space</SelectItem>
                 </SelectContent>

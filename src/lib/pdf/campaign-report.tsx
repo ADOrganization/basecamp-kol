@@ -411,7 +411,7 @@ function ExecutiveSummaryPage({
         </View>
         <View style={styles.metricBox}>
           <Text style={[styles.metricValue, { color: "#22c55e" }]}>{formatNumber(metrics.totalRetweets)}</Text>
-          <Text style={styles.metricLabel}>Retweets</Text>
+          <Text style={styles.metricLabel}>Reposts</Text>
         </View>
         <View style={styles.metricBox}>
           <Text style={[styles.metricValue, { color: "#3b82f6" }]}>{formatNumber(metrics.totalReplies)}</Text>
@@ -589,7 +589,7 @@ function PostsListingPage({ posts }: { posts: PostData[] }) {
               <Text style={[styles.tableCellHeader, { width: "33%" }]}>Content</Text>
               <Text style={[styles.tableCellHeader, { width: "10%" }]}>Views</Text>
               <Text style={[styles.tableCellHeader, { width: "10%" }]}>Likes</Text>
-              <Text style={[styles.tableCellHeader, { width: "10%" }]}>RTs</Text>
+              <Text style={[styles.tableCellHeader, { width: "10%" }]}>Reposts</Text>
               <Text style={[styles.tableCellHeader, { width: "10%" }]}>Replies</Text>
             </View>
             {pagePosts.map((post, index) => (

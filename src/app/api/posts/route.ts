@@ -98,9 +98,8 @@ export async function POST(request: NextRequest) {
       : [];
     const hasKeywordMatch = matchedKeywords.length > 0;
 
-    // Determine status - if tweet URL and metrics provided, mark as POSTED
-    const hasMetrics = validatedData.impressions || validatedData.likes || validatedData.retweets;
-    const status = validatedData.tweetUrl && hasMetrics ? "POSTED" : "DRAFT";
+    // Determine status - if tweet URL exists, it was posted (even if metrics are 0)
+    const status = validatedData.tweetUrl ? "POSTED" : "DRAFT";
 
     const post = await db.post.create({
       data: {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
-import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
+import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasSocialDataApiKey, hasApifyApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -35,16 +35,25 @@ export async function POST(
     const body = await request.json();
     const { mode = "all", kolIds, tweetUrls, autoImport = false, filterKeywords } = body;
 
-    // Load organization's Apify API key
+    // Load organization's API keys
     const org = await db.organization.findUnique({
       where: { id: authContext.organizationId },
-      select: { apifyApiKey: true },
+      select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
     const apifyKeyToUse = org?.apifyApiKey || null;
+    const socialDataKeyToUse = org?.socialDataApiKey || null;
+    console.log(`[Scrape API] SocialData key: ${socialDataKeyToUse ? `${socialDataKeyToUse.slice(0, 8)}...` : 'none'}`);
     console.log(`[Scrape API] Apify key: ${apifyKeyToUse ? `${apifyKeyToUse.slice(0, 8)}...` : 'none'}`);
 
-    // Set Apify API key
+    // Set SocialData API key (primary)
+    if (socialDataKeyToUse) {
+      setSocialDataApiKey(socialDataKeyToUse);
+    } else {
+      clearSocialDataApiKey();
+    }
+
+    // Set Apify API key (fallback)
     if (apifyKeyToUse) {
       setApifyApiKey(apifyKeyToUse);
     } else {
@@ -215,6 +224,7 @@ export async function POST(
       imported: importedCount,
       keywords: campaign.keywords,
       debug: {
+        socialDataConfigured: !!socialDataKeyToUse,
         apifyConfigured: !!apifyKeyToUse,
       },
     });
