@@ -35,10 +35,10 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   // Content Security Policy
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Required for Next.js
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live", // Required for Next.js + Vercel
     "style-src 'self' 'unsafe-inline'", // Required for styled components
     "img-src 'self' data: https: blob:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com", // Allow Google Fonts
     "connect-src 'self' https:",
     "frame-ancestors 'none'",
     "base-uri 'self'",

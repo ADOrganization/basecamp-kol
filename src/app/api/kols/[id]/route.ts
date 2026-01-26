@@ -67,30 +67,35 @@ export async function GET(
       });
     } catch (e) {
       // If paymentReceipts table doesn't exist yet, retry without it
-      console.log("Falling back to query without paymentReceipts:", e);
+      console.log("[KOL API] First query failed, falling back:", e instanceof Error ? e.message : e);
       includePaymentReceipts = false;
-      kol = await db.kOL.findFirst({
-        where: {
-          id,
-          organizationId: authContext.organizationId,
-        },
-        include: {
-          tags: true,
-          campaignKols: {
-            include: {
-              campaign: true,
+      try {
+        kol = await db.kOL.findFirst({
+          where: {
+            id,
+            organizationId: authContext.organizationId,
+          },
+          include: {
+            tags: true,
+            campaignKols: {
+              include: {
+                campaign: true,
+              },
+            },
+            posts: {
+              orderBy: { createdAt: "desc" },
+              take: 10,
+            },
+            payments: {
+              orderBy: { createdAt: "desc" },
+              take: 10,
             },
           },
-          posts: {
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          },
-          payments: {
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          },
-        },
-      });
+        });
+      } catch (e2) {
+        console.error("[KOL API] Fallback query also failed:", e2);
+        throw e2;
+      }
     }
 
     if (!kol) {
@@ -111,8 +116,12 @@ export async function GET(
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error fetching KOL:", error);
+    // Include more error details for debugging
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("Error details:", { message: errorMessage, stack: errorStack });
     return NextResponse.json(
-      { error: "Failed to fetch KOL" },
+      { error: "Failed to fetch KOL", details: errorMessage },
       { status: 500 }
     );
   }
