@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  scrapeSingleTweet,
+  setSocialDataApiKey,
+  setApifyApiKey,
+  hasSocialDataApiKey,
+  hasApifyApiKey,
+} from "@/lib/scraper/x-scraper";
 
 // Rate limit: 1 refresh per post per hour
 const REFRESH_COOLDOWN_MS = 60 * 60 * 1000;
@@ -66,8 +73,24 @@ export async function POST(
       );
     }
 
-    // Fetch metrics from X syndication API
-    const metrics = await fetchTweetMetrics(tweetId);
+    // Load API keys from organization settings
+    const org = post.campaign.agency;
+    if (org.socialDataApiKey) {
+      setSocialDataApiKey(org.socialDataApiKey);
+    }
+    if (org.apifyApiKey) {
+      setApifyApiKey(org.apifyApiKey);
+    }
+
+    // Try scraper first (uses SocialData POST API), fallback to syndication
+    let metrics = await fetchTweetMetricsViaScraper(tweetId);
+
+    // Fallback to syndication API if scraper fails
+    if (!metrics) {
+      console.log(`[RefreshMetrics] Scraper failed, trying syndication API for ${tweetId}`);
+      metrics = await fetchTweetMetricsSyndication(tweetId);
+    }
+
     if (!metrics) {
       return NextResponse.json(
         { error: "Failed to fetch metrics from X" },
@@ -140,95 +163,116 @@ function extractTweetId(url: string | null): string | null {
   return match ? match[1] : null;
 }
 
-async function fetchTweetMetrics(tweetId: string): Promise<{
+interface MetricsResult {
   impressions: number;
   likes: number;
   retweets: number;
   replies: number;
   quotes: number;
   bookmarks: number;
-} | null> {
+}
+
+/**
+ * Fetch tweet metrics via x-scraper (uses SocialData POST API as primary)
+ */
+async function fetchTweetMetricsViaScraper(tweetId: string): Promise<MetricsResult | null> {
+  // Check if any API key is configured
+  if (!hasSocialDataApiKey() && !hasApifyApiKey()) {
+    console.log(`[RefreshMetrics] No API keys configured, skipping scraper`);
+    return null;
+  }
+
   try {
-    // Try multiple approaches to get tweet metrics
+    console.log(`[RefreshMetrics] Fetching tweet ${tweetId} via scraper...`);
+    const tweet = await scrapeSingleTweet(tweetId);
 
-    // Approach 1: Syndication API with token
-    let data: TweetData | null = await tryFetchSyndication(tweetId, `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=0`);
-
-    // Approach 2: Syndication API with lang parameter
-    if (!data || !hasValidMetrics(data)) {
-      data = await tryFetchSyndication(tweetId, `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`);
-    }
-
-    if (!data) {
-      console.error(`All fetch methods failed for tweet ${tweetId}`);
+    if (!tweet) {
+      console.log(`[RefreshMetrics] Scraper returned null for ${tweetId}`);
       return null;
     }
 
     const metrics = {
-      impressions: data.views?.count || data.view_count || 0,
-      likes: data.favorite_count || data.like_count || 0,
-      retweets: data.retweet_count || 0,
-      replies: data.reply_count || 0,
-      quotes: data.quote_count || 0,
-      bookmarks: data.bookmark_count || 0,
+      impressions: tweet.metrics.views,
+      likes: tweet.metrics.likes,
+      retweets: tweet.metrics.retweets,
+      replies: tweet.metrics.replies,
+      quotes: tweet.metrics.quotes,
+      bookmarks: tweet.metrics.bookmarks,
     };
 
-    // Only return metrics if we have at least some engagement data
+    console.log(`[RefreshMetrics] Scraper metrics for ${tweetId}:`, JSON.stringify(metrics));
+
+    // Only return if we have valid data
     const hasAnyData = metrics.impressions > 0 || metrics.likes > 0 ||
                        metrics.retweets > 0 || metrics.replies > 0;
 
     if (!hasAnyData) {
-      console.log(`No valid metrics found for tweet ${tweetId}, skipping update`);
+      console.log(`[RefreshMetrics] No valid metrics from scraper for ${tweetId}`);
       return null;
     }
 
     return metrics;
   } catch (error) {
-    console.error(`Error fetching metrics for tweet ${tweetId}:`, error);
+    console.error(`[RefreshMetrics] Scraper error for ${tweetId}:`, error);
     return null;
   }
 }
 
-interface TweetData {
-  favorite_count?: number;
-  like_count?: number;
-  retweet_count?: number;
-  reply_count?: number;
-  quote_count?: number;
-  bookmark_count?: number;
-  view_count?: number;
-  views?: { count?: number };
-}
-
-function hasValidMetrics(data: TweetData | null): boolean {
-  if (!data) return false;
-  return !!(
-    data.favorite_count ||
-    data.like_count ||
-    data.retweet_count ||
-    data.views?.count ||
-    data.view_count
-  );
-}
-
-async function tryFetchSyndication(tweetId: string, url: string): Promise<TweetData | null> {
+/**
+ * Fallback: Fetch tweet metrics via syndication API
+ */
+async function fetchTweetMetricsSyndication(tweetId: string): Promise<MetricsResult | null> {
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-      },
-      next: { revalidate: 0 },
-    });
+    // Try multiple syndication endpoints
+    const urls = [
+      `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=0`,
+      `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`,
+    ];
 
-    if (!response.ok) {
-      console.log(`Syndication API returned ${response.status} for tweet ${tweetId}`);
-      return null;
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "application/json",
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          console.log(`[RefreshMetrics] Syndication returned ${response.status} for ${tweetId}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        if (!data) continue;
+
+        const metrics = {
+          impressions: data.views?.count || data.view_count || 0,
+          likes: data.favorite_count || data.like_count || 0,
+          retweets: data.retweet_count || 0,
+          replies: data.reply_count || 0,
+          quotes: data.quote_count || 0,
+          bookmarks: data.bookmark_count || 0,
+        };
+
+        const hasAnyData = metrics.impressions > 0 || metrics.likes > 0 ||
+                           metrics.retweets > 0 || metrics.replies > 0;
+
+        if (hasAnyData) {
+          console.log(`[RefreshMetrics] Syndication metrics for ${tweetId}:`, JSON.stringify(metrics));
+          return metrics;
+        }
+      } catch {
+        continue;
+      }
     }
 
-    return await response.json() as TweetData;
+    console.log(`[RefreshMetrics] All syndication methods failed for ${tweetId}`);
+    return null;
   } catch (error) {
-    console.log(`Syndication fetch failed for ${tweetId}:`, error);
+    console.error(`[RefreshMetrics] Syndication error for ${tweetId}:`, error);
     return null;
   }
 }
