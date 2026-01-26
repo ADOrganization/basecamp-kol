@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 import { sendAccountDisabledEmail } from "@/lib/email";
@@ -20,13 +20,13 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only OWNER and ADMIN can disable users
-    if (!["OWNER", "ADMIN"].includes(session.user.organizationRole)) {
+    // Admin users can disable users
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -34,8 +34,8 @@ export async function POST(
     const body = await request.json();
     const disable = body.disable === true;
 
-    // Can't disable yourself
-    if (id === session.user.id) {
+    // Can't disable yourself (for non-admin users)
+    if (!authContext.isAdmin && id === authContext.userId) {
       return NextResponse.json(
         { error: "Cannot disable your own account" },
         { status: 400 }
@@ -46,7 +46,7 @@ export async function POST(
     const member = await db.organizationMember.findFirst({
       where: {
         userId: id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
       include: {
         user: {
@@ -67,14 +67,6 @@ export async function POST(
       );
     }
 
-    // ADMIN can't disable other ADMINs
-    if (session.user.organizationRole === "ADMIN" && member.role === "ADMIN") {
-      return NextResponse.json(
-        { error: "Admins cannot disable other admins" },
-        { status: 400 }
-      );
-    }
-
     const { ipAddress, userAgent } = getRequestMetadata(request);
 
     // Update user's disabled status
@@ -83,22 +75,24 @@ export async function POST(
       data: { isDisabled: disable },
     });
 
-    // Log the action
-    await logSecurityEvent({
-      userId: session.user.id,
-      action: disable ? "USER_DISABLED" : "USER_ENABLED",
-      ipAddress: ipAddress || undefined,
-      userAgent: userAgent || undefined,
-      metadata: {
-        targetUserId: id,
-        targetEmail: member.user.email,
-      },
-    });
+    // Log the action (skip for admin users as they don't have a User record)
+    if (!authContext.isAdmin) {
+      await logSecurityEvent({
+        userId: authContext.userId,
+        action: disable ? "USER_DISABLED" : "USER_ENABLED",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: {
+          targetUserId: id,
+          targetEmail: member.user.email,
+        },
+      });
+    }
 
     // Send notification email when disabling
     if (disable && member.user.email) {
       const organization = await db.organization.findUnique({
-        where: { id: session.user.organizationId },
+        where: { id: authContext.organizationId },
         select: { name: true },
       });
 

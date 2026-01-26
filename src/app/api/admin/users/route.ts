@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
@@ -16,19 +16,19 @@ export async function GET(request: Request) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only OWNER and ADMIN can manage users
-    if (!["OWNER", "ADMIN"].includes(session.user.organizationRole)) {
+    // Admin users can always manage users; regular users need OWNER/ADMIN role
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get all members in the organization
     const members = await db.organizationMember.findMany({
-      where: { organizationId: session.user.organizationId },
+      where: { organizationId: authContext.organizationId },
       include: {
         user: {
           select: {
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     // Get pending invitations
     const invitations = await db.userInvitation.findMany({
       where: {
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         acceptedAt: null,
         revokedAt: null,
         expiresAt: { gt: new Date() },

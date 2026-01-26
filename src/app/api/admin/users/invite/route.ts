@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { createInvitationToken } from "@/lib/magic-link";
 import { sendInvitationEmail } from "@/lib/email";
@@ -21,13 +21,13 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only OWNER and ADMIN can invite users
-    if (!["OWNER", "ADMIN"].includes(session.user.organizationRole)) {
+    // Admin users can always invite; regular users need OWNER/ADMIN role
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       where: { email },
       include: {
         memberships: {
-          where: { organizationId: session.user.organizationId },
+          where: { organizationId: authContext.organizationId },
         },
       },
     });
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const existingInvitation = await db.userInvitation.findFirst({
       where: {
         email,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         acceptedAt: null,
         revokedAt: null,
         expiresAt: { gt: new Date() },
@@ -91,41 +91,54 @@ export async function POST(request: NextRequest) {
 
     const { ipAddress, userAgent } = getRequestMetadata(request);
 
+    // For admin users, we need a placeholder inviter ID
     // Create invitation token
     const token = await createInvitationToken(
       email,
-      session.user.organizationId,
-      session.user.id,
+      authContext.organizationId,
+      authContext.userId,
       role
     );
 
     // Get organization name for email
     const organization = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { name: true },
     });
+
+    // Get inviter name for email
+    let inviterName = "Admin";
+    if (authContext.isAdmin) {
+      const admin = await db.adminUser.findUnique({
+        where: { id: authContext.userId },
+        select: { name: true, email: true },
+      });
+      inviterName = admin?.name || admin?.email || "Admin";
+    }
 
     // Send invitation email
     const emailResult = await sendInvitationEmail(
       email,
       token,
-      session.user.name || session.user.email,
+      inviterName,
       organization?.name || "the organization",
       role
     );
 
-    // Log the invitation
-    await logSecurityEvent({
-      userId: session.user.id,
-      action: "INVITE_SENT",
-      ipAddress: ipAddress || undefined,
-      userAgent: userAgent || undefined,
-      metadata: {
-        invitedEmail: email,
-        role,
-        emailSent: emailResult.success,
-      },
-    });
+    // Log the invitation (skip for admin users as they don't have a userId in the User table)
+    if (!authContext.isAdmin) {
+      await logSecurityEvent({
+        userId: authContext.userId,
+        action: "INVITE_SENT",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: {
+          invitedEmail: email,
+          role,
+          emailSent: emailResult.success,
+        },
+      });
+    }
 
     if (!emailResult.success) {
       console.error("Failed to send invitation email:", emailResult.error);

@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { createInvitationToken } from "@/lib/magic-link";
 import { sendInvitationEmail } from "@/lib/email";
@@ -24,12 +24,12 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["OWNER", "ADMIN"].includes(session.user.organizationRole)) {
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -40,7 +40,7 @@ export async function DELETE(
     const invitation = await db.userInvitation.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         acceptedAt: null,
         revokedAt: null,
       },
@@ -59,17 +59,19 @@ export async function DELETE(
       data: { revokedAt: new Date() },
     });
 
-    // Log the action
-    await logSecurityEvent({
-      userId: session.user.id,
-      action: "INVITE_REVOKED",
-      ipAddress: ipAddress || undefined,
-      userAgent: userAgent || undefined,
-      metadata: {
-        invitationId: id,
-        invitedEmail: invitation.email,
-      },
-    });
+    // Log the action (skip for admin users)
+    if (!authContext.isAdmin) {
+      await logSecurityEvent({
+        userId: authContext.userId,
+        action: "INVITE_REVOKED",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: {
+          invitationId: id,
+          invitedEmail: invitation.email,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -90,12 +92,12 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["OWNER", "ADMIN"].includes(session.user.organizationRole)) {
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -106,7 +108,7 @@ export async function POST(
     const invitation = await db.userInvitation.findFirst({
       where: {
         id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
         acceptedAt: null,
         revokedAt: null,
       },
@@ -125,17 +127,27 @@ export async function POST(
       data: { revokedAt: new Date() },
     });
 
+    // Get inviter name for admin users
+    let inviterName = "Admin";
+    if (authContext.isAdmin) {
+      const admin = await db.adminUser.findUnique({
+        where: { id: authContext.userId },
+        select: { name: true, email: true },
+      });
+      inviterName = admin?.name || admin?.email || "Admin";
+    }
+
     // Create new invitation token
     const token = await createInvitationToken(
       invitation.email,
-      session.user.organizationId,
-      session.user.id,
+      authContext.organizationId,
+      authContext.userId,
       invitation.role
     );
 
     // Get organization name
     const organization = await db.organization.findUnique({
-      where: { id: session.user.organizationId },
+      where: { id: authContext.organizationId },
       select: { name: true },
     });
 
@@ -143,24 +155,26 @@ export async function POST(
     const emailResult = await sendInvitationEmail(
       invitation.email,
       token,
-      session.user.name || session.user.email,
+      inviterName,
       organization?.name || "the organization",
       invitation.role
     );
 
-    // Log the action
-    await logSecurityEvent({
-      userId: session.user.id,
-      action: "INVITE_SENT",
-      ipAddress: ipAddress || undefined,
-      userAgent: userAgent || undefined,
-      metadata: {
-        invitedEmail: invitation.email,
-        role: invitation.role,
-        isResend: true,
-        emailSent: emailResult.success,
-      },
-    });
+    // Log the action (skip for admin users)
+    if (!authContext.isAdmin) {
+      await logSecurityEvent({
+        userId: authContext.userId,
+        action: "INVITE_SENT",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: {
+          invitedEmail: invitation.email,
+          role: invitation.role,
+          isResend: true,
+          emailSent: emailResult.success,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

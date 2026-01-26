@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 import type { OrganizationRole } from "@prisma/client";
@@ -25,12 +25,12 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["OWNER", "ADMIN"].includes(session.user.organizationRole)) {
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -39,7 +39,7 @@ export async function GET(
     const member = await db.organizationMember.findFirst({
       where: {
         userId: id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
       include: {
         user: {
@@ -89,13 +89,13 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only OWNER can change roles, ADMIN can only view
-    if (session.user.organizationRole !== "OWNER") {
+    // Admin users can change roles
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -112,8 +112,8 @@ export async function PUT(
       );
     }
 
-    // Can't change your own role
-    if (id === session.user.id) {
+    // Admin users can't demote themselves (but they use a different ID anyway)
+    if (!authContext.isAdmin && id === authContext.userId) {
       return NextResponse.json(
         { error: "Cannot change your own role" },
         { status: 400 }
@@ -123,7 +123,7 @@ export async function PUT(
     const member = await db.organizationMember.findFirst({
       where: {
         userId: id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 
@@ -162,20 +162,20 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const session = await auth();
-    if (!session?.user) {
+    const authContext = await getApiAuthContext();
+    if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only OWNER can remove users
-    if (session.user.organizationRole !== "OWNER") {
+    // Admin users can remove users
+    if (!authContext.isAdmin && authContext.organizationType !== "AGENCY") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
 
-    // Can't remove yourself
-    if (id === session.user.id) {
+    // Can't remove yourself (for non-admin users)
+    if (!authContext.isAdmin && id === authContext.userId) {
       return NextResponse.json(
         { error: "Cannot remove yourself" },
         { status: 400 }
@@ -185,7 +185,7 @@ export async function DELETE(
     const member = await db.organizationMember.findFirst({
       where: {
         userId: id,
-        organizationId: session.user.organizationId,
+        organizationId: authContext.organizationId,
       },
     });
 
