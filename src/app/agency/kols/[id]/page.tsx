@@ -25,6 +25,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Download,
 } from "lucide-react";
 import {
   Dialog,
@@ -274,6 +275,43 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
     } finally {
       setDeletingReceiptId(null);
     }
+  };
+
+  const exportPaymentHistory = () => {
+    if (!kol || !kol.paymentReceipts || kol.paymentReceipts.length === 0) {
+      alert("No payment receipts to export");
+      return;
+    }
+
+    const headers = ["Date", "Campaign", "Amount (USD)", "Proof URL", "Submitted By"];
+    const rows = kol.paymentReceipts.map((receipt) => [
+      new Date(receipt.createdAt).toLocaleDateString(),
+      receipt.campaign?.name || "-",
+      (receipt.amount / 100).toFixed(2),
+      receipt.proofUrl,
+      receipt.telegramUsername ? `@${receipt.telegramUsername}` : "-",
+    ]);
+
+    // Add total row
+    const totalAmount = kol.paymentReceipts.reduce((sum, r) => sum + r.amount, 0);
+    rows.push(["", "TOTAL", (totalAmount / 100).toFixed(2), "", ""]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${kol.name.replace(/\s+/g, "_")}_payment_history_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading) {
@@ -563,42 +601,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
             );
           })()}
 
-          {/* Outgoing Payments */}
-          <div className="rounded-lg border bg-card">
-            <div className="p-4 border-b bg-muted/30">
-              <h3 className="font-semibold">Outgoing Payments</h3>
-              <p className="text-sm text-muted-foreground">Payments made to this KOL</p>
-            </div>
-            {kol.payments.length === 0 ? (
-              <p className="p-6 text-muted-foreground">No payments recorded.</p>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Amount</th>
-                    <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                    <th className="text-right p-4 font-medium text-muted-foreground">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kol.payments.map((payment) => (
-                    <tr key={payment.id} className="border-t">
-                      <td className="p-4 font-medium">{formatCurrency(payment.amount)}</td>
-                      <td className="p-4">
-                        <Badge className={getStatusColor(payment.status)} variant="secondary">
-                          {payment.status}
-                        </Badge>
-                      </td>
-                      <td className="p-4 text-right">
-                        {formatDate(payment.paidAt || payment.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
           {/* Payment Receipts */}
           <div className="rounded-lg border bg-card">
             <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
@@ -606,10 +608,16 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                 <h3 className="font-semibold">Payment Receipts</h3>
                 <p className="text-sm text-muted-foreground">Proof of payments submitted via Telegram or manually added</p>
               </div>
-              <Button size="sm" onClick={() => openReceiptForm()}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Receipt
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={exportPaymentHistory}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Export
+                </Button>
+                <Button size="sm" onClick={() => openReceiptForm()}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Receipt
+                </Button>
+              </div>
             </div>
             {(!kol.paymentReceipts || kol.paymentReceipts.length === 0) ? (
               <p className="p-6 text-muted-foreground">No receipts submitted. KOLs can submit receipts using <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/payment</code> in Telegram, or you can add them manually.</p>
