@@ -38,7 +38,9 @@ export async function sendMagicLinkEmail(
   email: string,
   token: string
 ): Promise<SendEmailResult> {
-  const magicLink = `${APP_URL}/api/auth/callback/magic?token=${token}&email=${encodeURIComponent(email)}`;
+  // Token-only URL - email is looked up from the token in the database
+  // This avoids triggering phishing warnings from Safe Browsing
+  const magicLink = `${APP_URL}/api/auth/callback/magic?token=${token}`;
 
   const html = `
 <!DOCTYPE html>
@@ -377,8 +379,9 @@ export async function sendClientPortalAccessEmail(
   campaignName: string,
   clientName?: string
 ): Promise<SendEmailResult> {
-  // Use the standard magic link callback - it handles client redirects automatically
-  const magicLink = `${APP_URL}/api/auth/callback/magic?token=${token}&email=${encodeURIComponent(email)}`;
+  // Token-only URL - email is looked up from the token in the database
+  // This avoids triggering phishing warnings from Safe Browsing
+  const magicLink = `${APP_URL}/api/auth/callback/magic?token=${token}`;
 
   const html = `
 <!DOCTYPE html>

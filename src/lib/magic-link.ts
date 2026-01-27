@@ -43,16 +43,13 @@ export async function createVerificationToken(email: string): Promise<string> {
 
 /**
  * Verify a magic link token and return the email if valid
+ * Token-only lookup - email is stored with the token in the database
  */
 export async function verifyMagicLinkToken(
-  token: string,
-  email: string
-): Promise<{ valid: boolean; expired?: boolean }> {
+  token: string
+): Promise<{ valid: boolean; expired?: boolean; email?: string }> {
   const verificationToken = await db.verificationToken.findFirst({
-    where: {
-      token,
-      identifier: email.toLowerCase(),
-    },
+    where: { token },
   });
 
   if (!verificationToken) {
@@ -68,12 +65,14 @@ export async function verifyMagicLinkToken(
     return { valid: false, expired: true };
   }
 
+  const email = verificationToken.identifier;
+
   // Token is valid - delete it so it can't be reused
   await db.verificationToken.delete({
     where: { id: verificationToken.id },
   });
 
-  return { valid: true };
+  return { valid: true, email };
 }
 
 /**

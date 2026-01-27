@@ -32,26 +32,27 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const token = searchParams.get("token");
-    const email = searchParams.get("email");
 
-    if (!token || !email) {
+    if (!token) {
       return NextResponse.redirect(new URL("/auth-error?error=InvalidLink", APP_URL));
     }
 
-    // Verify the token
-    const verification = await verifyMagicLinkToken(token, email);
+    // Verify the token - returns email if valid
+    const verification = await verifyMagicLinkToken(token);
 
-    if (!verification.valid) {
+    if (!verification.valid || !verification.email) {
       await logSecurityEvent({
         action: verification.expired ? "MAGIC_LINK_EXPIRED" : "LOGIN_FAILED",
         ipAddress: ipAddress || undefined,
         userAgent: userAgent || undefined,
-        metadata: { email, reason: verification.expired ? "Token expired" : "Invalid token" },
+        metadata: { reason: verification.expired ? "Token expired" : "Invalid token" },
       });
 
       const errorType = verification.expired ? "Expired" : "InvalidLink";
       return NextResponse.redirect(new URL(`/auth-error?error=${errorType}`, APP_URL));
     }
+
+    const email = verification.email;
 
     // Find the user
     const user = await db.user.findUnique({
