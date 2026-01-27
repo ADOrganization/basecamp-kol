@@ -90,8 +90,9 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
   const [showFilters, setShowFilters] = useState(false);
 
   // Get unique tags from all KOLs (safely handle missing tags)
+  const kolsArray = Array.isArray(kols) ? kols : [];
   const allTags = Array.from(
-    new Map(kols.flatMap(k => k.tags || []).map(t => [t.id, t])).values()
+    new Map(kolsArray.flatMap(k => k.tags || []).map(t => [t.id, t])).values()
   );
 
   // Count active filters
@@ -111,12 +112,15 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
     setSelectedTagIds([]);
   };
 
-  // Update local state when props change
+  // Update local state when props change (ensure always an array)
   useEffect(() => {
-    setKols(initialKols);
+    setKols(Array.isArray(initialKols) ? initialKols : []);
   }, [initialKols]);
 
-  const filteredKols = kols.filter((kol) => {
+  // Safety check for filter operations
+  const safeKols = Array.isArray(kols) ? kols : [];
+
+  const filteredKols = safeKols.filter((kol) => {
     const matchesSearch =
       search === "" ||
       kol.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -166,7 +170,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
     try {
       const response = await fetch(`/api/kols/${id}`, { method: "DELETE" });
       if (response.ok) {
-        setKols(kols.filter((k) => k.id !== id));
+        setKols((prev) => (Array.isArray(prev) ? prev : []).filter((k) => k.id !== id));
       }
     } catch (error) {
       console.error("Failed to delete KOL:", error);
@@ -439,7 +443,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
         {(tierFilter !== "all" || statusFilter !== "all" || search || activeFilterCount > 0) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t">
             <span className="text-xs text-muted-foreground">
-              Showing {filteredKols.length} of {kols.length} KOLs
+              Showing {filteredKols.length} of {safeKols.length} KOLs
             </span>
             {(tierFilter !== "all" || statusFilter !== "all" || search || activeFilterCount > 0) && (
               <Button
@@ -505,15 +509,15 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                       </div>
                       <div>
                         <p className="font-medium">
-                          {kols.length === 0 ? "No KOLs yet" : "No matching KOLs"}
+                          {safeKols.length === 0 ? "No KOLs yet" : "No matching KOLs"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {kols.length === 0
+                          {safeKols.length === 0
                             ? "Add your first KOL to get started."
                             : "Try adjusting your filters."}
                         </p>
                       </div>
-                      {kols.length === 0 && (
+                      {safeKols.length === 0 && (
                         <Button
                           onClick={onAddNew}
                           className="mt-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"

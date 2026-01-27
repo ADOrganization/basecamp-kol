@@ -93,16 +93,19 @@ export default function KOLsPage() {
 
   // Calculate summary stats with safe access
   const stats = useMemo(() => {
-    const activeKols = kols.filter((k) => k.status === "ACTIVE").length;
-    const totalReach = kols.reduce((sum, k) => sum + (k.followersCount || 0), 0);
-    const totalEarnings = kols.reduce((sum, k) => sum + (k.totalEarnings || 0), 0);
-    const totalPosts = kols.reduce((sum, k) => sum + (k._count?.posts || 0), 0);
-    const avgEngagement = kols.length > 0
-      ? kols.reduce((sum, k) => {
+    // Safety check - ensure kols is an array
+    const kolArray = Array.isArray(kols) ? kols : [];
+
+    const activeKols = kolArray.filter((k) => k.status === "ACTIVE").length;
+    const totalReach = kolArray.reduce((sum, k) => sum + (k.followersCount || 0), 0);
+    const totalEarnings = kolArray.reduce((sum, k) => sum + (k.totalEarnings || 0), 0);
+    const totalPosts = kolArray.reduce((sum, k) => sum + (k._count?.posts || 0), 0);
+    const avgEngagement = kolArray.length > 0
+      ? kolArray.reduce((sum, k) => {
           const followers = k.followersCount || 0;
           const er = followers > 0 ? (((k.avgLikes || 0) + (k.avgRetweets || 0)) / followers) * 100 : 0;
           return sum + er;
-        }, 0) / kols.length
+        }, 0) / kolArray.length
       : 0;
 
     return { activeKols, totalReach, totalEarnings, totalPosts, avgEngagement };
@@ -232,7 +235,7 @@ export default function KOLsPage() {
         </div>
       </div>
 
-      <KOLTable kols={kols} onAddNew={() => setShowForm(true)} onRefresh={fetchKols} />
+      <KOLTable kols={Array.isArray(kols) ? kols : []} onAddNew={() => setShowForm(true)} onRefresh={fetchKols} />
 
       <KOLForm
         telegramChats={telegramChats}
