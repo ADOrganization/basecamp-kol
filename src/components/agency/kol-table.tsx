@@ -89,9 +89,9 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Get unique tags from all KOLs
+  // Get unique tags from all KOLs (safely handle missing tags)
   const allTags = Array.from(
-    new Map(kols.flatMap(k => k.tags).map(t => [t.id, t])).values()
+    new Map(kols.flatMap(k => k.tags || []).map(t => [t.id, t])).values()
   );
 
   // Count active filters
@@ -125,30 +125,35 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
     const matchesTier = tierFilter === "all" || kol.tier === tierFilter;
     const matchesStatus = statusFilter === "all" || kol.status === statusFilter;
 
-    // Followers filter
+    // Followers filter (safe access)
     const minFollowers = followersMin ? parseInt(followersMin) : 0;
     const maxFollowers = followersMax ? parseInt(followersMax) : Infinity;
-    const matchesFollowers = kol.followersCount >= minFollowers && kol.followersCount <= maxFollowers;
+    const followers = kol.followersCount || 0;
+    const matchesFollowers = followers >= minFollowers && followers <= maxFollowers;
 
-    // Posts filter
+    // Posts filter (safe access)
     const minPosts = postsMin ? parseInt(postsMin) : 0;
-    const matchesPosts = kol._count.posts >= minPosts;
+    const posts = kol._count?.posts || 0;
+    const matchesPosts = posts >= minPosts;
 
-    // Campaigns filter
+    // Campaigns filter (safe access)
     const minCampaigns = campaignsMin ? parseInt(campaignsMin) : 0;
-    const matchesCampaigns = kol._count.campaignKols >= minCampaigns;
+    const campaigns = kol._count?.campaignKols || 0;
+    const matchesCampaigns = campaigns >= minCampaigns;
 
-    // Earnings filter
+    // Earnings filter (safe access)
     const minEarnings = earningsMin ? parseFloat(earningsMin) : 0;
     const maxEarnings = earningsMax ? parseFloat(earningsMax) : Infinity;
-    const matchesEarnings = kol.totalEarnings >= minEarnings && kol.totalEarnings <= maxEarnings;
+    const earnings = kol.totalEarnings || 0;
+    const matchesEarnings = earnings >= minEarnings && earnings <= maxEarnings;
 
     // Rate filter
     const matchesRate = !hasRate || (kol.ratePerPost && kol.ratePerPost > 0);
 
-    // Tags filter
+    // Tags filter (safe access)
+    const kolTags = kol.tags || [];
     const matchesTags = selectedTagIds.length === 0 ||
-      selectedTagIds.some(tagId => kol.tags.some(t => t.id === tagId));
+      selectedTagIds.some(tagId => kolTags.some(t => t.id === tagId));
 
     return matchesSearch && matchesTier && matchesStatus &&
            matchesFollowers && matchesPosts && matchesCampaigns &&
@@ -576,10 +581,10 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                         </Badge>
                       </td>
                       <td className="p-4 text-right">
-                        <p className="font-semibold">{formatNumber(kol.followersCount)}</p>
+                        <p className="font-semibold">{formatNumber(kol.followersCount || 0)}</p>
                       </td>
                       <td className="p-4 text-right">
-                        <p className="font-medium">{kol._count.posts}</p>
+                        <p className="font-medium">{kol._count?.posts || 0}</p>
                         {kol.lastPostDate && (
                           <p className="text-xs text-muted-foreground">
                             {new Date(kol.lastPostDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -607,7 +612,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center gap-1 flex-wrap">
-                          {kol.tags.slice(0, 2).map((tag) => (
+                          {(kol.tags || []).slice(0, 2).map((tag) => (
                             <span
                               key={tag.id}
                               className="text-xs px-2 py-0.5 rounded-full border"
@@ -620,9 +625,9 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                               {tag.name}
                             </span>
                           ))}
-                          {kol.tags.length > 2 && (
+                          {(kol.tags || []).length > 2 && (
                             <span className="text-xs text-muted-foreground px-1">
-                              +{kol.tags.length - 2}
+                              +{(kol.tags || []).length - 2}
                             </span>
                           )}
                         </div>

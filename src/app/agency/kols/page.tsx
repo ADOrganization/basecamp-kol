@@ -44,6 +44,7 @@ export default function KOLsPage() {
   const [telegramChats, setTelegramChats] = useState<TelegramChat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchKols();
@@ -52,13 +53,27 @@ export default function KOLsPage() {
 
   const fetchKols = async () => {
     try {
+      setError(null);
       const response = await fetch("/api/kols");
-      if (response.ok) {
-        const result = await response.json();
-        setKols(result.data || []);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-    } catch (error) {
-      console.error("Failed to fetch KOLs:", error);
+      const result = await response.json();
+      // Normalize data to ensure _count exists
+      const normalizedKols = (result.data || []).map((k: KOL) => ({
+        ...k,
+        _count: k._count || { campaignKols: 0, posts: 0 },
+        tags: k.tags || [],
+        followersCount: k.followersCount || 0,
+        avgLikes: k.avgLikes || 0,
+        avgRetweets: k.avgRetweets || 0,
+        totalEarnings: k.totalEarnings || 0,
+      }));
+      setKols(normalizedKols);
+    } catch (err) {
+      console.error("Failed to fetch KOLs:", err);
+      setError(err instanceof Error ? err.message : "Failed to load KOL roster");
     } finally {
       setIsLoading(false);
     }
@@ -76,15 +91,16 @@ export default function KOLsPage() {
     }
   };
 
-  // Calculate summary stats
+  // Calculate summary stats with safe access
   const stats = useMemo(() => {
     const activeKols = kols.filter((k) => k.status === "ACTIVE").length;
-    const totalReach = kols.reduce((sum, k) => sum + k.followersCount, 0);
-    const totalEarnings = kols.reduce((sum, k) => sum + k.totalEarnings, 0);
-    const totalPosts = kols.reduce((sum, k) => sum + k._count.posts, 0);
+    const totalReach = kols.reduce((sum, k) => sum + (k.followersCount || 0), 0);
+    const totalEarnings = kols.reduce((sum, k) => sum + (k.totalEarnings || 0), 0);
+    const totalPosts = kols.reduce((sum, k) => sum + (k._count?.posts || 0), 0);
     const avgEngagement = kols.length > 0
       ? kols.reduce((sum, k) => {
-          const er = k.followersCount > 0 ? ((k.avgLikes + k.avgRetweets) / k.followersCount) * 100 : 0;
+          const followers = k.followersCount || 0;
+          const er = followers > 0 ? (((k.avgLikes || 0) + (k.avgRetweets || 0)) / followers) * 100 : 0;
           return sum + er;
         }, 0) / kols.length
       : 0;
@@ -110,6 +126,33 @@ export default function KOLsPage() {
         </div>
         {/* Table skeleton */}
         <div className="h-96 bg-muted animate-pulse rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <Users className="h-5 w-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold">KOL Roster</h1>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-6 text-center">
+          <p className="text-red-500 font-medium mb-2">Failed to load KOL roster</p>
+          <p className="text-sm text-muted-foreground mb-4">{error}</p>
+          <button
+            onClick={fetchKols}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
