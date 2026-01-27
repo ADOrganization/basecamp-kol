@@ -3,6 +3,7 @@
  *
  * GET /api/auth/callback/magic
  * Verifies the magic link token and creates a session.
+ * Enforces mandatory 2FA for all users.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,6 +12,7 @@ import { verifyMagicLinkToken } from "@/lib/magic-link";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 import { encode } from "next-auth/jwt";
+import { SignJWT } from "jose";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://basecampnetwork.xyz";
 
@@ -19,6 +21,10 @@ const isProduction = process.env.NODE_ENV === "production";
 const SESSION_COOKIE_NAME = isProduction
   ? "__Secure-authjs.session-token"
   : "authjs.session-token";
+
+const AUTH_SECRET = new TextEncoder().encode(
+  process.env.AUTH_SECRET || "auth-secret-key"
+);
 
 export async function GET(request: NextRequest) {
   // Rate limiting
@@ -100,22 +106,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL("/auth-error?error=NoOrganization", APP_URL));
     }
 
-    // Update user's email verified timestamp and last login
+    // Update user's email verified timestamp
     await db.user.update({
       where: { id: user.id },
       data: {
         emailVerified: new Date(),
-        lastLoginAt: new Date(),
       },
-    });
-
-    // Log successful login
-    await logSecurityEvent({
-      action: "LOGIN_SUCCESS",
-      userId: user.id,
-      ipAddress: ipAddress || undefined,
-      userAgent: userAgent || undefined,
-      metadata: { email, method: "magic_link" },
     });
 
     await logSecurityEvent({
@@ -126,39 +122,65 @@ export async function GET(request: NextRequest) {
       metadata: { email },
     });
 
-    // Create JWT token for the session
-    // The salt must match the cookie name for Auth.js to decode it properly
-    const jwtToken = await encode({
-      token: {
-        id: user.id,
+    // Check 2FA status - mandatory for all users
+    if (!user.twoFactorEnabled) {
+      // 2FA not enabled - redirect to setup with a setup token
+      const setupToken = await new SignJWT({
+        sub: user.id,
         email: user.email,
-        name: user.name,
-        organizationId: membership.organizationId,
-        organizationType: membership.organization.type,
-        organizationRole: membership.role,
-        organizationName: membership.organization.name,
-      },
-      secret: process.env.AUTH_SECRET!,
-      salt: SESSION_COOKIE_NAME,
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-    });
+        type: "user_2fa_setup",
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("15m") // 15 minutes to complete setup
+        .sign(AUTH_SECRET);
 
-    // Redirect to appropriate dashboard
-    const redirectTo = membership.organization.type === "AGENCY"
-      ? "/agency/dashboard"
-      : "/client/dashboard";
+      const response = NextResponse.redirect(new URL("/setup-2fa", APP_URL));
+      response.cookies.set("user_2fa_setup_token", setupToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        maxAge: 15 * 60, // 15 minutes
+        path: "/",
+      });
 
-    // Create redirect response and set the session cookie on it
-    const response = NextResponse.redirect(new URL(redirectTo, APP_URL));
+      await logSecurityEvent({
+        action: "2FA_SETUP_REQUIRED",
+        userId: user.id,
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: { email },
+      });
 
-    // Set the session cookie on the response object directly
-    // This ensures the cookie is included in the redirect response
-    response.cookies.set(SESSION_COOKIE_NAME, jwtToken, {
+      return response;
+    }
+
+    // 2FA is enabled - redirect to verify with a verify token
+    const verifyToken = await new SignJWT({
+      sub: user.id,
+      email: user.email,
+      type: "user_2fa_verify",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("5m") // 5 minutes to enter code
+      .sign(AUTH_SECRET);
+
+    const response = NextResponse.redirect(new URL("/verify-2fa", APP_URL));
+    response.cookies.set("user_2fa_verify_token", verifyToken, {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 5 * 60, // 5 minutes
       path: "/",
+    });
+
+    await logSecurityEvent({
+      action: "2FA_VERIFICATION_REQUIRED",
+      userId: user.id,
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: { email },
     });
 
     return response;

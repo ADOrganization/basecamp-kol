@@ -1,25 +1,42 @@
 import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatNumber } from "@/lib/utils";
 import {
   Megaphone,
-  Eye,
-  Heart,
-  MessageCircle,
-  TrendingUp,
   Clock,
-  CheckCircle2,
   ArrowRight,
-  Users,
-  BarChart3,
-  Zap
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import {
+  ClientPortfolioHealth,
+  ClientContentPerformance,
+  ClientKOLLeaderboard,
+  ClientActivityFeed,
+  ClientEngagementTrends,
+} from "@/components/client/dashboard";
+
+interface KOLStats {
+  id: string;
+  name: string;
+  twitterHandle: string;
+  avatarUrl: string | null;
+  totalImpressions: number;
+  totalEngagement: number;
+  totalPosts: number;
+}
+
+interface ActivityItem {
+  id: string;
+  type: "POST_CREATED" | "POST_APPROVED" | "POST_REJECTED" | "POST_PUBLISHED" | "POST_PENDING";
+  kolName: string;
+  kolAvatar: string | null;
+  campaignName: string;
+  postContent?: string;
+  timestamp: Date;
+}
 
 async function getClientStats(organizationId: string) {
   try {
@@ -52,10 +69,6 @@ async function getClientStats(organizationId: string) {
         sum + c.posts.reduce((s, p) => s + p.likes + p.retweets + p.replies, 0),
       0
     );
-    const totalLikes = campaigns.reduce(
-      (sum, c) => sum + c.posts.reduce((s, p) => s + p.likes, 0),
-      0
-    );
 
     const pendingPosts = campaigns.reduce(
       (sum, c) => sum + c.posts.filter((p) => p.status === "PENDING_APPROVAL").length,
@@ -67,26 +80,97 @@ async function getClientStats(organizationId: string) {
       0
     );
 
-    const totalKols = new Set(
-      campaigns.flatMap((c) => c.campaignKols.map((ck) => ck.kolId))
-    ).size;
+    const rejectedPosts = campaigns.reduce(
+      (sum, c) => sum + c.posts.filter((p) => p.status === "REJECTED").length,
+      0
+    );
 
-    // Get recent posts for activity feed
-    const recentPosts = campaigns
-      .flatMap((c) =>
-        c.posts.map((p) => ({
-          ...p,
-          campaignName: c.name,
-          kolName: c.campaignKols.find((ck) => ck.kolId === p.kolId)?.kol.name || "Unknown KOL",
-        }))
-      )
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 5);
+    const draftPosts = campaigns.reduce(
+      (sum, c) => sum + c.posts.filter((p) => p.status === "DRAFT").length,
+      0
+    );
 
     // Calculate engagement rate
     const engagementRate = totalImpressions > 0
       ? ((totalEngagement / totalImpressions) * 100).toFixed(2)
       : "0.00";
+
+    // Aggregate KOL stats
+    const kolStatsMap = new Map<string, KOLStats>();
+    campaigns.forEach((campaign) => {
+      campaign.campaignKols.forEach((ck) => {
+        const existing = kolStatsMap.get(ck.kol.id);
+        const kolPosts = campaign.posts.filter((p) => p.kolId === ck.kol.id);
+        const impressions = kolPosts.reduce((s, p) => s + p.impressions, 0);
+        const engagement = kolPosts.reduce(
+          (s, p) => s + p.likes + p.retweets + p.replies,
+          0
+        );
+
+        if (existing) {
+          existing.totalImpressions += impressions;
+          existing.totalEngagement += engagement;
+          existing.totalPosts += kolPosts.length;
+        } else {
+          kolStatsMap.set(ck.kol.id, {
+            id: ck.kol.id,
+            name: ck.kol.name,
+            twitterHandle: ck.kol.twitterHandle,
+            avatarUrl: ck.kol.avatarUrl,
+            totalImpressions: impressions,
+            totalEngagement: engagement,
+            totalPosts: kolPosts.length,
+          });
+        }
+      });
+    });
+
+    const kolStats = Array.from(kolStatsMap.values());
+
+    // Build activity feed from recent posts
+    const activities: ActivityItem[] = [];
+    campaigns.forEach((campaign) => {
+      campaign.posts.slice(0, 10).forEach((post) => {
+        const kol = campaign.campaignKols.find((ck) => ck.kolId === post.kolId)?.kol;
+        if (kol) {
+          let activityType: ActivityItem["type"] = "POST_CREATED";
+          if (post.status === "POSTED" || post.status === "VERIFIED") {
+            activityType = "POST_PUBLISHED";
+          } else if (post.status === "APPROVED") {
+            activityType = "POST_APPROVED";
+          } else if (post.status === "REJECTED") {
+            activityType = "POST_REJECTED";
+          } else if (post.status === "PENDING_APPROVAL") {
+            activityType = "POST_PENDING";
+          }
+
+          activities.push({
+            id: post.id,
+            type: activityType,
+            kolName: kol.name,
+            kolAvatar: kol.avatarUrl,
+            campaignName: campaign.name,
+            postContent: post.content?.slice(0, 100) || undefined,
+            timestamp: post.updatedAt,
+          });
+        }
+      });
+    });
+
+    // Sort activities by timestamp and take top 8
+    activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const recentActivities = activities.slice(0, 8);
+
+    // Generate mock trend data (in real app, this would come from snapshots)
+    const trendData = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return {
+        date: date.toLocaleDateString("en-US", { weekday: "short" }),
+        impressions: Math.floor(totalImpressions / 7 * (0.8 + Math.random() * 0.4)),
+        engagement: Math.floor(totalEngagement / 7 * (0.8 + Math.random() * 0.4)),
+      };
+    });
 
     return {
       totalCampaigns: campaigns.length,
@@ -95,13 +179,15 @@ async function getClientStats(organizationId: string) {
       postedPosts,
       totalImpressions,
       totalEngagement,
-      totalLikes,
       pendingPosts,
       approvedPosts,
-      totalKols,
+      rejectedPosts,
+      draftPosts,
       campaigns,
-      recentPosts,
       engagementRate,
+      kolStats,
+      recentActivities,
+      trendData,
     };
   } catch (error) {
     console.error("Error fetching client stats:", error);
@@ -112,13 +198,15 @@ async function getClientStats(organizationId: string) {
       postedPosts: 0,
       totalImpressions: 0,
       totalEngagement: 0,
-      totalLikes: 0,
       pendingPosts: 0,
       approvedPosts: 0,
-      totalKols: 0,
+      rejectedPosts: 0,
+      draftPosts: 0,
       campaigns: [],
-      recentPosts: [],
       engagementRate: "0.00",
+      kolStats: [],
+      recentActivities: [],
+      trendData: [],
     };
   }
 }
@@ -130,21 +218,21 @@ export default async function ClientDashboard() {
   const stats = await getClientStats(session.user.organizationId);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Pending Approvals Alert */}
       {stats.pendingPosts > 0 && (
-        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+        <Card className="border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-amber-600" />
+                <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-amber-900">
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-100">
                     {stats.pendingPosts} Post{stats.pendingPosts !== 1 ? "s" : ""} Awaiting Your Review
                   </h3>
-                  <p className="text-sm text-amber-700">
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
                     Review and approve content before it goes live
                   </p>
                 </div>
@@ -160,277 +248,133 @@ export default async function ClientDashboard() {
         </Card>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/10 rounded-full -mr-10 -mt-10" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Impressions</CardTitle>
-            <Eye className="h-4 w-4 text-teal-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.totalImpressions)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Across all campaigns
-            </p>
-          </CardContent>
-        </Card>
+      {/* Portfolio Health KPIs */}
+      <ClientPortfolioHealth
+        totalImpressions={stats.totalImpressions}
+        totalEngagement={stats.totalEngagement}
+        engagementRate={stats.engagementRate}
+        publishedPosts={stats.postedPosts}
+        totalPosts={stats.totalPosts}
+      />
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/10 rounded-full -mr-10 -mt-10" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Engagement</CardTitle>
-            <Heart className="h-4 w-4 text-rose-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.totalEngagement)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Likes, retweets & replies
-            </p>
-          </CardContent>
-        </Card>
+      {/* Campaign Summary Cards */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Your Campaigns</h2>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/client/campaigns">
+              View All
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 rounded-full -mr-10 -mt-10" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Engagement Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-indigo-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.engagementRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Average across posts
-            </p>
-          </CardContent>
-        </Card>
+        {stats.campaigns.length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center">
+                <Megaphone className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">
+                  No campaigns assigned to your organization yet.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {stats.campaigns.slice(0, 6).map((campaign) => {
+              const campaignImpressions = campaign.posts.reduce(
+                (s, p) => s + p.impressions,
+                0
+              );
+              const campaignEngagement = campaign.posts.reduce(
+                (s, p) => s + p.likes + p.retweets + p.replies,
+                0
+              );
+              const pendingCount = campaign.posts.filter(
+                (p) => p.status === "PENDING_APPROVAL"
+              ).length;
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 rounded-full -mr-10 -mt-10" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Published Posts</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.postedPosts}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Out of {stats.totalPosts} total
-            </p>
-          </CardContent>
-        </Card>
+              return (
+                <Link
+                  key={campaign.id}
+                  href={`/client/campaigns/${campaign.id}`}
+                  className="block group"
+                >
+                  <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-base group-hover:text-primary transition-colors line-clamp-1">
+                          {campaign.name}
+                        </CardTitle>
+                        <Badge
+                          variant={
+                            campaign.status === "ACTIVE" ? "default" : "secondary"
+                          }
+                          className={
+                            campaign.status === "ACTIVE" ? "bg-primary" : ""
+                          }
+                        >
+                          {campaign.status}
+                        </Badge>
+                      </div>
+                      {pendingCount > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 w-fit"
+                        >
+                          {pendingCount} pending review
+                        </Badge>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm text-muted-foreground mb-3">
+                        {campaign.campaignKols.length} KOLs &bull;{" "}
+                        {campaign.posts.length} posts
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Impressions
+                          </p>
+                          <p className="font-semibold">
+                            {formatNumber(campaignImpressions)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Engagement
+                          </p>
+                          <p className="font-semibold">
+                            {formatNumber(campaignEngagement)}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Campaigns List */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Your Campaigns</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Monitor your active marketing campaigns
-                </p>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/client/campaigns">
-                  View All
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {stats.campaigns.length === 0 ? (
-                <div className="text-center py-8">
-                  <Megaphone className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">
-                    No campaigns assigned to your organization yet.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {stats.campaigns.slice(0, 4).map((campaign) => {
-                    const campaignImpressions = campaign.posts.reduce((s, p) => s + p.impressions, 0);
-                    const campaignEngagement = campaign.posts.reduce(
-                      (s, p) => s + p.likes + p.retweets + p.replies, 0
-                    );
-                    const pendingCount = campaign.posts.filter(p => p.status === "PENDING_APPROVAL").length;
+      {/* Content Performance & KOL Leaderboard Row */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ClientContentPerformance
+          published={stats.postedPosts}
+          approved={stats.approvedPosts}
+          pending={stats.pendingPosts}
+          rejected={stats.rejectedPosts}
+          draft={stats.draftPosts}
+        />
+        <ClientKOLLeaderboard kols={stats.kolStats} />
+      </div>
 
-                    return (
-                      <Link
-                        key={campaign.id}
-                        href={`/client/campaigns/${campaign.id}`}
-                        className="block group"
-                      >
-                        <div className="p-4 rounded-xl border bg-card hover:bg-muted/50 hover:border-teal-500/50 transition-all">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold group-hover:text-teal-600 transition-colors">
-                                  {campaign.name}
-                                </h3>
-                                {pendingCount > 0 && (
-                                  <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
-                                    {pendingCount} pending
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {campaign.campaignKols.length} KOLs • {campaign.posts.length} posts
-                              </p>
-                            </div>
-                            <Badge
-                              variant={campaign.status === "ACTIVE" ? "default" : "secondary"}
-                              className={campaign.status === "ACTIVE" ? "bg-teal-500" : ""}
-                            >
-                              {campaign.status}
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-4 pt-3 border-t">
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">Impressions</p>
-                              <p className="font-semibold text-sm">{formatNumber(campaignImpressions)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">Engagement</p>
-                              <p className="font-semibold text-sm">{formatNumber(campaignEngagement)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">KOLs Active</p>
-                              <p className="font-semibold text-sm">{campaign.campaignKols.length}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions & Stats */}
-        <div className="space-y-6">
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Link
-                href="/client/review"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors group"
-              >
-                <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium group-hover:text-teal-600 transition-colors">Review Posts</p>
-                  <p className="text-xs text-muted-foreground">{stats.pendingPosts} pending approval</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-teal-600 transition-colors" />
-              </Link>
-
-              <Link
-                href="/client/analytics"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors group"
-              >
-                <div className="h-10 w-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-indigo-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium group-hover:text-teal-600 transition-colors">View Analytics</p>
-                  <p className="text-xs text-muted-foreground">Detailed performance data</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-teal-600 transition-colors" />
-              </Link>
-
-              <Link
-                href="/client/campaigns"
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors group"
-              >
-                <div className="h-10 w-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <Megaphone className="h-5 w-5 text-teal-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium group-hover:text-teal-600 transition-colors">All Campaigns</p>
-                  <p className="text-xs text-muted-foreground">{stats.totalCampaigns} total campaigns</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-teal-600 transition-colors" />
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Content Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Content Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Published</span>
-                  <span className="font-medium">{stats.postedPosts} posts</span>
-                </div>
-                <Progress
-                  value={stats.totalPosts > 0 ? (stats.postedPosts / stats.totalPosts) * 100 : 0}
-                  className="h-2"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Approved</span>
-                  <span className="font-medium">{stats.approvedPosts} posts</span>
-                </div>
-                <Progress
-                  value={stats.totalPosts > 0 ? (stats.approvedPosts / stats.totalPosts) * 100 : 0}
-                  className="h-2 [&>div]:bg-teal-500"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Pending Review</span>
-                  <span className="font-medium">{stats.pendingPosts} posts</span>
-                </div>
-                <Progress
-                  value={stats.totalPosts > 0 ? (stats.pendingPosts / stats.totalPosts) * 100 : 0}
-                  className="h-2 [&>div]:bg-amber-500"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* KOL Summary */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Your KOL Network
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-4">
-                <div className="text-4xl font-bold text-teal-600">{stats.totalKols}</div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Active influencers
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div className="text-center">
-                  <p className="text-lg font-semibold">{stats.totalPosts}</p>
-                  <p className="text-xs text-muted-foreground">Total Posts</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-semibold">{formatNumber(stats.totalLikes)}</p>
-                  <p className="text-xs text-muted-foreground">Total Likes</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Engagement Trends & Activity Feed Row */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ClientEngagementTrends data={stats.trendData} />
+        <ClientActivityFeed activities={stats.recentActivities} />
       </div>
     </div>
   );

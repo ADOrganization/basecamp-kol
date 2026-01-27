@@ -22,7 +22,11 @@ export type AuditAction =
   | "PASSWORD_CHANGED"
   | "SESSION_EXPIRED"
   | "RATE_LIMIT_EXCEEDED"
-  | "SUSPICIOUS_ACTIVITY";
+  | "SUSPICIOUS_ACTIVITY"
+  | "2FA_SETUP_REQUIRED"
+  | "2FA_VERIFICATION_REQUIRED"
+  | "2FA_VERIFICATION_FAILED"
+  | "BACKUP_CODE_USED";
 
 export interface AuditLogData {
   userId?: string;

@@ -72,6 +72,11 @@ model User {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // 2FA fields
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?   // Encrypted TOTP secret
+  backupCodes      String[]  @default([]) // Hashed backup codes
+
   memberships      OrganizationMember[]
   sentInvitations  UserInvitation[] @relation("SentInvitations")
   auditLogs        SecurityAuditLog[]

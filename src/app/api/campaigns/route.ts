@@ -97,13 +97,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // SECURITY: For clients, sanitize sensitive data - hide tier and budget info
+    // SECURITY: For clients, sanitize sensitive data - hide per-KOL tier and rate info
     if (!isAgency) {
       const sanitizedCampaigns = campaignsWithAllocated.map((campaign) => ({
         ...campaign,
-        // Hide total budget from clients
-        totalBudget: undefined,
-        spentBudget: undefined,
+        // Show total budget to clients (they need to see their campaign budget)
+        // spentBudget shows allocated budget (amount committed to KOLs)
         // Strip sensitive per-KOL budget and tier data
         campaignKols: campaign.campaignKols.map((ck) => ({
           id: ck.id,
@@ -113,7 +112,7 @@ export async function GET(request: NextRequest) {
             twitterHandle: ck.kol.twitterHandle,
             avatarUrl: ck.kol.avatarUrl,
             // tier: HIDDEN - reveals pricing strategy
-            // No budget info exposed
+            // No individual KOL rates exposed
           },
         })),
       }));
