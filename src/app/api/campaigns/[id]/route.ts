@@ -194,9 +194,13 @@ export async function PUT(
     let clientId = validatedData.clientId || existingCampaign.clientId || null;
     const clientUsersCreated: { email: string; name?: string; invited: boolean }[] = [];
 
+    console.log("[Campaign Update] clientUsers in request:", validatedData.clientUsers);
+
     if (validatedData.clientUsers && validatedData.clientUsers.length > 0) {
+      console.log("[Campaign Update] Processing", validatedData.clientUsers.length, "client users");
       // Create a client organization if one doesn't exist
       if (!clientId) {
+        console.log("[Campaign Update] Creating new client organization");
         const clientOrg = await db.organization.create({
           data: {
             name: `${validatedData.name} - Client`,
@@ -205,10 +209,14 @@ export async function PUT(
           },
         });
         clientId = clientOrg.id;
+        console.log("[Campaign Update] Created client org:", clientId);
+      } else {
+        console.log("[Campaign Update] Using existing clientId:", clientId);
       }
 
       // Create users and send invitations
       for (const clientUser of validatedData.clientUsers) {
+        console.log("[Campaign Update] Processing client user:", clientUser.email);
         try {
           // Check if user already exists
           let user = await db.user.findUnique({
@@ -217,12 +225,16 @@ export async function PUT(
 
           if (!user) {
             // Create new user
+            console.log("[Campaign Update] Creating new user for:", clientUser.email);
             user = await db.user.create({
               data: {
                 email: clientUser.email.toLowerCase(),
                 name: clientUser.name || null,
               },
             });
+            console.log("[Campaign Update] Created user:", user.id);
+          } else {
+            console.log("[Campaign Update] User already exists:", user.id);
           }
 
           // Check if already a member
