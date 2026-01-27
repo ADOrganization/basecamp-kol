@@ -357,20 +357,30 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       const result = await response.json();
 
       if (response.ok) {
+        // Check API configuration status
+        const apiStatus = result.apiStatus;
+        const usingFallback = apiStatus?.usingFallback;
+
         // Show feedback to user with debug info
         if (result.refreshed > 0) {
-          let message = `Successfully refreshed ${result.refreshed}/${result.total} posts.`;
+          let message = `Refreshed ${result.refreshed}/${result.total} posts.`;
           if (result.failed > 0) message += ` ${result.failed} failed.`;
+
+          // Warn if using fallback (unreliable)
+          if (usingFallback) {
+            message += `\n\n⚠️ Using fallback API (limited data). Configure SocialData or Apify key in Settings → Integrations for full metrics.`;
+          }
+
           // Show saved metrics for debugging
           if (result.debug?.savedMetrics) {
             const sample = result.debug.savedMetrics.slice(0, 2);
-            message += `\n\nSaved metrics:\n${sample.map((m: { postId: string; views: number; likes: number }) =>
-              `Post: ${m.views.toLocaleString()} views, ${m.likes} likes`
+            message += `\n\nSaved:\n${sample.map((m: { postId: string; views: number; likes: number; retweets: number }) =>
+              `${m.views.toLocaleString()} views, ${m.likes} likes, ${m.retweets} retweets`
             ).join('\n')}`;
           }
           alert(message);
-        } else if (!result.scraperConfigured) {
-          alert('Refresh failed: No API key configured.\n\nGo to Settings → Integrations to add your SocialData or Apify API key for reliable tweet metrics.');
+        } else if (!result.scraperConfigured || usingFallback) {
+          alert('Refresh failed: No API key configured.\n\nThe fallback Twitter API is unreliable.\n\nGo to Settings → Integrations to add your SocialData API key for reliable tweet metrics.');
         } else if (result.errors && result.errors.length > 0) {
           alert(`Could not refresh posts.\n\nErrors:\n${result.errors.slice(0, 3).join('\n')}`);
         } else {

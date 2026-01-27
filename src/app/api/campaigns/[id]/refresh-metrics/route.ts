@@ -193,12 +193,20 @@ export async function POST(
       }
     }
 
+    // Provide clear feedback about API configuration
+    const apiStatus = {
+      socialDataConfigured: !!socialDataKey,
+      apifyConfigured: !!apifyKey,
+      usingFallback: !socialDataKey && !apifyKey,
+    };
+
     return NextResponse.json({
       message: `Refreshed ${successCount}/${campaign.posts.length} posts`,
       refreshed: successCount,
       failed: failCount,
       total: campaign.posts.length,
       scraperConfigured: hasAnyScraperConfigured(),
+      apiStatus,
       errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
       // Debug: include actual metrics that were saved
       debug: updatedMetrics.length > 0 ? { savedMetrics: updatedMetrics } : undefined,
