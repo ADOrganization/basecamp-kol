@@ -188,15 +188,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch Twitter profile (avatar and followers)
+    // Load organization's API keys for Twitter fetching
+    const org = await db.organization.findUnique({
+      where: { id: authContext.organizationId },
+      select: { apifyApiKey: true, socialDataApiKey: true },
+    });
+
+    // Import and set API keys dynamically
+    const { setSocialDataApiKey, clearSocialDataApiKey, setApifyApiKey, clearApifyApiKey } = await import("@/lib/scraper/x-scraper");
+
+    if (org?.socialDataApiKey) {
+      setSocialDataApiKey(org.socialDataApiKey);
+    } else {
+      clearSocialDataApiKey();
+    }
+    if (org?.apifyApiKey) {
+      setApifyApiKey(org.apifyApiKey);
+    } else {
+      clearApifyApiKey();
+    }
+
+    // Fetch Twitter profile (avatar, followers, following)
     let avatarUrl: string | null = null;
     let followersCount: number | null = null;
+    let followingCount: number | null = null;
     try {
       const profile = await fetchTwitterProfile(twitterHandle);
       if (profile) {
         avatarUrl = profile.avatarUrl;
         followersCount = profile.followersCount > 0 ? profile.followersCount : null;
-        console.log(`[KOL Create] Fetched profile for @${twitterHandle}: ${followersCount} followers`);
+        followingCount = profile.followingCount > 0 ? profile.followingCount : null;
+        console.log(`[KOL Create] Fetched profile for @${twitterHandle}: ${followersCount} followers, ${followingCount} following`);
       }
     } catch (error) {
       console.log("Failed to fetch Twitter profile:", error);
@@ -215,6 +237,13 @@ export async function POST(request: NextRequest) {
         twitterHandle,
         avatarUrl,
         ...(followersCount !== null && { followersCount }),
+        ...(followingCount !== null && { followingCount }),
+        // Initialize metrics fields
+        avgLikes: 0,
+        avgRetweets: 0,
+        avgReplies: 0,
+        avgEngagementRate: 0,
+        lastMetricsUpdate: new Date(),
         telegramUsername: validatedData.telegramUsername || null,
         telegramGroupId: validatedData.telegramGroupId || null,
         email: validatedData.email || null,
