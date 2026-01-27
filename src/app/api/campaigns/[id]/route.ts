@@ -193,13 +193,21 @@ export async function PUT(
     // Handle client users if provided
     let clientId = validatedData.clientId || existingCampaign.clientId || null;
 
-    // Update existing client org's logo if X handle changed
-    if (clientId && projectAvatarUrl && newHandle !== oldHandle) {
-      await db.organization.update({
+    // Update existing client org's logo if X handle changed OR if org has no logo yet
+    if (clientId && projectAvatarUrl) {
+      const clientOrg = await db.organization.findUnique({
         where: { id: clientId },
-        data: { logoUrl: projectAvatarUrl },
+        select: { logoUrl: true },
       });
-      console.log("[Campaign Update] Updated existing client org logo from X handle change");
+
+      // Update if handle changed or org has no logo
+      if (newHandle !== oldHandle || !clientOrg?.logoUrl) {
+        await db.organization.update({
+          where: { id: clientId },
+          data: { logoUrl: projectAvatarUrl },
+        });
+        console.log("[Campaign Update] Updated existing client org logo");
+      }
     }
     const clientUsersCreated: { email: string; name?: string; invited: boolean }[] = [];
 
