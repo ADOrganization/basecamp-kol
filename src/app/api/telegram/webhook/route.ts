@@ -639,12 +639,21 @@ async function handleBudgetCommand(
     await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
   };
 
-  // Only allow specific users to use /budget
-  const allowedUsers = ["viperrcrypto", "altcoinclimber", "helloyellow516"];
+  // SECURITY: Only allow specific users to use /budget (from environment variable)
+  // Format: TELEGRAM_BUDGET_ADMINS=username1,username2,username3
+  const allowedUsersEnv = process.env.TELEGRAM_BUDGET_ADMINS || "";
+  const allowedUsers = allowedUsersEnv
+    .split(",")
+    .map((u) => u.trim().toLowerCase().replace("@", ""))
+    .filter(Boolean);
+
   const normalizedUsername = senderUsername?.toLowerCase().replace("@", "");
 
-  if (!normalizedUsername || !allowedUsers.includes(normalizedUsername)) {
-    // Silently ignore unauthorized users
+  if (!normalizedUsername || allowedUsers.length === 0 || !allowedUsers.includes(normalizedUsername)) {
+    // SECURITY: Log unauthorized budget access attempts (but don't reveal to user)
+    if (normalizedUsername) {
+      console.warn(`[Telegram] Unauthorized /budget attempt by @${normalizedUsername}`);
+    }
     return;
   }
 

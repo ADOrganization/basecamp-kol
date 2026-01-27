@@ -82,38 +82,25 @@ export async function POST(
     const tweetId = post.tweetId || extractTweetId(post.tweetUrl);
 
     // Load API keys from organization settings
+    // SECURITY: Never log API keys or their prefixes
     const org = post.campaign.agency;
-    console.log(`[RefreshMetrics] Organization ${org.id}: socialDataApiKey=${org.socialDataApiKey ? 'set' : 'NOT SET'}, apifyApiKey=${org.apifyApiKey ? 'set' : 'NOT SET'}`);
 
     if (org.socialDataApiKey) {
       setSocialDataApiKey(org.socialDataApiKey);
-      console.log(`[RefreshMetrics] Set SocialData API key (${org.socialDataApiKey.slice(0, 8)}...)`);
     }
     if (org.apifyApiKey) {
       setApifyApiKey(org.apifyApiKey);
-      console.log(`[RefreshMetrics] Set Apify API key (${org.apifyApiKey.slice(0, 8)}...)`);
     }
 
-    console.log(`[RefreshMetrics] After setting: hasSocialData=${hasSocialDataApiKey()}, hasApify=${hasApifyApiKey()}`);
-    console.log(`[RefreshMetrics] Attempting to refresh tweet ID: ${tweetId}`);
-    console.log(`[RefreshMetrics] Tweet URL was: ${post.tweetUrl}`);
-    console.log(`[RefreshMetrics] Post tweetId field: ${post.tweetId}`);
-    console.log(`[RefreshMetrics] Extracted tweetId: ${tweetId}`);
-
     // Try scraper first (uses SocialData/Apify APIs), fallback to syndication
-    console.log(`[RefreshMetrics] Starting metrics fetch for ${tweetId} (using ${tweetUrlOrId})...`);
     let metrics = await fetchTweetMetricsViaScraper(tweetUrlOrId);
-    console.log(`[RefreshMetrics] Scraper returned:`, metrics ? JSON.stringify(metrics) : 'null');
 
     // Fallback to syndication API if scraper fails
     if (!metrics && tweetId) {
-      console.log(`[RefreshMetrics] Scraper failed, trying syndication API for ${tweetId}`);
       metrics = await fetchTweetMetricsSyndication(tweetId);
-      console.log(`[RefreshMetrics] Syndication returned:`, metrics ? JSON.stringify(metrics) : 'null');
     }
 
     if (!metrics) {
-      console.log(`[RefreshMetrics] ALL methods failed for ${tweetId}`);
       return NextResponse.json(
         { error: "Failed to fetch metrics from X" },
         { status: 502 }

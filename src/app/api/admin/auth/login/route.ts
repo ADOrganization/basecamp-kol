@@ -4,12 +4,50 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 import { verify } from "otplib";
+import crypto from "crypto";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
-);
+// SECURITY: Lazy-load JWT secret to avoid build-time errors
+function getAdminJwtSecret(): Uint8Array {
+  const secret = process.env.ADMIN_JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("ADMIN_JWT_SECRET required in production");
+  }
+  return new TextEncoder().encode(secret || process.env.AUTH_SECRET || "dev-only-admin-secret");
+}
+
+// SECURITY: Timing-safe backup code comparison
+function timingSafeBackupCodeCheck(code: string, backupCodes: string[]): number {
+  const normalizedCode = code.toUpperCase().replace(/-/g, "");
+  let foundIndex = -1;
+
+  // Always iterate all codes to prevent timing attacks
+  for (let i = 0; i < backupCodes.length; i++) {
+    const normalizedBackup = backupCodes[i].toUpperCase().replace(/-/g, "");
+    // Use timing-safe comparison for each code
+    if (normalizedCode.length === normalizedBackup.length) {
+      const isMatch = crypto.timingSafeEqual(
+        Buffer.from(normalizedCode),
+        Buffer.from(normalizedBackup)
+      );
+      if (isMatch && foundIndex === -1) {
+        foundIndex = i;
+      }
+    }
+  }
+  return foundIndex;
+}
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply strict rate limiting to prevent brute force attacks
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.authFailed);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  const { ipAddress, userAgent } = getRequestMetadata(request);
+
   try {
     const { email, password, twoFactorCode } = await request.json();
 
@@ -26,8 +64,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!admin) {
-      // Log failed attempt
-      console.log(`[Admin Auth] Failed login attempt for: ${email}`);
+      // SECURITY: Log failed attempt for security monitoring
+      await logSecurityEvent({
+        action: "LOGIN_FAILED",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: { email, reason: "Admin not found" },
+      });
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -45,7 +88,13 @@ export async function POST(request: NextRequest) {
     const isValidPassword = await bcrypt.compare(password, admin.passwordHash);
 
     if (!isValidPassword) {
-      console.log(`[Admin Auth] Invalid password for: ${email}`);
+      // SECURITY: Log failed attempt for security monitoring
+      await logSecurityEvent({
+        action: "LOGIN_FAILED",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: { email, reason: "Invalid password" },
+      });
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -71,10 +120,18 @@ export async function POST(request: NextRequest) {
         secret: admin.twoFactorSecret,
       });
 
-      // Also check backup codes
-      const isBackupCode = admin.backupCodes.includes(twoFactorCode.toUpperCase());
+      // SECURITY: Check backup codes with timing-safe comparison
+      const backupCodeIndex = timingSafeBackupCodeCheck(twoFactorCode, admin.backupCodes);
+      const isBackupCode = backupCodeIndex !== -1;
 
       if (!isValidCode && !isBackupCode) {
+        // SECURITY: Log 2FA failure
+        await logSecurityEvent({
+          action: "2FA_VERIFICATION_FAILED",
+          ipAddress: ipAddress || undefined,
+          userAgent: userAgent || undefined,
+          metadata: { email, reason: "Invalid 2FA code" },
+        });
         return NextResponse.json(
           { error: "Invalid 2FA code" },
           { status: 401 }
@@ -83,13 +140,18 @@ export async function POST(request: NextRequest) {
 
       // If backup code was used, remove it
       if (isBackupCode) {
+        const newBackupCodes = [...admin.backupCodes];
+        newBackupCodes.splice(backupCodeIndex, 1);
         await db.adminUser.update({
           where: { id: admin.id },
-          data: {
-            backupCodes: admin.backupCodes.filter(
-              (code) => code !== twoFactorCode.toUpperCase()
-            ),
-          },
+          data: { backupCodes: newBackupCodes },
+        });
+
+        await logSecurityEvent({
+          action: "BACKUP_CODE_USED",
+          ipAddress: ipAddress || undefined,
+          userAgent: userAgent || undefined,
+          metadata: { email, remainingCodes: newBackupCodes.length },
         });
       }
     } else {
@@ -103,7 +165,7 @@ export async function POST(request: NextRequest) {
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
         .setExpirationTime("15m") // 15 minutes to complete setup
-        .sign(ADMIN_JWT_SECRET);
+        .sign(getAdminJwtSecret());
 
       // Set a temporary cookie for 2FA setup
       const cookieStore = await cookies();
@@ -137,7 +199,7 @@ export async function POST(request: NextRequest) {
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("8h")
-      .sign(ADMIN_JWT_SECRET);
+      .sign(getAdminJwtSecret());
 
     // Set cookie
     const cookieStore = await cookies();
@@ -149,7 +211,13 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
 
-    console.log(`[Admin Auth] Successful login for: ${email}`);
+    // SECURITY: Log successful login
+    await logSecurityEvent({
+      action: "LOGIN_SUCCESS",
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: { email, adminId: admin.id },
+    });
 
     return NextResponse.json({
       success: true,

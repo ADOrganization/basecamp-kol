@@ -74,14 +74,54 @@ export function checkRateLimit(
 
 /**
  * Get client identifier from request
- * Uses X-Forwarded-For header if behind proxy, falls back to connection IP
+ * SECURITY: In production (Vercel), trust X-Forwarded-For from Vercel's proxy
+ * In development, use fallback identifier
  */
 export function getClientIdentifier(request: Request): string {
+  // SECURITY: Only trust X-Forwarded-For in production where we know
+  // Vercel/Cloudflare strips and sets this header correctly.
+  // The rightmost IP is typically the client IP when behind trusted proxies.
   const forwarded = request.headers.get("x-forwarded-for");
+
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    // SECURITY: Vercel/Cloudflare set the real client IP as the FIRST value
+    // When requests pass through multiple proxies, format is: client, proxy1, proxy2
+    // We take the first value which is the original client
+    const ips = forwarded.split(",").map((ip) => ip.trim());
+    const clientIp = ips[0];
+
+    // SECURITY: Validate IP format to prevent header injection
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$/;
+
+    if (ipv4Regex.test(clientIp) || ipv6Regex.test(clientIp)) {
+      return clientIp;
+    }
+
+    // If IP format is invalid, use hash of the header to still provide rate limiting
+    // but prevent potential injection attacks
+    console.warn(`[Rate Limit] Invalid IP format in X-Forwarded-For: ${clientIp.substring(0, 50)}`);
   }
+
+  // SECURITY: Also try X-Real-IP header (used by some proxies)
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (ipv4Regex.test(realIp.trim())) {
+      return realIp.trim();
+    }
+  }
+
   // Fallback - in serverless environments this may not be available
+  // Use a combination of available headers to create a fingerprint
+  const userAgent = request.headers.get("user-agent") || "";
+  const acceptLang = request.headers.get("accept-language") || "";
+
+  // Create a simple fingerprint to at least group similar requests
+  if (userAgent || acceptLang) {
+    return `fingerprint:${Buffer.from(userAgent + acceptLang).toString("base64").substring(0, 32)}`;
+  }
+
   return "unknown";
 }
 

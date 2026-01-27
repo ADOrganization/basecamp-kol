@@ -10,7 +10,9 @@ import { verify } from "otplib";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { encode } from "next-auth/jwt";
-import { logSecurityEvent } from "@/lib/security-audit";
+import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import crypto from "crypto";
 
 const AUTH_SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || "auth-secret-key"
@@ -23,8 +25,38 @@ const SESSION_COOKIE_NAME = isProduction
   : "authjs.session-token";
 const VERIFY_TOKEN_NAME = "user_2fa_verify_token";
 
+// SECURITY: Timing-safe backup code comparison
+function timingSafeBackupCodeCheck(code: string, backupCodes: string[]): number {
+  const normalizedCode = code.toUpperCase().replace(/-/g, "");
+  let foundIndex = -1;
+
+  // Always iterate all codes to prevent timing attacks
+  for (let i = 0; i < backupCodes.length; i++) {
+    const normalizedBackup = backupCodes[i].toUpperCase().replace(/-/g, "");
+    // Use timing-safe comparison for each code
+    if (normalizedCode.length === normalizedBackup.length) {
+      const isMatch = crypto.timingSafeEqual(
+        Buffer.from(normalizedCode),
+        Buffer.from(normalizedBackup)
+      );
+      if (isMatch && foundIndex === -1) {
+        foundIndex = i;
+      }
+    }
+  }
+  return foundIndex;
+}
+
 // POST - Verify 2FA code and create session
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply strict rate limiting to prevent 2FA brute force attacks
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.authFailed);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  const { ipAddress, userAgent } = getRequestMetadata(request);
+
   try {
     const cookieStore = await cookies();
     const verifyToken = cookieStore.get(VERIFY_TOKEN_NAME)?.value;
@@ -92,15 +124,11 @@ export async function POST(request: NextRequest) {
     let isValid = !!totpResult;
     let usedBackupCode = false;
 
-    // If TOTP failed, try backup codes
+    // SECURITY: If TOTP failed, try backup codes with timing-safe comparison
     // Backup codes can be in format XXXXX-XXXXX (11 chars) or XXXXXXXXXX (10 chars)
     const normalizedCode = code.toUpperCase().replace(/-/g, "");
     if (!isValid && (normalizedCode.length === 10 || code.length === 8)) {
-      // Try matching with both formats (with and without hyphen)
-      const backupCodeIndex = user.backupCodes.findIndex((bc) => {
-        const normalizedBackup = bc.toUpperCase().replace(/-/g, "");
-        return normalizedBackup === normalizedCode || bc.toUpperCase() === code.toUpperCase();
-      });
+      const backupCodeIndex = timingSafeBackupCodeCheck(code, user.backupCodes);
 
       if (backupCodeIndex !== -1) {
         isValid = true;
@@ -117,6 +145,8 @@ export async function POST(request: NextRequest) {
         await logSecurityEvent({
           action: "BACKUP_CODE_USED",
           userId: user.id,
+          ipAddress: ipAddress || undefined,
+          userAgent: userAgent || undefined,
           metadata: { remainingCodes: newBackupCodes.length },
         });
       }
@@ -126,6 +156,8 @@ export async function POST(request: NextRequest) {
       await logSecurityEvent({
         action: "2FA_VERIFICATION_FAILED",
         userId: user.id,
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
         metadata: { email: user.email },
       });
 
