@@ -11,7 +11,15 @@ import { createVerificationToken } from "@/lib/magic-link";
 import { sendMagicLinkEmail } from "@/lib/email";
 import { logSecurityEvent, getRequestMetadata, checkSuspiciousActivity } from "@/lib/security-audit";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
-import DOMPurify from "isomorphic-dompurify";
+
+// Simple email sanitization (strip HTML tags, trim, lowercase)
+function sanitizeEmail(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, "") // Remove HTML tags
+    .replace(/[<>"'&]/g, "") // Remove potentially dangerous characters
+    .toLowerCase()
+    .trim();
+}
 
 export async function POST(request: NextRequest) {
   // Rate limiting
@@ -31,7 +39,7 @@ export async function POST(request: NextRequest) {
     const rawEmail = body.email?.toString() || "";
 
     // Sanitize and validate email
-    const email = DOMPurify.sanitize(rawEmail).toLowerCase().trim();
+    const email = sanitizeEmail(rawEmail);
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(

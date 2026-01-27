@@ -11,8 +11,15 @@ import { verifyInvitationToken, acceptInvitation } from "@/lib/magic-link";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 import { encode } from "next-auth/jwt";
-import DOMPurify from "isomorphic-dompurify";
 import type { OrganizationType, OrganizationRole } from "@prisma/client";
+
+// Simple text sanitization (strip HTML tags)
+function sanitizeText(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, "") // Remove HTML tags
+    .replace(/[<>"'&]/g, "") // Remove potentially dangerous characters
+    .trim();
+}
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://basecampnetwork.xyz";
 
@@ -32,7 +39,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const token = body.token?.toString() || "";
     const rawName = body.name?.toString() || "";
-    const name = DOMPurify.sanitize(rawName).trim();
+    const name = sanitizeText(rawName);
 
     if (!token) {
       return NextResponse.json(
