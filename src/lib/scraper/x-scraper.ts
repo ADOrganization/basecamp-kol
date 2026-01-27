@@ -935,8 +935,8 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
     }
   }
 
-  // Fallback to Apify (requires author handle to search tweets)
-  if (hasApifyApiKey() && authorHandle) {
+  // Fallback to Apify (uses tweetIDs parameter - no author handle required)
+  if (hasApifyApiKey()) {
     try {
       const tweet = await scrapeSingleTweetWithApify(tweetId, authorHandle);
       if (tweet) {
@@ -946,8 +946,6 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
     } catch (error) {
       console.log(`[ScrapeSingleTweet] Apify failed for ${tweetId}:`, error);
     }
-  } else if (hasApifyApiKey() && !authorHandle) {
-    console.log(`[ScrapeSingleTweet] Skipping Apify - no author handle in URL: ${urlOrId}`);
   }
 
   // Last resort: syndication API (may not work, limited metrics)
@@ -996,48 +994,46 @@ export async function scrapeSingleTweet(urlOrId: string): Promise<ScrapedTweet |
 
 /**
  * Scrape a single tweet using Apify KaitoEasyAPI actor
- * Uses searchTerms with author handle since tweetIDs/URLs don't work reliably
+ * Uses tweetIDs parameter to fetch specific tweet directly
  * Actor: CJdippxWmn9uRfooo (kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest)
  */
-async function scrapeSingleTweetWithApify(tweetId: string, authorHandle?: string): Promise<ScrapedTweet | null> {
+async function scrapeSingleTweetWithApify(tweetId: string, _authorHandle?: string): Promise<ScrapedTweet | null> {
   const apiKey = getApifyApiKey();
   if (!apiKey) return null;
 
   const actorId = 'CJdippxWmn9uRfooo';
 
-  // If we don't have the author handle, we can't use Apify effectively
-  // The tweetIDs and URL-based searches don't work with this actor
-  if (!authorHandle) {
-    console.log(`[Apify] No author handle provided for tweet ${tweetId}, skipping Apify`);
-    return null;
-  }
-
-  const cleanHandle = authorHandle.replace('@', '');
-  console.log(`[Apify] Fetching tweets from @${cleanHandle} to find tweet ${tweetId}...`);
+  console.log(`[Apify] Fetching tweet ${tweetId} using tweetIDs parameter...`);
 
   try {
-    // Search for recent tweets from this user
+    // Use tweetIDs parameter to fetch the specific tweet directly
     const runResponse = await fetch(
       `https://api.apify.com/v2/acts/${actorId}/runs?token=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          searchTerms: [`from:${cleanHandle}`],
-          maxItems: 50, // Fetch more to find our specific tweet
+          tweetIDs: [tweetId],
+          maxItems: 1,
         }),
         signal: AbortSignal.timeout(30000),
       }
     );
 
     if (!runResponse.ok) {
-      console.log(`[Apify] Failed to start actor: ${runResponse.status}`);
+      const errorText = await runResponse.text();
+      console.log(`[Apify] Failed to start actor: ${runResponse.status} - ${errorText}`);
       return null;
     }
 
     const runData = await runResponse.json();
     const runId = runData.data?.id;
-    if (!runId) return null;
+    if (!runId) {
+      console.log(`[Apify] No run ID returned`);
+      return null;
+    }
+
+    console.log(`[Apify] Actor run started: ${runId}`);
 
     // Poll for completion (max 60 seconds)
     let attempts = 0;
@@ -1054,27 +1050,37 @@ async function scrapeSingleTweetWithApify(tweetId: string, authorHandle?: string
 
       const statusData = await statusResponse.json();
       const status = statusData.data?.status;
+      console.log(`[Apify] Run status: ${status} (attempt ${attempts}/${maxAttempts})`);
 
       if (status === 'SUCCEEDED') {
         const datasetId = statusData.data?.defaultDatasetId;
-        if (!datasetId) return null;
+        if (!datasetId) {
+          console.log(`[Apify] No dataset ID returned`);
+          return null;
+        }
 
         // Fetch the results
         const itemsResponse = await fetch(
-          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}&limit=1`
+          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`
         );
 
-        if (!itemsResponse.ok) return null;
+        if (!itemsResponse.ok) {
+          console.log(`[Apify] Failed to fetch dataset items`);
+          return null;
+        }
 
         const items = await itemsResponse.json();
+        console.log(`[Apify] Received ${items?.length || 0} items`);
+
         if (!items || items.length === 0) {
           console.log(`[Apify] No items returned for tweet ${tweetId}`);
           return null;
         }
 
-        console.log(`[Apify] Received ${items.length} items, searching for tweet ${tweetId}...`);
+        // Log the first item for debugging
+        console.log(`[Apify] First item:`, JSON.stringify(items[0]).slice(0, 500));
 
-        // Find the specific tweet by ID
+        // Process items - when using tweetIDs, the first item should be our tweet
         for (const item of items) {
           // Skip mock data
           const content = String(item.text || item.full_text || item.content || '');
@@ -1082,14 +1088,21 @@ async function scrapeSingleTweetWithApify(tweetId: string, authorHandle?: string
             continue;
           }
 
-          // Check if this is our tweet
+          // Get the item ID - with tweetIDs param it should match our requested ID
           const itemId = String(item.id || '');
-          if (itemId !== tweetId) {
+
+          // Skip if ID doesn't match (shouldn't happen with tweetIDs but safety check)
+          if (itemId && itemId !== tweetId) {
+            console.log(`[Apify] Skipping non-matching ID: ${itemId} (expected ${tweetId})`);
             continue;
           }
 
-          console.log(`[Apify] Found matching tweet ${tweetId}`);
+          console.log(`[Apify] Found tweet ${tweetId}`);
           console.log(`[Apify] Raw item keys:`, Object.keys(item));
+
+          // Extract author info from the response
+          const authorHandle = item.author?.userName || item.user?.screen_name || '';
+          const authorName = item.author?.name || item.user?.name || authorHandle;
 
           // Extract metrics
           const metrics = {
@@ -1103,14 +1116,16 @@ async function scrapeSingleTweetWithApify(tweetId: string, authorHandle?: string
 
           console.log(`[Apify] Extracted metrics for ${tweetId}:`, JSON.stringify(metrics));
 
-          const actualUrl = item.url || item.twitterUrl || `https://x.com/${cleanHandle}/status/${tweetId}`;
+          // Build URL - prefer from response, fallback to constructed URL
+          const actualUrl = item.url || item.twitterUrl ||
+            (authorHandle ? `https://x.com/${authorHandle}/status/${tweetId}` : `https://x.com/i/status/${tweetId}`);
 
           return {
-            id: itemId,
+            id: itemId || tweetId,
             url: actualUrl,
             content,
-            authorHandle: item.author?.userName || item.user?.screen_name || cleanHandle,
-            authorName: item.author?.name || item.user?.name || cleanHandle,
+            authorHandle,
+            authorName,
             postedAt: item.createdAt ? new Date(item.createdAt) : new Date(),
             metrics,
             mediaUrls: [],
@@ -1119,7 +1134,7 @@ async function scrapeSingleTweetWithApify(tweetId: string, authorHandle?: string
           };
         }
 
-        console.log(`[Apify] Tweet ${tweetId} not found in results from @${cleanHandle}`);
+        console.log(`[Apify] Tweet ${tweetId} not found in results (possible mock data only)`);
         return null;
       } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
         console.log(`[Apify] Run failed with status: ${status}`);
