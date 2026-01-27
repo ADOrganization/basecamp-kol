@@ -116,6 +116,7 @@ export async function POST(
     let successCount = 0;
     let failCount = 0;
     const errors: string[] = [];
+    const updatedMetrics: { postId: string; views: number; likes: number; retweets: number }[] = [];
 
     // Refresh metrics for each post sequentially to avoid rate limiting
     for (const post of campaign.posts) {
@@ -151,7 +152,7 @@ export async function POST(
           : 0;
 
         // Update the post with new metrics
-        await db.post.update({
+        const updatedPost = await db.post.update({
           where: { id: post.id },
           data: {
             impressions: tweet.metrics.views,
@@ -165,7 +166,15 @@ export async function POST(
           },
         });
 
-        console.log(`[Refresh] Post ${post.id} updated: views=${tweet.metrics.views}, likes=${tweet.metrics.likes}`);
+        // Track what we saved for debugging
+        updatedMetrics.push({
+          postId: post.id,
+          views: updatedPost.impressions,
+          likes: updatedPost.likes,
+          retweets: updatedPost.retweets,
+        });
+
+        console.log(`[Refresh] Post ${post.id} updated: views=${updatedPost.impressions}, likes=${updatedPost.likes}`);
         successCount++;
 
         // Small delay between requests to avoid rate limiting
@@ -184,7 +193,9 @@ export async function POST(
       failed: failCount,
       total: campaign.posts.length,
       scraperConfigured: hasAnyScraperConfigured(),
-      errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Return first 5 errors
+      errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
+      // Debug: include actual metrics that were saved
+      debug: updatedMetrics.length > 0 ? { savedMetrics: updatedMetrics } : undefined,
     });
   } catch (error) {
     console.error("Failed to refresh campaign metrics:", error);

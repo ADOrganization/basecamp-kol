@@ -357,11 +357,20 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       const result = await response.json();
 
       if (response.ok) {
-        // Show feedback to user
+        // Show feedback to user with debug info
         if (result.refreshed > 0) {
-          alert(`Successfully refreshed ${result.refreshed}/${result.total} posts.${result.failed > 0 ? ` ${result.failed} failed.` : ''}`);
-        } else if (!result.apifyConfigured) {
-          alert('Refresh failed: Apify API key not configured.\n\nGo to Settings → Integrations to add your Apify API key for reliable tweet metrics.');
+          let message = `Successfully refreshed ${result.refreshed}/${result.total} posts.`;
+          if (result.failed > 0) message += ` ${result.failed} failed.`;
+          // Show saved metrics for debugging
+          if (result.debug?.savedMetrics) {
+            const sample = result.debug.savedMetrics.slice(0, 2);
+            message += `\n\nSaved metrics:\n${sample.map((m: { postId: string; views: number; likes: number }) =>
+              `Post: ${m.views.toLocaleString()} views, ${m.likes} likes`
+            ).join('\n')}`;
+          }
+          alert(message);
+        } else if (!result.scraperConfigured) {
+          alert('Refresh failed: No API key configured.\n\nGo to Settings → Integrations to add your SocialData or Apify API key for reliable tweet metrics.');
         } else if (result.errors && result.errors.length > 0) {
           alert(`Could not refresh posts.\n\nErrors:\n${result.errors.slice(0, 3).join('\n')}`);
         } else {
