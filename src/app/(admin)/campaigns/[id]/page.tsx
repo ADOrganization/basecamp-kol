@@ -225,7 +225,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
   const fetchCampaign = async () => {
     try {
-      const response = await fetch(`/api/campaigns/${id}`);
+      // Add timestamp to bust any caches
+      const response = await fetch(`/api/campaigns/${id}?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setCampaign(data);
