@@ -145,8 +145,9 @@ export default function PaymentsPage() {
     try {
       const res = await fetch("/api/kols");
       if (res.ok) {
-        const data = await res.json();
-        setKols(data);
+        const result = await res.json();
+        // API returns { data: [...], pagination: {...} }
+        setKols(result.data || []);
       }
     } catch (error) {
       console.error("Failed to fetch KOLs:", error);
