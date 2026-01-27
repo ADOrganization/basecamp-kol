@@ -4,28 +4,31 @@ import { db } from "@/lib/db";
 import { kolSchema } from "@/lib/validations";
 import { fetchTwitterAvatar, fetchTwitterProfile } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
+import { logSecurityEvent } from "@/lib/security-audit";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // SECURITY: Apply rate limiting to prevent KOL enumeration attacks
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.kolRoster);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const { id } = await params;
-    console.log(`[KOL API] Request for KOL: ${id}`);
 
     // Get auth context
     const authContext = await getApiAuthContext();
-    console.log(`[KOL API] Auth context:`, authContext ? { orgId: authContext.organizationId, isAdmin: authContext.isAdmin } : "null");
 
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // SECURITY: Only agency users can access individual KOL data
+    // Clients can only see KOL data through campaign endpoints (sanitized)
     if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-
-    console.log(`[KOL API] Querying KOL ${id} for org ${authContext.organizationId}`);
 
     // Simple query first
     const kol = await db.kOL.findFirst({
@@ -51,20 +54,12 @@ export async function GET(
       },
     });
 
-    console.log(`[KOL API] KOL found: ${kol ? kol.name : "null"}`);
-
     if (!kol) {
-      // Debug: check if KOL exists at all
-      const kolExists = await db.kOL.findUnique({
-        where: { id },
-        select: { id: true, organizationId: true, name: true },
-      });
-      console.log(`[KOL API] KOL exists in any org?`, kolExists);
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
     // Try to get payment receipts separately
-    let paymentReceipts: any[] = [];
+    let paymentReceipts: { id: string; amount: number; campaignId: string | null; createdAt: Date; campaign: { id: string; name: string } | null }[] = [];
     try {
       paymentReceipts = await db.paymentReceipt.findMany({
         where: { kolId: kol.id },
@@ -73,15 +68,28 @@ export async function GET(
           campaign: { select: { id: true, name: true } },
         },
       });
-    } catch (e) {
-      console.log("[KOL API] PaymentReceipts query failed:", e);
+    } catch {
+      // Silent fail for payment receipts
     }
 
-    return NextResponse.json({ ...kol, paymentReceipts });
+    // SECURITY: Audit log for individual KOL detail access
+    await logSecurityEvent({
+      userId: authContext.userId,
+      action: "KOL_DETAIL_ACCESS",
+      metadata: {
+        kolId: kol.id,
+        kolName: kol.name,
+        organizationId: authContext.organizationId,
+        isAdmin: authContext.isAdmin,
+      },
+    });
+
+    const response = NextResponse.json({ ...kol, paymentReceipts });
+    return addSecurityHeaders(response);
   } catch (error) {
     console.error("[KOL API] Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch KOL", details: error instanceof Error ? error.message : "Unknown" },
+      { error: "Failed to fetch KOL" },
       { status: 500 }
     );
   }

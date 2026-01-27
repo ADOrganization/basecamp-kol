@@ -4,11 +4,16 @@ import { kolSchema } from "@/lib/validations";
 import { fetchTwitterAvatar, fetchTwitterProfile } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 import { getApiAuthContext } from "@/lib/api-auth";
+import { logSecurityEvent } from "@/lib/security-audit";
+
+// SECURITY: Maximum number of KOLs returned per request to prevent bulk scraping
+const MAX_KOLS_PER_PAGE = 50;
 
 export async function GET(request: NextRequest) {
   try {
-    // SECURITY: Apply rate limiting to prevent scraping (30 req/min for sensitive data)
-    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
+    // SECURITY: Apply strict rate limiting to prevent KOL roster scraping
+    // Only 10 requests per 5 minutes to prevent bulk data extraction
+    const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.kolRoster);
     if (rateLimitResponse) return rateLimitResponse;
 
     const authContext = await getApiAuthContext();
@@ -27,18 +32,30 @@ export async function GET(request: NextRequest) {
     const tier = searchParams.get("tier");
     const status = searchParams.get("status");
 
+    // SECURITY: Pagination to prevent bulk scraping of KOL roster
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(MAX_KOLS_PER_PAGE, parseInt(searchParams.get("limit") || "50", 10));
+    const skip = (page - 1) * limit;
+
+    const whereClause = {
+      organizationId: authContext.organizationId,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+          { twitterHandle: { contains: search, mode: "insensitive" as const } },
+        ],
+      }),
+      ...(tier && { tier: tier as "SMALL" | "MID" | "LARGE" | "MACRO" | "NANO" | "MICRO" | "RISING" | "MEGA" }),
+      ...(status && { status: status as "ACTIVE" | "INACTIVE" | "BLACKLISTED" | "PENDING" }),
+    };
+
+    // Get total count for pagination
+    const totalCount = await db.kOL.count({ where: whereClause });
+
     const kols = await db.kOL.findMany({
-      where: {
-        organizationId: authContext.organizationId,
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { twitterHandle: { contains: search, mode: "insensitive" } },
-          ],
-        }),
-        ...(tier && { tier: tier as "SMALL" | "MID" | "LARGE" | "MACRO" | "NANO" | "MICRO" | "RISING" | "MEGA" }),
-        ...(status && { status: status as "ACTIVE" | "INACTIVE" | "BLACKLISTED" | "PENDING" }),
-      },
+      where: whereClause,
+      skip,
+      take: limit,
       include: {
         tags: true,
         campaignKols: {
@@ -98,8 +115,31 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // SECURITY: Audit log for KOL roster access - tracks who accesses KOL data
+    await logSecurityEvent({
+      userId: authContext.userId,
+      action: "KOL_ROSTER_ACCESS",
+      metadata: {
+        kolCount: kolsWithEarnings.length,
+        totalAvailable: totalCount,
+        page,
+        organizationId: authContext.organizationId,
+        isAdmin: authContext.isAdmin,
+        search: search || undefined,
+        tier: tier || undefined,
+      },
+    });
+
     // Add security headers to prevent caching of sensitive data
-    const response = NextResponse.json(kolsWithEarnings);
+    const response = NextResponse.json({
+      data: kolsWithEarnings,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Error fetching KOLs:", error);

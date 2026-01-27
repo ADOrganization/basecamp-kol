@@ -90,8 +90,12 @@ export const RATE_LIMITS = {
   // Standard API endpoints - 100 requests per minute
   standard: { limit: 100, windowMs: 60 * 1000 },
 
-  // Sensitive data endpoints (KOL roster) - 30 requests per minute
-  sensitive: { limit: 30, windowMs: 60 * 1000 },
+  // Sensitive data endpoints - 15 requests per minute
+  sensitive: { limit: 15, windowMs: 60 * 1000 },
+
+  // KOL roster - VERY strict to prevent scraping (10 requests per 5 minutes)
+  // With 50 KOLs per page max, this limits to 500 KOL records per 5 minutes
+  kolRoster: { limit: 10, windowMs: 5 * 60 * 1000 },
 
   // Heavy operations (refresh metrics, scraping) - 5 requests per minute
   heavy: { limit: 5, windowMs: 60 * 1000 },

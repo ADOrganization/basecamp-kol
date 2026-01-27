@@ -26,7 +26,11 @@ export type AuditAction =
   | "2FA_SETUP_REQUIRED"
   | "2FA_VERIFICATION_REQUIRED"
   | "2FA_VERIFICATION_FAILED"
-  | "BACKUP_CODE_USED";
+  | "BACKUP_CODE_USED"
+  // KOL Data Access Audit
+  | "KOL_ROSTER_ACCESS"
+  | "KOL_DETAIL_ACCESS"
+  | "KOL_DATA_EXPORT";
 
 export interface AuditLogData {
   userId?: string;

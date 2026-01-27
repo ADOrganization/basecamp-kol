@@ -81,11 +81,12 @@ export async function GET(
       return sum + postsCost + threadsCost + retweetsCost + spacesCost;
     }, 0);
 
-    // For clients, hide sensitive data like per-KOL budget allocations
+    // SECURITY: For clients, hide ALL sensitive data including KOL identifiers
+    // Clients should never receive KOL IDs that could be used to access /api/kols/[id]
     if (!isAgency) {
-      // Strip sensitive data from KOL assignments
+      // Strip ALL sensitive data from KOL assignments - NO IDs exposed
       const sanitizedCampaignKols = campaign.campaignKols.map((ck) => ({
-        id: ck.id,
+        // id: HIDDEN - prevents targeting specific campaign KOL assignments
         status: ck.status,
         // Hide individual budget allocation
         // assignedBudget: HIDDEN
@@ -94,12 +95,11 @@ export async function GET(
         requiredRetweets: ck.requiredRetweets,
         requiredSpaces: ck.requiredSpaces,
         kol: {
-          id: ck.kol.id,
+          // id: HIDDEN - prevents direct API access to /api/kols/[id]
           name: ck.kol.name,
           twitterHandle: ck.kol.twitterHandle,
           avatarUrl: ck.kol.avatarUrl,
-          // Hide tier - reveals pricing strategy
-          // tier: HIDDEN
+          // tier: HIDDEN - reveals pricing strategy
           followersCount: ck.kol.followersCount,
           avgEngagementRate: ck.kol.avgEngagementRate,
         },
