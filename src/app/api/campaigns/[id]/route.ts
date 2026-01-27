@@ -110,19 +110,33 @@ export async function GET(
         },
       }));
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         ...campaign,
         // Use allocated budget as spent budget (allocated = committed/used)
         spentBudget: allocatedBudget,
         campaignKols: sanitizedCampaignKols,
       });
+
+      // Prevent caching to ensure fresh data after metrics refresh
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('Pragma', 'no-cache');
+      response.headers.set('Expires', '0');
+
+      return response;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ...campaign,
       // Use allocated budget as spent budget (allocated = committed/used)
       spentBudget: allocatedBudget,
     });
+
+    // Prevent caching to ensure fresh data after metrics refresh
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+
+    return response;
   } catch (error) {
     console.error("Error fetching campaign:", error);
     return NextResponse.json(

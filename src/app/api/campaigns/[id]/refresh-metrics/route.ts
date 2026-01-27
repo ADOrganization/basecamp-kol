@@ -152,7 +152,7 @@ export async function POST(
           : 0;
 
         // Update the post with new metrics
-        const updatedPost = await db.post.update({
+        await db.post.update({
           where: { id: post.id },
           data: {
             impressions: tweet.metrics.views,
@@ -166,15 +166,21 @@ export async function POST(
           },
         });
 
-        // Track what we saved for debugging
-        updatedMetrics.push({
-          postId: post.id,
-          views: updatedPost.impressions,
-          likes: updatedPost.likes,
-          retweets: updatedPost.retweets,
+        // VERIFY: Re-read from database to confirm save worked
+        const verifiedPost = await db.post.findUnique({
+          where: { id: post.id },
+          select: { impressions: true, likes: true, retweets: true },
         });
 
-        console.log(`[Refresh] Post ${post.id} updated: views=${updatedPost.impressions}, likes=${updatedPost.likes}`);
+        // Track what we saved for debugging (using verified data)
+        updatedMetrics.push({
+          postId: post.id,
+          views: verifiedPost?.impressions ?? 0,
+          likes: verifiedPost?.likes ?? 0,
+          retweets: verifiedPost?.retweets ?? 0,
+        });
+
+        console.log(`[Refresh] Post ${post.id} VERIFIED in DB: views=${verifiedPost?.impressions}, likes=${verifiedPost?.likes}`);
         successCount++;
 
         // Small delay between requests to avoid rate limiting
