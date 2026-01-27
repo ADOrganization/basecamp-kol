@@ -227,7 +227,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         const data = await response.json();
         setCampaign(data);
       } else if (response.status === 404) {
-        router.push("/agency/campaigns");
+        router.push("/campaigns");
       }
     } catch (error) {
       console.error("Failed to fetch campaign:", error);
@@ -308,7 +308,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         method: "DELETE",
       });
       if (response.ok) {
-        router.push("/agency/campaigns");
+        router.push("/campaigns");
       } else {
         const data = await response.json();
         alert(data.error || "Failed to delete campaign");
@@ -819,7 +819,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <tr key={ck.id} className="border-t">
                         <td className="p-4">
                           <Link
-                            href={`/agency/kols/${ck.kol.id}`}
+                            href={`/kols/${ck.kol.id}`}
                             className="flex items-center gap-3 hover:text-primary"
                           >
                             {ck.kol.avatarUrl ? (

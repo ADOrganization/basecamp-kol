@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       backupCodes: plainTextCodes, // Return plain text codes to show user ONCE
-      redirectTo: authResult.isSetupToken ? "/agency/dashboard" : undefined,
+      redirectTo: authResult.isSetupToken ? "/dashboard" : undefined,
     });
   } catch (error) {
     console.error("[2FA Setup] Enable error:", error);

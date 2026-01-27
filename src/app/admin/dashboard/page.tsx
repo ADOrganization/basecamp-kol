@@ -9,5 +9,5 @@ export default async function AdminDashboardPage() {
   }
 
   // Redirect to agency dashboard - admin users use agency features
-  redirect("/agency/dashboard");
+  redirect("/dashboard");
 }

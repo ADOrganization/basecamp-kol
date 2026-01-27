@@ -33,23 +33,40 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   }
 
   // Content Security Policy
-  // SECURITY: Removed 'unsafe-eval' - only allow 'unsafe-inline' for Next.js hydration
-  // In production, consider using nonces for better security
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com", // Removed unsafe-eval
-    "style-src 'self' 'unsafe-inline'", // Required for styled components / Tailwind
+    "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https: wss:", // Allow WebSocket for dev tools
+    "connect-src 'self' https: wss:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "upgrade-insecure-requests", // Force HTTPS for all resources
+    "upgrade-insecure-requests",
   ].join("; ");
   response.headers.set("Content-Security-Policy", csp);
 
   return response;
+}
+
+// Admin portal protected routes (previously under /agency)
+const ADMIN_PROTECTED_ROUTES = [
+  "/dashboard",
+  "/kols",
+  "/campaigns",
+  "/content",
+  "/clients",
+  "/telegram",
+  "/settings",
+  "/payments",
+];
+
+// Check if path is an admin protected route
+function isAdminProtectedRoute(pathname: string): boolean {
+  return ADMIN_PROTECTED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
 }
 
 // Handle admin subdomain separately (no NextAuth)
@@ -60,55 +77,58 @@ function handleAdminSubdomain(req: NextRequest): NextResponse {
   const adminToken = req.cookies.get("admin_token")?.value;
   const isLoggedIn = !!adminToken;
 
-  // Auth pages - rewrite to admin login
-  if (nextUrl.pathname === "/" || nextUrl.pathname === "/login") {
-    // If logged in, redirect to dashboard
-    if (isLoggedIn) {
-      const url = nextUrl.clone();
-      url.pathname = "/agency/dashboard";
-      return NextResponse.redirect(url);
-    }
-    const url = nextUrl.clone();
-    url.pathname = "/admin/login";
-    const response = NextResponse.rewrite(url);
-    return addSecurityHeaders(response);
-  }
-
-  // Admin login page - allow access
-  if (nextUrl.pathname === "/admin/login" || nextUrl.pathname === "/admin") {
-    // If already logged in, redirect to dashboard
-    if (isLoggedIn) {
-      const url = nextUrl.clone();
-      url.pathname = "/agency/dashboard";
-      return NextResponse.redirect(url);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response);
-  }
-
-  // Block client routes on admin subdomain
-  if (nextUrl.pathname.startsWith("/client")) {
-    const url = nextUrl.clone();
-    url.pathname = "/agency/dashboard";
-    return NextResponse.redirect(url);
-  }
-
-  // Protected agency routes - require admin auth
-  if (nextUrl.pathname.startsWith("/agency")) {
-    if (!isLoggedIn) {
-      const url = nextUrl.clone();
-      url.pathname = "/admin/login";
-      return NextResponse.redirect(url);
-    }
-  }
-
   // API routes - allow (they handle their own auth)
   if (nextUrl.pathname.startsWith("/api")) {
     const response = NextResponse.next();
     return addSecurityHeaders(response);
   }
 
-  // All other paths on admin subdomain
+  // Static assets - allow
+  if (nextUrl.pathname.startsWith("/_next") || nextUrl.pathname === "/favicon.ico") {
+    return NextResponse.next();
+  }
+
+  // Block client routes on admin subdomain - redirect to dashboard (if logged in) or login
+  if (nextUrl.pathname.startsWith("/client")) {
+    const url = nextUrl.clone();
+    url.pathname = isLoggedIn ? "/dashboard" : "/";
+    return NextResponse.redirect(url);
+  }
+
+  // If logged in, redirect root/login to dashboard
+  if (isLoggedIn && (nextUrl.pathname === "/" || nextUrl.pathname === "/login" || nextUrl.pathname === "/admin/login")) {
+    const url = nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // If not logged in, serve login page at root (rewrite, no redirect)
+  if (!isLoggedIn && (nextUrl.pathname === "/" || nextUrl.pathname === "/login")) {
+    const url = nextUrl.clone();
+    url.pathname = "/admin/login";
+    const response = NextResponse.rewrite(url);
+    return addSecurityHeaders(response);
+  }
+
+  // Admin login/setup pages - allow access (no redirect needed)
+  if (nextUrl.pathname.startsWith("/admin")) {
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
+
+  // Protected admin routes - require admin auth
+  if (isAdminProtectedRoute(nextUrl.pathname)) {
+    if (!isLoggedIn) {
+      // Redirect to root (which shows login) - clean URL
+      const url = nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
+
+  // All other paths - apply security headers
   const response = NextResponse.next();
   return addSecurityHeaders(response);
 }
@@ -129,9 +149,9 @@ const authMiddleware = auth((req) => {
       nextUrl.pathname.startsWith("/setup-2fa") ||
       nextUrl.pathname.startsWith("/verify-2fa");
 
-    const isAgencyRoute = nextUrl.pathname.startsWith("/agency");
     const isClientRoute = nextUrl.pathname.startsWith("/client");
     const isAdminRoute = nextUrl.pathname.startsWith("/admin");
+    const isAdminPortalRoute = isAdminProtectedRoute(nextUrl.pathname);
 
     const isApiRoute = nextUrl.pathname.startsWith("/api");
 
@@ -147,25 +167,24 @@ const authMiddleware = auth((req) => {
     }
 
     // Allow public routes with security headers
-    if (isPublicRoute && !isAgencyRoute && !isClientRoute) {
+    if (isPublicRoute && !isAdminPortalRoute && !isClientRoute) {
       const response = NextResponse.next();
       return addSecurityHeaders(response);
     }
 
     // Admin routes have their own auth system (not NextAuth)
-    // Allow all admin routes to pass through - they handle their own auth
     if (isAdminRoute) {
       const response = NextResponse.next();
       return addSecurityHeaders(response);
     }
 
-    // Allow auth pages (login, verify-request, auth-error, accept-invite) with security headers
-    if (isAuthPage && !isAgencyRoute && !isClientRoute) {
+    // Allow auth pages with security headers
+    if (isAuthPage && !isAdminPortalRoute && !isClientRoute) {
       // If already logged in, redirect to dashboard
       if (isLoggedIn && session?.user?.organizationType) {
         const redirectTo =
           session.user.organizationType === "AGENCY"
-            ? "/agency/dashboard"
+            ? "/dashboard"
             : "/client/dashboard";
         return NextResponse.redirect(new URL(redirectTo, nextUrl));
       }
@@ -184,11 +203,11 @@ const authMiddleware = auth((req) => {
 
       // Agency users trying to access client routes
       if (isClientRoute && userOrgType === "AGENCY") {
-        return NextResponse.redirect(new URL("/agency/dashboard", nextUrl));
+        return NextResponse.redirect(new URL("/dashboard", nextUrl));
       }
 
-      // Client users trying to access agency routes
-      if (isAgencyRoute && userOrgType === "CLIENT") {
+      // Client users trying to access admin portal routes
+      if (isAdminPortalRoute && userOrgType === "CLIENT") {
         return NextResponse.redirect(new URL("/client/dashboard", nextUrl));
       }
     }
@@ -197,8 +216,6 @@ const authMiddleware = auth((req) => {
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Middleware error:", error);
-    // SECURITY: On error, deny access instead of allowing through
-    // This prevents potential bypass attacks
     return new NextResponse("Internal Server Error", {
       status: 500,
       headers: {
@@ -213,8 +230,8 @@ const authMiddleware = auth((req) => {
 function handleClientDomain(req: NextRequest): NextResponse | null {
   const { nextUrl } = req;
 
-  // Block admin and agency routes on client domain
-  if (nextUrl.pathname.startsWith("/admin") || nextUrl.pathname.startsWith("/agency")) {
+  // Block admin and admin portal routes on client domain
+  if (nextUrl.pathname.startsWith("/admin") || isAdminProtectedRoute(nextUrl.pathname)) {
     // Redirect to client dashboard or login
     const url = nextUrl.clone();
     url.pathname = "/client/dashboard";
@@ -241,7 +258,7 @@ export default function middleware(req: NextRequest) {
     return handleAdminSubdomain(req);
   }
 
-  // Handle client domain (basecampnetwork.xyz) - block admin/agency routes
+  // Handle client domain (basecampnetwork.xyz) - block admin routes
   if (hostname.includes("basecampnetwork.xyz") && !hostname.startsWith("admin.")) {
     const clientRedirect = handleClientDomain(req);
     if (clientRedirect) return clientRedirect;

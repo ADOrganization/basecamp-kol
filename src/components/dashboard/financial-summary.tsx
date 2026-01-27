@@ -83,7 +83,7 @@ export function FinancialSummary({
             <p className="text-sm text-muted-foreground">Budget and payment overview</p>
           </div>
           <Link
-            href="/agency/payments"
+            href="/payments"
             className="text-sm text-primary hover:underline flex items-center gap-1"
           >
             View all payments

@@ -102,7 +102,7 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
                   </p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                     <Link
-                      href={`/agency/campaigns/${activity.campaign.id}`}
+                      href={`/campaigns/${activity.campaign.id}`}
                       className="hover:underline"
                     >
                       {activity.campaign.name}
@@ -152,7 +152,7 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
 
       {activities.length > 8 && (
         <div className="p-4 border-t text-center">
-          <Link href="/agency/content/review" className="text-sm text-primary hover:underline">
+          <Link href="/content/review" className="text-sm text-primary hover:underline">
             View all activity
           </Link>
         </div>

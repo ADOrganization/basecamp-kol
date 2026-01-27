@@ -96,7 +96,7 @@ export function CampaignCommandCenter({
           <p className="text-sm text-muted-foreground">{campaigns.length} active campaigns</p>
         </div>
         <Link
-          href="/agency/campaigns"
+          href="/campaigns"
           className="text-sm text-primary hover:underline flex items-center gap-1"
         >
           View all
@@ -155,7 +155,7 @@ export function CampaignCommandCenter({
               return (
                 <Link
                   key={campaign.id}
-                  href={`/agency/campaigns/${campaign.id}`}
+                  href={`/campaigns/${campaign.id}`}
                   className="flex items-center justify-between text-sm hover:underline"
                 >
                   <span>{campaign.name}</span>
@@ -175,7 +175,7 @@ export function CampaignCommandCenter({
           <Megaphone className="h-12 w-12 text-muted-foreground mb-3" />
           <p className="text-muted-foreground">No active campaigns</p>
           <Link
-            href="/agency/campaigns?action=new"
+            href="/campaigns?action=new"
             className="mt-3 text-sm text-primary hover:underline"
           >
             Create your first campaign
@@ -193,7 +193,7 @@ export function CampaignCommandCenter({
             return (
               <Link
                 key={campaign.id}
-                href={`/agency/campaigns/${campaign.id}`}
+                href={`/campaigns/${campaign.id}`}
                 className="block rounded-xl border bg-card p-4 hover:border-primary/50 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">

@@ -17,7 +17,7 @@ test.describe('Campaign Management', () => {
   });
 
   test('should load campaigns page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/campaigns');
+    await page.goto('http://localhost:3000/campaigns');
     await page.waitForLoadState('networkidle');
 
     // Header says "Campaigns"
@@ -26,7 +26,7 @@ test.describe('Campaign Management', () => {
   });
 
   test('should open and close create campaign form', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/campaigns');
+    await page.goto('http://localhost:3000/campaigns');
     await page.waitForLoadState('networkidle');
 
     // Click New Campaign button
@@ -44,7 +44,7 @@ test.describe('Campaign Management', () => {
   });
 
   test('should create a new campaign', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/campaigns');
+    await page.goto('http://localhost:3000/campaigns');
     await page.waitForLoadState('networkidle');
 
     // Click New Campaign button
@@ -87,7 +87,7 @@ test.describe('Campaign Management', () => {
   });
 
   test('should navigate to campaign detail page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/campaigns');
+    await page.goto('http://localhost:3000/campaigns');
     await page.waitForLoadState('networkidle');
 
     // First create a campaign if none exist
@@ -106,7 +106,7 @@ test.describe('Campaign Management', () => {
     }
 
     // Click on the first campaign card to view details
-    const campaignCard = page.locator('[class*="campaign"], a[href*="/agency/campaigns/"]').first();
+    const campaignCard = page.locator('[class*="campaign"], a[href*="/campaigns/"]').first();
 
     // Try clicking on the campaign name or card
     const viewButton = page.locator('text=View Campaign').first();
@@ -114,7 +114,7 @@ test.describe('Campaign Management', () => {
       await viewButton.click();
     } else {
       // Try clicking on campaign card link
-      const campaignLink = page.locator('a[href*="/agency/campaigns/"]').first();
+      const campaignLink = page.locator('a[href*="/campaigns/"]').first();
       await campaignLink.click();
     }
 

@@ -15,7 +15,7 @@ export default async function ClientLayout({
   }
 
   if (session.user.organizationType !== "CLIENT") {
-    redirect("/agency/dashboard");
+    redirect("/dashboard");
   }
 
   // Fetch fresh user data from database for sidebar (not cached in JWT)

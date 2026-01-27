@@ -87,7 +87,7 @@ export function KOLLeaderboard({
             <p className="text-sm text-muted-foreground">Operational insights for your network</p>
           </div>
           <Link
-            href="/agency/kols"
+            href="/kols"
             className="text-sm text-primary hover:underline flex items-center gap-1"
           >
             View all
@@ -132,7 +132,7 @@ export function KOLLeaderboard({
               {topPerformers.map((kol, index) => (
                 <Link
                   key={kol.id}
-                  href={`/agency/kols/${kol.id}`}
+                  href={`/kols/${kol.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
                 >
                   <span className="text-sm font-medium text-muted-foreground w-5">
@@ -170,7 +170,7 @@ export function KOLLeaderboard({
               {pendingDeliverables.map((item) => (
                 <Link
                   key={`${item.kolId}-${item.campaignId}`}
-                  href={`/agency/campaigns/${item.campaignId}`}
+                  href={`/campaigns/${item.campaignId}`}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
                 >
                   <Avatar className="h-10 w-10 border">
@@ -220,7 +220,7 @@ export function KOLLeaderboard({
               {inactiveKols.map((kol) => (
                 <Link
                   key={kol.id}
-                  href={`/agency/kols/${kol.id}`}
+                  href={`/kols/${kol.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors border border-amber-500/20 bg-amber-500/5"
                 >
                   <Avatar className="h-10 w-10 border">
@@ -255,7 +255,7 @@ export function KOLLeaderboard({
               {followerGrowthLeaders.map((kol, index) => (
                 <Link
                   key={kol.id}
-                  href={`/agency/kols/${kol.id}`}
+                  href={`/kols/${kol.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
                 >
                   <span className="text-sm font-medium text-muted-foreground w-5">

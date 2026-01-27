@@ -89,7 +89,7 @@ export default function Setup2FAPage() {
   };
 
   const handleContinue = () => {
-    router.push("/agency/dashboard");
+    router.push("/dashboard");
   };
 
   if (isLoading) {

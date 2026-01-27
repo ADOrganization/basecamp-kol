@@ -68,7 +68,7 @@ test.describe('Avatar Upload', () => {
 
   test('should allow changing profile photo', async ({ page }) => {
     // Navigate to settings
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load
@@ -119,7 +119,7 @@ test.describe('Avatar Upload', () => {
 
   test('should validate file type', async ({ page }) => {
     // Navigate to settings
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Settings")')).toBeVisible({ timeout: 10000 });
@@ -148,7 +148,7 @@ test.describe('Avatar Upload', () => {
 
   test('should allow uploading organization logo', async ({ page }) => {
     // Navigate to settings
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Settings")')).toBeVisible({ timeout: 10000 });

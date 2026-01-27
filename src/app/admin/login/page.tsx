@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
       }
 
       // Redirect directly to agency dashboard
-      router.push("/agency/dashboard");
+      router.push("/dashboard");
       router.refresh();
     } catch {
       setError("An error occurred. Please try again.");

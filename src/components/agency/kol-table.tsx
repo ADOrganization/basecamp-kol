@@ -538,7 +538,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                     <tr
                       key={kol.id}
                       className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors group"
-                      onClick={() => router.push(`/agency/kols/${kol.id}`)}
+                      onClick={() => router.push(`/kols/${kol.id}`)}
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -645,7 +645,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/agency/kols/${kol.id}`}>
+                              <Link href={`/kols/${kol.id}`}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 View/Edit
                               </Link>

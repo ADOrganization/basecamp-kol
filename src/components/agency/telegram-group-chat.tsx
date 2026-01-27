@@ -290,7 +290,7 @@ export function TelegramGroupChat({
                         </p>
                       </div>
                       <a
-                        href={`/agency/kols/${link.kol.id}`}
+                        href={`/kols/${link.kol.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-muted-foreground hover:text-foreground"

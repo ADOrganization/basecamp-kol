@@ -157,7 +157,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
         setKol(data);
         setError(null);
       } else if (response.status === 404) {
-        router.push("/agency/kols");
+        router.push("/kols");
       } else {
         const data = await response.json().catch(() => ({}));
         setError(data.error || `Failed to load KOL (${response.status})`);
@@ -517,7 +517,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                     <tr key={ck.id} className="border-t">
                       <td className="p-4">
                         <Link
-                          href={`/agency/campaigns/${ck.campaign.id}`}
+                          href={`/campaigns/${ck.campaign.id}`}
                           className="font-medium hover:text-primary"
                         >
                           {ck.campaign.name}
@@ -615,7 +615,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                       <td className="p-4">
                         {receipt.campaign ? (
                           <Link
-                            href={`/agency/campaigns/${receipt.campaign.id}`}
+                            href={`/campaigns/${receipt.campaign.id}`}
                             className="font-medium hover:text-primary"
                           >
                             {receipt.campaign.name}

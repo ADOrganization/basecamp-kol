@@ -44,7 +44,7 @@ test.describe('Settings Page', () => {
 
   test('should update profile name successfully', async ({ page }) => {
     // Navigate to settings
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     // Wait for the form to load
@@ -103,7 +103,7 @@ test.describe('Settings Page', () => {
   });
 
   test('should show loading state when saving', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     await page.waitForSelector('#name', { state: 'visible', timeout: 10000 });

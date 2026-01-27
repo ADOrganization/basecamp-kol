@@ -37,12 +37,12 @@ interface AgencySidebarProps {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/agency/dashboard", icon: LayoutDashboard, description: "Overview & metrics" },
-  { name: "KOL Roster", href: "/agency/kols", icon: Users, description: "Manage influencers" },
-  { name: "Campaigns", href: "/agency/campaigns", icon: Megaphone, description: "Active promotions" },
-  { name: "Content Review", href: "/agency/content/review", icon: FileText, description: "Approve posts" },
-  { name: "Clients", href: "/agency/clients", icon: UserPlus, description: "Client accounts" },
-  { name: "Telegram", href: "/agency/telegram", icon: MessageSquare, description: "Messages & chats" },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "Overview & metrics" },
+  { name: "KOL Roster", href: "/kols", icon: Users, description: "Manage influencers" },
+  { name: "Campaigns", href: "/campaigns", icon: Megaphone, description: "Active promotions" },
+  { name: "Content Review", href: "/content/review", icon: FileText, description: "Approve posts" },
+  { name: "Clients", href: "/clients", icon: UserPlus, description: "Client accounts" },
+  { name: "Telegram", href: "/telegram", icon: MessageSquare, description: "Messages & chats" },
 ];
 
 export function AgencySidebar({ user, organizationLogo, isAdmin = false }: AgencySidebarProps) {
@@ -94,7 +94,7 @@ export function AgencySidebar({ user, organizationLogo, isAdmin = false }: Agenc
 
         {navigation.map((item) => {
           const isActive = pathname === item.href ||
-            (item.href !== "/agency/dashboard" && pathname.startsWith(item.href));
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
           return (
             <Link
@@ -146,39 +146,39 @@ export function AgencySidebar({ user, organizationLogo, isAdmin = false }: Agenc
             </p>
           </div>
           <Link
-            href="/agency/settings"
+            href="/settings"
             className={cn(
               "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-              pathname.startsWith("/agency/settings")
+              pathname.startsWith("/settings")
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <div className={cn(
               "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-              pathname.startsWith("/agency/settings")
+              pathname.startsWith("/settings")
                 ? "bg-primary-foreground/20"
                 : "bg-muted group-hover:bg-background"
             )}>
               <Settings className={cn(
                 "h-4 w-4 transition-transform group-hover:scale-110",
-                pathname.startsWith("/agency/settings") ? "text-primary-foreground" : ""
+                pathname.startsWith("/settings") ? "text-primary-foreground" : ""
               )} />
             </div>
             <div className="flex-1 min-w-0">
               <p className={cn(
                 "truncate",
-                pathname.startsWith("/agency/settings") ? "text-primary-foreground" : ""
+                pathname.startsWith("/settings") ? "text-primary-foreground" : ""
               )}>
                 Settings
               </p>
-              {!pathname.startsWith("/agency/settings") && (
+              {!pathname.startsWith("/settings") && (
                 <p className="text-[10px] text-muted-foreground truncate">
                   Preferences & config
                 </p>
               )}
             </div>
-            {pathname.startsWith("/agency/settings") && (
+            {pathname.startsWith("/settings") && (
               <ChevronRight className="h-4 w-4 text-primary-foreground/70" />
             )}
           </Link>
@@ -216,7 +216,7 @@ export function AgencySidebar({ user, organizationLogo, isAdmin = false }: Agenc
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/agency/settings" className="cursor-pointer">
+              <Link href="/settings" className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </Link>

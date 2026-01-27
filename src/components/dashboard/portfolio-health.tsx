@@ -98,7 +98,7 @@ export function PortfolioHealth({
       </div>
 
       {/* Pending Review */}
-      <Link href="/agency/content/review" className="block">
+      <Link href="/content/review" className="block">
         <div className="group relative overflow-hidden rounded-xl bg-card p-6 border border-border hover:border-amber-500/50 transition-all duration-300 h-full">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="relative">

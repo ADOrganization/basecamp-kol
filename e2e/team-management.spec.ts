@@ -40,7 +40,7 @@ test.describe('Team Management', () => {
   });
 
   test('should display team members in Team tab', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     // Wait for settings page to load
@@ -67,7 +67,7 @@ test.describe('Team Management', () => {
   });
 
   test('should open invite member dialog', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Settings")')).toBeVisible({ timeout: 10000 });
@@ -97,7 +97,7 @@ test.describe('Team Management', () => {
   });
 
   test('should invite a new team member', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Settings")')).toBeVisible({ timeout: 10000 });
@@ -134,7 +134,7 @@ test.describe('Team Management', () => {
   });
 
   test('should show remove confirmation dialog', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/settings');
+    await page.goto('http://localhost:3000/settings');
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('h1:has-text("Settings")')).toBeVisible({ timeout: 10000 });

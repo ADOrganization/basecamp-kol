@@ -33,7 +33,7 @@ export function CampaignCard({ campaign, viewMode = "grid" }: CampaignCardProps)
 
   return (
     <Link
-      href={`/agency/campaigns/${campaign.id}`}
+      href={`/campaigns/${campaign.id}`}
       className="block rounded-lg border bg-card overflow-hidden hover:border-primary/50 transition-colors h-full flex flex-col"
     >
       {/* Banner Section - Fixed height */}

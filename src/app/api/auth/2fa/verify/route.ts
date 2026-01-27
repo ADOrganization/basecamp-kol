@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
     });
 
     const redirectTo = membership.organization.type === "AGENCY"
-      ? "/agency/dashboard"
+      ? "/dashboard"
       : "/client/dashboard";
 
     return NextResponse.json({

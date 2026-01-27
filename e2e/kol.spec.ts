@@ -17,7 +17,7 @@ test.describe('KOL Management', () => {
   });
 
   test('should load KOL list page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/kols');
+    await page.goto('http://localhost:3000/kols');
     await page.waitForLoadState('networkidle');
 
     // Header says "KOL Roster"
@@ -26,7 +26,7 @@ test.describe('KOL Management', () => {
   });
 
   test('should open and close create KOL form', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/kols');
+    await page.goto('http://localhost:3000/kols');
     await page.waitForLoadState('networkidle');
 
     // Click Add KOL button
@@ -44,7 +44,7 @@ test.describe('KOL Management', () => {
   });
 
   test('should create a new KOL', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/kols');
+    await page.goto('http://localhost:3000/kols');
     await page.waitForLoadState('networkidle');
 
     // Click Add KOL button on the page
@@ -85,7 +85,7 @@ test.describe('KOL Management', () => {
   });
 
   test('should refresh metrics for all KOLs', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/kols');
+    await page.goto('http://localhost:3000/kols');
     await page.waitForLoadState('networkidle');
 
     // Find and click Refresh Metrics button

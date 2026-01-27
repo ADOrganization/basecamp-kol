@@ -12,7 +12,7 @@ export default async function HomePage() {
     // Redirect based on organization type with fallback
     const orgType = session.user?.organizationType;
     if (orgType === "AGENCY") {
-      redirect("/agency/dashboard");
+      redirect("/dashboard");
     } else if (orgType === "CLIENT") {
       redirect("/client/dashboard");
     } else {

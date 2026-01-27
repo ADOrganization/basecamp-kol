@@ -18,7 +18,7 @@ test.describe('Full Application Test Suite', () => {
 
   // ==================== CONTENT REVIEW ====================
   test('should load content review page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/content/review');
+    await page.goto('http://localhost:3000/content/review');
     await page.waitForLoadState('networkidle');
 
     // Should have content review header or related elements
@@ -29,7 +29,7 @@ test.describe('Full Application Test Suite', () => {
 
   // ==================== CLIENT ACCOUNTS ====================
   test('should load client accounts page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/clients');
+    await page.goto('http://localhost:3000/clients');
     await page.waitForLoadState('networkidle');
 
     // Should have client accounts header
@@ -38,7 +38,7 @@ test.describe('Full Application Test Suite', () => {
   });
 
   test('should open create client form', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/clients');
+    await page.goto('http://localhost:3000/clients');
     await page.waitForLoadState('networkidle');
 
     // Look for Add/Create Client button
@@ -57,7 +57,7 @@ test.describe('Full Application Test Suite', () => {
 
   // ==================== TELEGRAM ====================
   test('should load telegram page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/telegram');
+    await page.goto('http://localhost:3000/telegram');
     await page.waitForLoadState('networkidle');
 
     // Should have telegram header or related content
@@ -69,11 +69,11 @@ test.describe('Full Application Test Suite', () => {
   // ==================== CAMPAIGN DETAIL & KOL ASSIGNMENT ====================
   test('should view campaign detail and add KOL', async ({ page }) => {
     // First go to campaigns
-    await page.goto('http://localhost:3000/agency/campaigns');
+    await page.goto('http://localhost:3000/campaigns');
     await page.waitForLoadState('networkidle');
 
     // Click on first campaign to view details
-    const campaignLink = page.locator('a[href*="/agency/campaigns/"]').first();
+    const campaignLink = page.locator('a[href*="/campaigns/"]').first();
 
     if (await campaignLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await campaignLink.click();
@@ -97,11 +97,11 @@ test.describe('Full Application Test Suite', () => {
 
   // ==================== KOL DETAIL ====================
   test('should view KOL detail page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/kols');
+    await page.goto('http://localhost:3000/kols');
     await page.waitForLoadState('networkidle');
 
     // Click on first KOL row to view details
-    const kolLink = page.locator('a[href*="/agency/kols/"], tr[class*="cursor-pointer"]').first();
+    const kolLink = page.locator('a[href*="/kols/"], tr[class*="cursor-pointer"]').first();
 
     if (await kolLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await kolLink.click();
@@ -110,7 +110,7 @@ test.describe('Full Application Test Suite', () => {
       await page.waitForTimeout(1000);
       const currentUrl = page.url();
 
-      if (currentUrl.includes('/agency/kols/')) {
+      if (currentUrl.includes('/kols/')) {
         console.log('KOL detail page loaded:', currentUrl);
       } else {
         console.log('KOL detail may use modal instead of separate page');
@@ -123,10 +123,10 @@ test.describe('Full Application Test Suite', () => {
   // ==================== POSTS/CONTENT ====================
   test('should add post to campaign', async ({ page }) => {
     // Navigate to a campaign
-    await page.goto('http://localhost:3000/agency/campaigns');
+    await page.goto('http://localhost:3000/campaigns');
     await page.waitForLoadState('networkidle');
 
-    const campaignLink = page.locator('a[href*="/agency/campaigns/"]').first();
+    const campaignLink = page.locator('a[href*="/campaigns/"]').first();
 
     if (await campaignLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await campaignLink.click();
@@ -150,7 +150,7 @@ test.describe('Full Application Test Suite', () => {
 
   // ==================== LOGOUT ====================
   test('should logout successfully', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/dashboard');
+    await page.goto('http://localhost:3000/dashboard');
     await page.waitForLoadState('networkidle');
 
     // Find user menu / dropdown
@@ -173,7 +173,7 @@ test.describe('Full Application Test Suite', () => {
 
   // ==================== ERROR HANDLING ====================
   test('should show 404 for invalid page', async ({ page }) => {
-    await page.goto('http://localhost:3000/agency/invalid-page-that-does-not-exist');
+    await page.goto('http://localhost:3000/invalid-page-that-does-not-exist');
     await page.waitForLoadState('networkidle');
 
     // Should show 404 or redirect
@@ -192,7 +192,7 @@ test.describe('Full Application Test Suite', () => {
   // ==================== RESPONSIVE CHECK ====================
   test('should work on mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('http://localhost:3000/agency/dashboard');
+    await page.goto('http://localhost:3000/dashboard');
     await page.waitForLoadState('networkidle');
 
     // Page should still be functional
