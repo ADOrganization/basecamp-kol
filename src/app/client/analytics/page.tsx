@@ -15,7 +15,6 @@ import {
   TrendingDown,
   Users,
   FileText,
-  BarChart3,
   Filter,
   Trophy,
   Quote,
@@ -291,13 +290,6 @@ export default function ClientAnalyticsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        {/* Header Skeleton */}
-        <div className="rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/10 p-8 animate-pulse">
-          <div className="h-4 w-32 bg-indigo-500/10 rounded mb-4" />
-          <div className="h-8 w-64 bg-indigo-500/10 rounded mb-2" />
-          <div className="h-4 w-80 bg-indigo-500/10 rounded" />
-        </div>
-
         {/* Filters Skeleton */}
         <div className="flex gap-4">
           <div className="h-10 w-48 bg-muted rounded animate-pulse" />
@@ -354,30 +346,6 @@ export default function ClientAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-8 text-white">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-32 -mt-32" />
-        <div className="relative flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-indigo-200 mb-2">
-              <BarChart3 className="h-5 w-5" />
-              <span className="text-sm font-medium">Performance Analytics</span>
-            </div>
-            <h1 className="text-3xl font-bold mb-2">Analytics Dashboard</h1>
-            <p className="text-indigo-100 max-w-xl">
-              Track performance metrics and insights across all your influencer campaigns.
-            </p>
-          </div>
-          <div className="hidden md:flex items-center gap-4">
-            <div className="text-center px-6 py-3 bg-white/10 rounded-xl backdrop-blur-sm">
-              <p className="text-3xl font-bold">{formatNumber(totals.impressions)}</p>
-              <p className="text-sm text-indigo-200">Total Reach</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Filters Row */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-4 flex-wrap">
