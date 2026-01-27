@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 const organizationSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
 });
 
 export async function PUT(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

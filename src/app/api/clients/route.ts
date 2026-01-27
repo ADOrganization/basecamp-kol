@@ -4,6 +4,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { sendClientPortalAccessEmail } from "@/lib/email";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -13,7 +14,11 @@ const createClientSchema = z.object({
 });
 
 // GET - List all client organizations and their campaigns
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -76,6 +81,10 @@ export async function GET() {
 
 // POST - Create a new client account
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

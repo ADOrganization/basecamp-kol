@@ -86,6 +86,13 @@ function handleAdminSubdomain(req: NextRequest): NextResponse {
     return addSecurityHeaders(response);
   }
 
+  // Block client routes on admin subdomain
+  if (nextUrl.pathname.startsWith("/client")) {
+    const url = nextUrl.clone();
+    url.pathname = "/agency/dashboard";
+    return NextResponse.redirect(url);
+  }
+
   // Protected agency routes - require admin auth
   if (nextUrl.pathname.startsWith("/agency")) {
     if (!isLoggedIn) {
@@ -202,6 +209,29 @@ const authMiddleware = auth((req) => {
   }
 });
 
+// Handle client domain (main domain - no admin/agency access)
+function handleClientDomain(req: NextRequest): NextResponse | null {
+  const { nextUrl } = req;
+
+  // Block admin and agency routes on client domain
+  if (nextUrl.pathname.startsWith("/admin") || nextUrl.pathname.startsWith("/agency")) {
+    // Redirect to client dashboard or login
+    const url = nextUrl.clone();
+    url.pathname = "/client/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect root to client dashboard
+  if (nextUrl.pathname === "/") {
+    const url = nextUrl.clone();
+    url.pathname = "/client/dashboard";
+    return NextResponse.redirect(url);
+  }
+
+  // Let auth middleware handle the rest
+  return null;
+}
+
 // Main middleware - routes to appropriate handler based on hostname
 export default function middleware(req: NextRequest) {
   const hostname = req.headers.get("host") || "";
@@ -209,6 +239,12 @@ export default function middleware(req: NextRequest) {
   // Handle admin subdomain separately (no NextAuth involvement)
   if (hostname.startsWith("admin.")) {
     return handleAdminSubdomain(req);
+  }
+
+  // Handle client domain (basecampnetwork.xyz) - block admin/agency routes
+  if (hostname.includes("basecampnetwork.xyz") && !hostname.startsWith("admin.")) {
+    const clientRedirect = handleClientDomain(req);
+    if (clientRedirect) return clientRedirect;
   }
 
   // For all other domains, use NextAuth middleware

@@ -159,7 +159,7 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Check for /help command
   if (textContent.startsWith("/help")) {
-    await handleHelpCommand(botToken, chat.id);
+    await handleHelpCommand(botToken, chat.id, organizationId, telegramChatId, senderUsername);
     return;
   }
 
@@ -171,7 +171,7 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Check for /budget command
   if (textContent.startsWith("/budget")) {
-    await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername, chat.title || null);
+    await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername, chat.title || null, telegramChatId);
     return;
   }
 
@@ -397,7 +397,8 @@ async function handlePrivateMessage(
 
   // Check for /help command
   if (textContent?.startsWith("/help")) {
-    await handleHelpCommand(botToken, message.chat.id);
+    // In private messages, pass organizationId and username but no chat ID (not a group)
+    await handleHelpCommand(botToken, message.chat.id, organizationId, undefined, senderUsername);
     return;
   }
 
@@ -409,7 +410,8 @@ async function handlePrivateMessage(
 
   // Check for /budget command
   if (textContent?.startsWith("/budget")) {
-    await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername, null);
+    // In private messages, no chat context - only admins can use this
+    await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername, null, undefined);
     return;
   }
 
@@ -575,12 +577,47 @@ async function matchKolToChat(
 
 async function handleHelpCommand(
   botToken: string | null,
-  chatId: number
+  chatId: number,
+  organizationId?: string,
+  telegramChatId?: string,
+  senderUsername?: string
 ) {
   if (!botToken) return;
 
   const client = new TelegramClient(botToken);
-  const helpMessage = `📚 *Available Commands*
+
+  // SECURITY: Determine if this is a client group (can see budget) or KOL group (cannot see budget)
+  let showBudgetCommand = false;
+
+  // Check if sender is an admin
+  const allowedUsersEnv = process.env.TELEGRAM_BUDGET_ADMINS || "";
+  const allowedAdmins = allowedUsersEnv
+    .split(",")
+    .map((u) => u.trim().toLowerCase().replace("@", ""))
+    .filter(Boolean);
+  const normalizedUsername = senderUsername?.toLowerCase().replace("@", "");
+
+  if (normalizedUsername && allowedAdmins.includes(normalizedUsername)) {
+    showBudgetCommand = true;
+  }
+
+  // Check if this is a client group chat
+  if (!showBudgetCommand && organizationId && telegramChatId) {
+    const isClientGroup = await db.campaign.findFirst({
+      where: {
+        agencyId: organizationId,
+        clientTelegramChatId: telegramChatId,
+      },
+      select: { id: true },
+    });
+
+    if (isClientGroup) {
+      showBudgetCommand = true;
+    }
+  }
+
+  // Build help message - only show budget command if allowed
+  let helpMessage = `📚 *Available Commands*
 
 *Content Submission:*
 • \`/submit <post_url>\` - Submit a posted X post
@@ -593,8 +630,14 @@ async function handleHelpCommand(
 • \`/payment <amount> <proof_url>\` - Submit payment receipt with amount (USD)
 • \`/payment <campaign> <amount> <proof_url>\` - Submit for a specific campaign
 
-*Other:*
-• \`/budget\` - View campaign budget breakdown
+*Other:*`;
+
+  if (showBudgetCommand) {
+    helpMessage += `
+• \`/budget\` - View campaign budget breakdown`;
+  }
+
+  helpMessage += `
 • \`/schedule\` - Book a call with our team
 • \`/start\` - Initialize bot connection
 • \`/help\` - Show this help message
@@ -628,7 +671,8 @@ async function handleBudgetCommand(
   botToken: string | null,
   chatId: number,
   senderUsername: string | undefined,
-  groupTitle: string | null
+  groupTitle: string | null,
+  telegramChatId?: string
 ) {
   if (!botToken) return;
 
@@ -639,64 +683,26 @@ async function handleBudgetCommand(
     await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
   };
 
-  // SECURITY: Only allow specific users to use /budget (from environment variable)
-  // Format: TELEGRAM_BUDGET_ADMINS=username1,username2,username3
+  const normalizedUsername = senderUsername?.toLowerCase().replace("@", "");
+
+  // SECURITY: Check if user is an admin (from environment variable)
   const allowedUsersEnv = process.env.TELEGRAM_BUDGET_ADMINS || "";
-  const allowedUsers = allowedUsersEnv
+  const allowedAdmins = allowedUsersEnv
     .split(",")
     .map((u) => u.trim().toLowerCase().replace("@", ""))
     .filter(Boolean);
 
-  const normalizedUsername = senderUsername?.toLowerCase().replace("@", "");
+  const isAdmin = normalizedUsername && allowedAdmins.includes(normalizedUsername);
 
-  if (!normalizedUsername || allowedUsers.length === 0 || !allowedUsers.includes(normalizedUsername)) {
-    // SECURITY: Log unauthorized budget access attempts (but don't reveal to user)
-    if (normalizedUsername) {
-      console.warn(`[Telegram] Unauthorized /budget attempt by @${normalizedUsername}`);
-    }
-    return;
-  }
+  // SECURITY: Check if this is a client group chat (clients can only see their assigned campaign budget)
+  let clientCampaign: { id: string; name: string; totalBudget: number; createdAt: Date } | null = null;
 
-  // In private messages without group context, show a message
-  if (!groupTitle) {
-    await sendResponse("Please use /budget in a campaign group chat to see budget details.");
-    return;
-  }
-
-  // Extract campaign name from group title
-  // Expected format: "Basecamp - Campaign Name" or similar variations
-  // Remove common prefixes like "Basecamp", "Basecamp -", "Basecamp |", etc.
-  const cleanedTitle = groupTitle
-    .replace(/^basecamp\s*[-|:]\s*/i, "")
-    .replace(/^basecamp\s+/i, "")
-    .trim();
-
-  console.log(`[Budget] Group title: "${groupTitle}", cleaned: "${cleanedTitle}"`);
-
-  // Find campaign that matches the group name
-  const campaign = await db.campaign.findFirst({
-    where: {
-      agencyId: organizationId,
-      status: "ACTIVE",
-      name: {
-        contains: cleanedTitle,
-        mode: "insensitive",
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-      totalBudget: true,
-      createdAt: true,
-    },
-  });
-
-  if (!campaign) {
-    // Try reverse match - campaign name contains in group title
-    const allCampaigns = await db.campaign.findMany({
+  if (telegramChatId) {
+    // Check if this chat is a client's campaign group
+    const campaignForChat = await db.campaign.findFirst({
       where: {
         agencyId: organizationId,
-        status: "ACTIVE",
+        clientTelegramChatId: telegramChatId,
       },
       select: {
         id: true,
@@ -706,31 +712,125 @@ async function handleBudgetCommand(
       },
     });
 
-    const matchedCampaign = allCampaigns.find(c =>
-      groupTitle.toLowerCase().includes(c.name.toLowerCase())
-    );
+    if (campaignForChat) {
+      clientCampaign = campaignForChat;
+    }
+  }
 
-    if (!matchedCampaign) {
-      // Show available campaigns
-      if (allCampaigns.length > 0) {
-        const campaignList = allCampaigns.slice(0, 5).map(c => `• ${c.name}`).join("\n");
-        await sendResponse(
-          `Could not find a campaign matching this group: "${groupTitle}"\n\n` +
-          `Available active campaigns:\n${campaignList}\n\n` +
-          `Tip: The group name should contain the campaign name.`
-        );
-      } else {
-        await sendResponse(`Could not find a campaign matching this group: "${groupTitle}"\n\nNo active campaigns found in your organization.`);
-      }
+  // SECURITY: Check if user is a KOL - KOLs should NEVER see budgets
+  if (normalizedUsername) {
+    const isKol = await db.kOL.findFirst({
+      where: {
+        organizationId,
+        telegramUsername: {
+          equals: normalizedUsername,
+          mode: "insensitive",
+        },
+      },
+      select: { id: true },
+    });
+
+    if (isKol) {
+      // SECURITY: KOLs are not allowed to see budget information - silently ignore
+      console.warn(`[Telegram] KOL @${normalizedUsername} attempted /budget - blocked`);
       return;
     }
+  }
 
-    // Use the matched campaign
-    await showCampaignBudget(sendResponse, matchedCampaign);
+  // DECISION: Who gets access?
+  // 1. Admins - can see any campaign budget (from group context)
+  // 2. Clients in their assigned campaign group - can ONLY see their campaign's budget
+  // 3. Everyone else - denied
+
+  if (!isAdmin && !clientCampaign) {
+    // Not an admin and not in a client campaign group
+    if (normalizedUsername) {
+      console.warn(`[Telegram] Unauthorized /budget attempt by @${normalizedUsername}`);
+    }
+    // Don't reveal that the command exists - just silently ignore
     return;
   }
 
-  await showCampaignBudget(sendResponse, campaign);
+  // CLIENT ACCESS: If in a client campaign group, only show that specific campaign's budget
+  if (clientCampaign) {
+    console.log(`[Budget] Client access: showing budget for campaign "${clientCampaign.name}" in chat ${telegramChatId}`);
+    await showCampaignBudget(sendResponse, clientCampaign);
+    return;
+  }
+
+  // ADMIN ACCESS: Show budget based on group context
+  if (isAdmin) {
+    // In private messages without group context, show a message
+    if (!groupTitle) {
+      await sendResponse("Please use /budget in a campaign group chat to see budget details.");
+      return;
+    }
+
+    // Extract campaign name from group title
+    const cleanedTitle = groupTitle
+      .replace(/^basecamp\s*[-|:]\s*/i, "")
+      .replace(/^basecamp\s+/i, "")
+      .trim();
+
+    console.log(`[Budget] Admin access - Group title: "${groupTitle}", cleaned: "${cleanedTitle}"`);
+
+    // Find campaign that matches the group name
+    let campaign = await db.campaign.findFirst({
+      where: {
+        agencyId: organizationId,
+        status: "ACTIVE",
+        name: {
+          contains: cleanedTitle,
+          mode: "insensitive",
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        totalBudget: true,
+        createdAt: true,
+      },
+    });
+
+    if (!campaign) {
+      // Try reverse match - campaign name contains in group title
+      const allCampaigns = await db.campaign.findMany({
+        where: {
+          agencyId: organizationId,
+          status: "ACTIVE",
+        },
+        select: {
+          id: true,
+          name: true,
+          totalBudget: true,
+          createdAt: true,
+        },
+      });
+
+      const matchedCampaign = allCampaigns.find(c =>
+        groupTitle.toLowerCase().includes(c.name.toLowerCase())
+      );
+
+      if (!matchedCampaign) {
+        // Show available campaigns for admins
+        if (allCampaigns.length > 0) {
+          const campaignList = allCampaigns.slice(0, 5).map(c => `• ${c.name}`).join("\n");
+          await sendResponse(
+            `Could not find a campaign matching this group: "${groupTitle}"\n\n` +
+            `Available active campaigns:\n${campaignList}\n\n` +
+            `Tip: The group name should contain the campaign name.`
+          );
+        } else {
+          await sendResponse(`Could not find a campaign matching this group: "${groupTitle}"\n\nNo active campaigns found in your organization.`);
+        }
+        return;
+      }
+
+      campaign = matchedCampaign;
+    }
+
+    await showCampaignBudget(sendResponse, campaign);
+  }
 }
 
 async function showCampaignBudget(

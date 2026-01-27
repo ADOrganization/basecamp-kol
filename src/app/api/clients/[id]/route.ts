@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -15,6 +16,10 @@ const updateClientSchema = z.object({
 
 // GET - Get single client details
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -78,6 +83,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // PUT - Update client details
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -181,6 +190,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 // DELETE - Delete client account
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

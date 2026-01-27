@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, UserPlus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, UserPlus, AlertCircle, ArrowRight } from "lucide-react";
 
 function AcceptInviteContent() {
   const router = useRouter();
@@ -72,7 +71,6 @@ function AcceptInviteContent() {
         return;
       }
 
-      // Redirect to dashboard
       router.push(data.redirectTo);
     } catch {
       setError("An error occurred. Please try again.");
@@ -83,98 +81,108 @@ function AcceptInviteContent() {
 
   if (isLoading) {
     return (
-      <Card className="border-border bg-card/50 backdrop-blur">
-        <CardContent className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-[#14B8A6]" />
+      </div>
     );
   }
 
   if (error && !invitation) {
     return (
-      <Card className="border-border bg-card/50 backdrop-blur">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-rose-600 flex items-center justify-center">
-            <AlertCircle className="h-6 w-6 text-white" />
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="w-full max-w-md relative">
+          <div className="absolute -inset-4 bg-gradient-to-r from-red-500/15 to-rose-500/10 rounded-3xl blur-2xl"></div>
+          <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(239, 68, 68, 0.3)" }}>
+                <AlertCircle className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
+                Invalid Invitation
+              </h1>
+              <p className="text-[#6B6B80]">
+                {error}
+              </p>
+            </div>
+
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+              <p className="text-sm text-[#A0A0B0] text-center">
+                Please contact your administrator for a new invitation.
+              </p>
+            </div>
           </div>
-          <CardTitle className="text-2xl">Invalid Invitation</CardTitle>
-          <CardDescription className="text-base">
-            {error}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-sm text-muted-foreground">
-            Please contact your administrator for a new invitation.
-          </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="border-border bg-card/50 backdrop-blur">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-teal-600 flex items-center justify-center">
-          <UserPlus className="h-6 w-6 text-white" />
-        </div>
-        <CardTitle className="text-2xl">You&apos;re Invited!</CardTitle>
-        <CardDescription className="text-base">
-          <strong>{invitation?.inviterName}</strong> has invited you to join{" "}
-          <strong>{invitation?.organizationName}</strong> as a{" "}
-          <span className="capitalize">{invitation?.role?.toLowerCase()}</span>
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-500 dark:text-rose-400 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="w-full max-w-md relative">
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+        <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}>
+              <UserPlus className="w-8 h-8 text-white" />
             </div>
-          )}
-
-          <div className="rounded-md bg-muted/50 p-3 text-sm">
-            <p className="text-muted-foreground">
-              Email: <span className="text-foreground">{invitation?.email}</span>
+            <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
+              You&apos;re Invited!
+            </h1>
+            <p className="text-[#6B6B80]">
+              <span className="text-white font-medium">{invitation?.inviterName}</span> has invited you to join{" "}
+              <span className="text-white font-medium">{invitation?.organizationName}</span> as a{" "}
+              <span className="capitalize">{invitation?.role?.toLowerCase()}</span>
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Your Name (optional)</Label>
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              placeholder="Enter your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isSubmitting}
-              className="h-11"
-            />
-          </div>
-        </CardContent>
-        <div className="px-6 pb-6">
-          <Button
-            type="submit"
-            className="w-full bg-teal-600 hover:bg-teal-700 h-11"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Joining...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Accept & Join
-              </>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
             )}
-          </Button>
+
+            <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+              <p className="text-sm text-[#6B6B80]">
+                Email: <span className="text-white">{invitation?.email}</span>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-[#A0A0B0] font-medium">Your Name (optional)</Label>
+              <div className="relative">
+                <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#6B6B80]" />
+                <Input
+                  type="text"
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isSubmitting}
+                  className="h-12 pl-12 bg-white/5 border-white/10 text-white placeholder:text-[#6B6B80] rounded-xl focus:border-[#14B8A6] focus:ring-[#14B8A6]/20 transition-all duration-300"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
+              style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  Accept & Join
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
+            </Button>
+          </form>
         </div>
-      </form>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -182,11 +190,9 @@ export default function AcceptInvitePage() {
   return (
     <Suspense
       fallback={
-        <Card className="border-border bg-card/50 backdrop-blur">
-          <CardContent className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-[#14B8A6]" />
+        </div>
       }
     >
       <AcceptInviteContent />

@@ -62,8 +62,8 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-md" style={{ opacity: 1 }}>
+    <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-[#0A0A0F]">
+      <div className="w-full max-w-md px-4" style={{ opacity: 1 }}>
         <div className="absolute -inset-4 bg-gradient-to-r from-[#6366F1]/15 to-[#8B5CF6]/10 rounded-3xl blur-2xl"></div>
         <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
           <div className="text-center mb-8">

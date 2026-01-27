@@ -4,12 +4,17 @@
  * GET - Check if 2FA is enabled for current user
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // GET - Check 2FA status
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const session = await auth();
 

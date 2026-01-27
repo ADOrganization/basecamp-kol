@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Mail, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,11 +12,17 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
-  // Check for error in URL
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const errorParam = params.get("error");
+      const reasonParam = params.get("reason");
+
+      if (reasonParam === "idle") {
+        setError("You were logged out due to inactivity. Please sign in again.");
+        return;
+      }
+
       if (errorParam) {
         const timer = setTimeout(() => {
           switch (errorParam) {
@@ -72,92 +76,112 @@ export default function LoginPage() {
 
   if (emailSent) {
     return (
-      <Card className="border-border bg-card/50 backdrop-blur">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-teal-600 flex items-center justify-center">
-            <CheckCircle2 className="h-6 w-6 text-white" />
-          </div>
-          <CardTitle className="text-2xl">Check your email</CardTitle>
-          <CardDescription className="text-base">
-            We sent a sign-in link to <strong>{email}</strong>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-md bg-teal-500/10 border border-teal-500/20 p-4 text-sm text-teal-700 dark:text-teal-300">
-            <p>Click the link in the email to sign in. The link will expire in 15 minutes.</p>
-          </div>
-          <div className="text-center">
+      <div className="flex items-center justify-center min-h-screen px-4">
+        <div className="w-full max-w-md relative">
+          <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+          <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}>
+                <CheckCircle2 className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
+                Check your email
+              </h1>
+              <p className="text-[#6B6B80]">
+                We sent a sign-in link to
+              </p>
+              <p className="text-white font-medium mt-1">{email}</p>
+            </div>
+
+            <div className="p-4 bg-[#14B8A6]/10 border border-[#14B8A6]/20 rounded-xl mb-6">
+              <p className="text-sm text-[#A0A0B0] text-center">
+                Click the link in the email to sign in. The link will expire in 15 minutes.
+              </p>
+            </div>
+
             <Button
+              type="button"
               variant="ghost"
               onClick={() => {
                 setEmailSent(false);
                 setEmail("");
               }}
-              className="text-muted-foreground"
+              className="w-full text-[#A0A0B0] hover:text-white hover:bg-white/5"
             >
               Use a different email
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="border-border bg-card/50 backdrop-blur">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-teal-600 flex items-center justify-center">
-          <span className="text-2xl font-bold text-white">B</span>
-        </div>
-        <CardTitle className="text-2xl">Welcome to Basecamp</CardTitle>
-        <CardDescription>
-          Enter your email to receive a secure sign-in link
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-500 dark:text-rose-400 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="w-full max-w-md relative">
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+        <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/15 border border-white/10 mb-6">
+              <Sparkles className="w-4 h-4 text-[#14B8A6]" />
+              <span className="text-sm text-[#A0A0B0] font-medium">Client Portal</span>
             </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email address</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isLoading}
-              autoComplete="email"
-              className="h-11"
-            />
+            <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
+              Welcome to Basecamp
+            </h1>
+            <p className="text-[#6B6B80]">
+              Enter your email to receive a secure sign-in link
+            </p>
           </div>
-        </CardContent>
-        <div className="px-6 pb-6 flex flex-col space-y-4">
-          <Button
-            type="submit"
-            className="w-full bg-teal-600 hover:bg-teal-700 h-11"
-            disabled={isLoading || !email}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending link...
-              </>
-            ) : (
-              <>
-                <Mail className="mr-2 h-4 w-4" />
-                Send sign-in link
-              </>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {error}
+              </div>
             )}
-          </Button>
+
+            <div className="space-y-2">
+              <Label className="text-sm text-[#A0A0B0] font-medium">Email address</Label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#6B6B80]" />
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="email"
+                  className="h-12 pl-12 bg-white/5 border-white/10 text-white placeholder:text-[#6B6B80] rounded-xl focus:border-[#14B8A6] focus:ring-[#14B8A6]/20 transition-all duration-300"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isLoading || !email}
+              className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
+              style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  Send sign-in link
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-8 p-4 bg-[#14B8A6]/5 border border-[#14B8A6]/20 rounded-xl">
+            <p className="text-xs text-[#A0A0B0] text-center">
+              We&apos;ll send you a secure link to sign in. No password needed.
+            </p>
+          </div>
         </div>
-      </form>
-    </Card>
+      </div>
+    </div>
   );
 }

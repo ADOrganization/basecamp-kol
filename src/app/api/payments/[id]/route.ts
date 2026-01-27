@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -8,6 +9,10 @@ interface RouteContext {
 
 // GET /api/payments/[id] - Get payment details
 export async function GET(request: NextRequest, context: RouteContext) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -61,6 +66,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 // PATCH /api/payments/[id] - Update payment status
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -153,6 +162,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 // DELETE /api/payments/[id] - Delete a payment
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

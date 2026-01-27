@@ -10,12 +10,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createVerificationToken } from "@/lib/magic-link";
 import { getApiAuthContext } from "@/lib/api-auth";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting - sensitive operation
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.authFailed);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const { ipAddress, userAgent } = getRequestMetadata(request);
+
   try {
     // Verify admin authentication
     const authContext = await getApiAuthContext();
     if (!authContext || !authContext.isAdmin) {
+      await logSecurityEvent({
+        action: "LOGIN_FAILED",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: { reason: "Debug login attempted without admin access" },
+      });
       return NextResponse.json(
         { error: "Admin access required" },
         { status: 403 }
@@ -58,6 +72,14 @@ export async function POST(request: NextRequest) {
     // Build the callback URL
     const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const loginUrl = `${baseUrl}/api/auth/callback/magic?token=${token}&email=${encodeURIComponent(email)}`;
+
+    // SECURITY: Log debug login usage
+    await logSecurityEvent({
+      action: "DEBUG_LOGIN_GENERATED",
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: { targetEmail: email, generatedByAdmin: authContext.userId },
+    });
 
     return NextResponse.json({
       success: true,

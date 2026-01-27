@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 const markReadSchema = z.object({
   kolId: z.string().min(1, "KOL ID is required"),
@@ -9,6 +10,10 @@ const markReadSchema = z.object({
 
 // POST - Mark all messages in a conversation as read
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

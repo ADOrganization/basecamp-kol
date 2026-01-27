@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { fetchTwitterMedia } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 const profileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -11,6 +12,10 @@ const profileSchema = z.object({
 });
 
 export async function PUT(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

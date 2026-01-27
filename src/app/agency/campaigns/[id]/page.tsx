@@ -63,8 +63,10 @@ import { PostDetailModal } from "@/components/agency/post-detail-modal";
 import { TweetScraper } from "@/components/agency/tweet-scraper";
 import { TweetMonitor } from "@/components/agency/tweet-monitor";
 import { ReportGenerator } from "@/components/agency/report-generator";
+import { CampaignDocuments } from "@/components/agency/campaign-documents";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FolderOpen } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -767,6 +769,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
             <FileText className="h-4 w-4" />
             Posts ({campaign.posts.length})
           </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FolderOpen className="h-4 w-4" />
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="kols" className="mt-6">
@@ -1053,6 +1059,10 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               </table>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-6">
+          <CampaignDocuments campaignId={campaign.id} campaignName={campaign.name} />
         </TabsContent>
       </Tabs>
 

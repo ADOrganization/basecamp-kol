@@ -4,9 +4,14 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { TelegramClient } from "@/lib/telegram/client";
 import { telegramSendMessageSchema, telegramSendToKolSchema } from "@/lib/validations";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // POST - Send message to a chat or KOL
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting to prevent message spam (30 per minute)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.messaging);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

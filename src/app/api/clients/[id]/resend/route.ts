@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import crypto from "crypto";
 import { sendClientPortalAccessEmail } from "@/lib/email";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,6 +11,10 @@ interface RouteParams {
 
 // POST - Resend login link to client
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  // SECURITY: Apply strict rate limiting to prevent email spam (5 per 5 minutes)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.emailResend);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

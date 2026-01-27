@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 
 const errorMessages: Record<string, { title: string; message: string }> = {
@@ -53,24 +52,34 @@ export default function AuthErrorPage() {
   }, []);
 
   return (
-    <Card className="border-border bg-card/50 backdrop-blur">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 h-12 w-12 rounded-xl bg-rose-600 flex items-center justify-center">
-          <AlertCircle className="h-6 w-6 text-white" />
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="w-full max-w-md relative">
+        <div className="absolute -inset-4 bg-gradient-to-r from-red-500/15 to-rose-500/10 rounded-3xl blur-2xl"></div>
+        <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(239, 68, 68, 0.3)" }}>
+              <AlertCircle className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
+              {errorInfo.title}
+            </h1>
+            <p className="text-[#6B6B80]">
+              {errorInfo.message}
+            </p>
+          </div>
+
+          <Button
+            asChild
+            className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
+            style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
+          >
+            <Link href="/login">
+              <ArrowLeft className="mr-2 h-5 w-5" />
+              Back to Sign In
+            </Link>
+          </Button>
         </div>
-        <CardTitle className="text-2xl">{errorInfo.title}</CardTitle>
-        <CardDescription className="text-base">
-          {errorInfo.message}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col items-center space-y-4">
-        <Button asChild className="w-full bg-teal-600 hover:bg-teal-700">
-          <Link href="/login">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Sign In
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

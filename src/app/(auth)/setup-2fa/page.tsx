@@ -5,14 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Shield, Loader2, Copy, Check, AlertTriangle } from "lucide-react";
+import { Shield, Loader2, Copy, Check, AlertTriangle, ArrowRight } from "lucide-react";
 
 export default function Setup2FAPage() {
   const router = useRouter();
@@ -33,7 +26,6 @@ export default function Setup2FAPage() {
     try {
       const response = await fetch("/api/auth/2fa/setup");
       if (response.status === 401) {
-        // No valid token, redirect to login
         router.push("/login");
         return;
       }
@@ -94,35 +86,36 @@ export default function Setup2FAPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <Loader2 className="h-8 w-8 animate-spin text-white" />
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-[#14B8A6]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-            <Shield className="h-6 w-6 text-primary" />
+    <div className="flex items-center justify-center min-h-screen px-4 py-8">
+      <div className="w-full max-w-md relative">
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+        <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}>
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-extrabold mb-2 text-white">
+              {showBackupCodes ? "Save Your Backup Codes" : "Set Up Two-Factor Authentication"}
+            </h1>
+            <p className="text-[#6B6B80]">
+              {showBackupCodes
+                ? "Store these codes securely. Each can only be used once."
+                : "For your security, enable 2FA before accessing the portal."}
+            </p>
           </div>
-          <CardTitle>
-            {showBackupCodes ? "Save Your Backup Codes" : "Two-Factor Authentication Required"}
-          </CardTitle>
-          <CardDescription>
-            {showBackupCodes
-              ? "Store these codes securely. Each can only be used once."
-              : "For your security, all accounts must enable 2FA before accessing the portal."}
-          </CardDescription>
-        </CardHeader>
 
-        <CardContent>
           {showBackupCodes ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-sm">
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-2 p-4 bg-white/5 border border-white/10 rounded-xl">
                 {backupCodes.map((code, i) => (
-                  <div key={i} className="p-2 bg-background rounded text-center">
+                  <div key={i} className="p-2 bg-white/5 rounded-lg text-center font-mono text-sm text-white">
                     {code}
                   </div>
                 ))}
@@ -130,7 +123,7 @@ export default function Setup2FAPage() {
 
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full h-12 bg-white/5 border-white/10 text-white hover:bg-white/10 rounded-xl"
                 onClick={copyBackupCodes}
               >
                 {copiedCodes ? (
@@ -146,17 +139,22 @@ export default function Setup2FAPage() {
                 )}
               </Button>
 
-              <div className="flex items-start gap-2 p-3 bg-amber-500/10 rounded-lg text-amber-600 text-sm">
+              <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm">
                 <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <p>These codes will not be shown again. Make sure to save them before continuing.</p>
               </div>
 
-              <Button className="w-full" onClick={handleContinue}>
+              <Button
+                className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
+                style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
+                onClick={handleContinue}
+              >
                 I&apos;ve Saved My Codes - Continue
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleVerify} className="space-y-6">
+            <form onSubmit={handleVerify} className="space-y-5">
               {setupData && (
                 <>
                   <div className="flex justify-center">
@@ -165,65 +163,78 @@ export default function Setup2FAPage() {
                       <img
                         src={setupData.qrCode}
                         alt="2FA QR Code"
-                        className="w-48 h-48"
+                        className="w-40 h-40"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">
+                    <Label className="text-sm text-[#A0A0B0] font-medium">
                       Scan with your authenticator app, or enter manually:
                     </Label>
-                    <code className="block p-3 bg-muted rounded-lg text-center font-mono text-xs break-all">
+                    <code className="block p-3 bg-white/5 border border-white/10 rounded-xl text-center font-mono text-xs text-[#A0A0B0] break-all">
                       {setupData.secret}
                     </code>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="code">Verification Code</Label>
-                    <Input
-                      id="code"
-                      type="text"
-                      placeholder="000000"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      maxLength={6}
-                      className="text-center text-2xl tracking-widest font-mono"
-                      autoComplete="one-time-code"
-                    />
+                    <Label className="text-sm text-[#A0A0B0] font-medium">Verification Code</Label>
+                    <div className="relative">
+                      <Shield className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#6B6B80]" />
+                      <Input
+                        type="text"
+                        placeholder="000000"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        maxLength={6}
+                        autoComplete="one-time-code"
+                        className="h-12 pl-12 bg-white/5 border-white/10 text-white placeholder:text-[#6B6B80] rounded-xl focus:border-[#14B8A6] focus:ring-[#14B8A6]/20 transition-all duration-300 text-center text-2xl tracking-widest font-mono"
+                      />
+                    </div>
                   </div>
 
                   {error && (
-                    <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 text-sm text-center">
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
                       {error}
                     </div>
                   )}
 
                   <Button
                     type="submit"
-                    className="w-full"
                     disabled={verificationCode.length !== 6 || isVerifying}
+                    className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
+                    style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
                   >
-                    {isVerifying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Verify & Enable 2FA
+                    {isVerifying ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        Verify & Enable 2FA
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                      </>
+                    )}
                   </Button>
                 </>
               )}
 
               {error && !setupData && (
                 <div className="text-center space-y-4">
-                  <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 text-sm">
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                     {error}
                   </div>
-                  <Button variant="outline" onClick={() => router.push("/login")}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => router.push("/login")}
+                    className="text-[#A0A0B0] hover:text-white hover:bg-white/5"
+                  >
                     Back to Login
                   </Button>
                 </div>
               )}
             </form>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

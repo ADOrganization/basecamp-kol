@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { TelegramClient, mapTelegramChatType } from "@/lib/telegram/client";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // POST - Manual sync to fetch bot's current groups
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting for sync operations (external API calls)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

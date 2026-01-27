@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import type { TelegramChatStatus, Prisma } from "@prisma/client";
 import { getApiAuthContext } from "@/lib/api-auth";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // GET - List all telegram chats with filters
 export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

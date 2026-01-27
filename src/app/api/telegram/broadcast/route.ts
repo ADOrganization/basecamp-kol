@@ -4,9 +4,14 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { TelegramClient } from "@/lib/telegram/client";
 import { telegramBroadcastSchema } from "@/lib/validations";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // GET - List past broadcasts
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -31,6 +36,10 @@ export async function GET() {
 
 // POST - Create and send broadcast
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply strict rate limiting to prevent broadcast spam (3 per minute)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.broadcast);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

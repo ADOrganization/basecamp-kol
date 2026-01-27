@@ -307,6 +307,7 @@ model Campaign {
   payments        Payment[]
   paymentReceipts PaymentReceipt[]
   joinRequests    CampaignJoinRequest[]
+  documents       CampaignDocument[]
 
   @@map("campaigns")
 }
@@ -677,6 +678,45 @@ model CampaignJoinRequest {
   @@map("campaign_join_requests")
 }
 
+
+// ============================================
+// CAMPAIGN DOCUMENTS (Legal Contracts, etc.)
+// ============================================
+
+enum DocumentType {
+  CONTRACT
+  AGREEMENT
+  NDA
+  INVOICE
+  OTHER
+}
+
+model CampaignDocument {
+  id           String       @id @default(cuid())
+  campaignId   String
+
+  name         String       // Display name
+  filename     String       // Original filename
+  type         DocumentType @default(CONTRACT)
+  mimeType     String       @default("application/pdf")
+  fileSize     Int          @default(0) // Size in bytes
+
+  // Storage - can be local path or cloud URL
+  storagePath  String       // Path to file (local or S3 key)
+  storageType  String       @default("local") // "local" or "s3"
+
+  // Metadata
+  description  String?
+  uploadedBy   String?      // Admin user ID who uploaded
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("campaign_documents")
+}
 
 // ============================================
 // AUTHENTICATION & SECURITY
