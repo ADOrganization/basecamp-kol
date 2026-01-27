@@ -7,6 +7,10 @@ import { sendClientPortalAccessEmail } from "@/lib/email";
 import crypto from "crypto";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
+// Disable caching for this route to ensure fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
