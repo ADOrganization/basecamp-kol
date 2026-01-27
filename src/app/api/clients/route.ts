@@ -89,18 +89,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createClientSchema.parse(body);
 
-    // Check if email already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: validatedData.email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "Email already in use" },
-        { status: 400 }
-      );
-    }
-
     // Verify the campaign belongs to this agency
     const campaign = await db.campaign.findFirst({
       where: {
@@ -114,6 +102,31 @@ export async function POST(request: NextRequest) {
         { error: "Campaign not found" },
         { status: 404 }
       );
+    }
+
+    // Check if email already exists
+    const existingUser = await db.user.findUnique({
+      where: { email: validatedData.email.toLowerCase() },
+      include: {
+        memberships: {
+          include: {
+            organization: true,
+          },
+        },
+      },
+    });
+
+    // If user exists and already has a CLIENT membership, reject
+    if (existingUser) {
+      const hasClientMembership = existingUser.memberships.some(
+        m => m.organization.type === "CLIENT"
+      );
+      if (hasClientMembership) {
+        return NextResponse.json(
+          { error: "This email is already associated with a client account. You can resend their login link from the Clients tab." },
+          { status: 400 }
+        );
+      }
     }
 
     // Create the client organization, user, and membership in a transaction
@@ -141,13 +154,25 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create the user (no password - magic link only)
-      const user = await tx.user.create({
-        data: {
-          email: validatedData.email,
-          name: validatedData.name,
-        },
-      });
+      // Create the user or use existing one
+      let user;
+      if (existingUser) {
+        user = existingUser;
+        // Update name if provided
+        if (validatedData.name && !existingUser.name) {
+          await tx.user.update({
+            where: { id: existingUser.id },
+            data: { name: validatedData.name },
+          });
+        }
+      } else {
+        user = await tx.user.create({
+          data: {
+            email: validatedData.email.toLowerCase(),
+            name: validatedData.name,
+          },
+        });
+      }
 
       // Create the membership
       await tx.organizationMember.create({
