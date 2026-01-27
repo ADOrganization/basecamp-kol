@@ -24,8 +24,10 @@ export default function Verify2FAPage() {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const codeLength = useBackupCode ? 8 : 6;
-    if (verificationCode.length !== codeLength) return;
+    // Backup codes are now XXXXX-XXXXX format (11 chars) or 10 chars without hyphen
+    const minBackupLength = useBackupCode ? 10 : 6;
+    const normalizedCode = verificationCode.replace(/-/g, "");
+    if (normalizedCode.length < minBackupLength) return;
 
     setIsVerifying(true);
     setError("");
@@ -90,15 +92,15 @@ export default function Verify2FAPage() {
               <Input
                 id="code"
                 type="text"
-                placeholder={useBackupCode ? "XXXXXXXX" : "000000"}
+                placeholder={useBackupCode ? "XXXXX-XXXXX" : "000000"}
                 value={verificationCode}
                 onChange={(e) => {
                   const value = useBackupCode
-                    ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)
+                    ? e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 11)
                     : e.target.value.replace(/\D/g, "").slice(0, 6);
                   setVerificationCode(value);
                 }}
-                maxLength={useBackupCode ? 8 : 6}
+                maxLength={useBackupCode ? 11 : 6}
                 className="text-center text-2xl tracking-widest font-mono"
                 autoComplete="one-time-code"
                 autoFocus
@@ -115,7 +117,7 @@ export default function Verify2FAPage() {
               type="submit"
               className="w-full"
               disabled={
-                verificationCode.length !== (useBackupCode ? 8 : 6) || isVerifying
+                verificationCode.replace(/-/g, "").length < (useBackupCode ? 10 : 6) || isVerifying
               }
             >
               {isVerifying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

@@ -115,7 +115,9 @@ const authMiddleware = auth((req) => {
       nextUrl.pathname.startsWith("/register") ||
       nextUrl.pathname.startsWith("/verify-request") ||
       nextUrl.pathname.startsWith("/auth-error") ||
-      nextUrl.pathname.startsWith("/accept-invite");
+      nextUrl.pathname.startsWith("/accept-invite") ||
+      nextUrl.pathname.startsWith("/setup-2fa") ||
+      nextUrl.pathname.startsWith("/verify-2fa");
 
     const isAgencyRoute = nextUrl.pathname.startsWith("/agency");
     const isClientRoute = nextUrl.pathname.startsWith("/client");

@@ -93,11 +93,14 @@ export async function POST(request: NextRequest) {
     let usedBackupCode = false;
 
     // If TOTP failed, try backup codes
-    if (!isValid && code.length === 8) {
-      const codeUpper = code.toUpperCase();
-      const backupCodeIndex = user.backupCodes.findIndex(
-        (bc) => bc === codeUpper
-      );
+    // Backup codes can be in format XXXXX-XXXXX (11 chars) or XXXXXXXXXX (10 chars)
+    const normalizedCode = code.toUpperCase().replace(/-/g, "");
+    if (!isValid && (normalizedCode.length === 10 || code.length === 8)) {
+      // Try matching with both formats (with and without hyphen)
+      const backupCodeIndex = user.backupCodes.findIndex((bc) => {
+        const normalizedBackup = bc.toUpperCase().replace(/-/g, "");
+        return normalizedBackup === normalizedCode || bc.toUpperCase() === code.toUpperCase();
+      });
 
       if (backupCodeIndex !== -1) {
         isValid = true;
