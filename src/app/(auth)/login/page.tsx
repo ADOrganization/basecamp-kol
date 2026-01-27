@@ -156,12 +156,6 @@ export default function LoginPage() {
               </>
             )}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
-            Are you a KOL?{" "}
-            <Link href="/kol/login" className="text-teal-600 dark:text-teal-400 hover:text-teal-500 dark:hover:text-teal-300">
-              KOL Portal login
-            </Link>
-          </p>
         </div>
       </form>
     </Card>
