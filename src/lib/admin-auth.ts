@@ -15,12 +15,15 @@ function getAdminJwtSecret(): Uint8Array {
   const secret = process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("CRITICAL: ADMIN_JWT_SECRET environment variable is required in production");
+    // SECURITY: Check for AUTH_SECRET as fallback, but never use hardcoded value
+    const fallbackSecret = process.env.AUTH_SECRET;
+    if (!fallbackSecret) {
+      throw new Error("CRITICAL: ADMIN_JWT_SECRET or AUTH_SECRET environment variable is required");
     }
-    // Only allow fallback in development with a warning
-    console.warn("WARNING: ADMIN_JWT_SECRET not set, using fallback. DO NOT use in production!");
-    _adminJwtSecret = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-only-admin-secret");
+    if (process.env.NODE_ENV === "production") {
+      console.warn("WARNING: Using AUTH_SECRET as fallback for admin auth. Set ADMIN_JWT_SECRET for better security.");
+    }
+    _adminJwtSecret = new TextEncoder().encode(fallbackSecret);
     return _adminJwtSecret;
   }
 

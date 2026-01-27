@@ -9,7 +9,8 @@ let socialDataApiKey: string | null = null;
 
 // SocialData API functions (primary)
 export function setSocialDataApiKey(apiKey: string | null) {
-  console.log(`[Scraper] setSocialDataApiKey called with: ${apiKey ? `${apiKey.slice(0, 12)}...` : 'null'}`);
+  // SECURITY: Only log presence, not actual key content
+  console.log(`[Scraper] setSocialDataApiKey called: ${apiKey ? 'key provided' : 'null'}`);
   socialDataApiKey = apiKey;
 }
 
@@ -27,7 +28,8 @@ export function getSocialDataApiKey(): string | null {
 
 // Apify API functions (fallback)
 export function setApifyApiKey(apiKey: string | null) {
-  console.log(`[Scraper] setApifyApiKey called with: ${apiKey ? `${apiKey.slice(0, 12)}...` : 'null'}`);
+  // SECURITY: Only log presence, not actual key content
+  console.log(`[Scraper] setApifyApiKey called: ${apiKey ? 'key provided' : 'null'}`);
   apifyApiKey = apiKey;
 }
 

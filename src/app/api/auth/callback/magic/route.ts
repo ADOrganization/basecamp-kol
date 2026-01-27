@@ -22,9 +22,12 @@ const SESSION_COOKIE_NAME = isProduction
   ? "__Secure-authjs.session-token"
   : "authjs.session-token";
 
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "auth-secret-key"
-);
+// SECURITY: Require AUTH_SECRET - never use fallback
+const AUTH_SECRET_RAW = process.env.AUTH_SECRET;
+if (!AUTH_SECRET_RAW) {
+  throw new Error("SECURITY: AUTH_SECRET environment variable is required");
+}
+const AUTH_SECRET = new TextEncoder().encode(AUTH_SECRET_RAW);
 
 export async function GET(request: NextRequest) {
   // Rate limiting

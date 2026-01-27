@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasSocialDataApiKey, hasApifyApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { decryptSensitiveData, isEncrypted } from "@/lib/crypto";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -21,6 +23,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply strict rate limiting for scraping (heavy external API calls)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -41,10 +47,20 @@ export async function POST(
       select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
-    const apifyKeyToUse = org?.apifyApiKey || null;
-    const socialDataKeyToUse = org?.socialDataApiKey || null;
-    console.log(`[Scrape API] SocialData key: ${socialDataKeyToUse ? `${socialDataKeyToUse.slice(0, 8)}...` : 'none'}`);
-    console.log(`[Scrape API] Apify key: ${apifyKeyToUse ? `${apifyKeyToUse.slice(0, 8)}...` : 'none'}`);
+    // SECURITY: Decrypt API keys if encrypted
+    let apifyKeyToUse = org?.apifyApiKey || null;
+    let socialDataKeyToUse = org?.socialDataApiKey || null;
+
+    if (apifyKeyToUse && isEncrypted(apifyKeyToUse)) {
+      apifyKeyToUse = decryptSensitiveData(apifyKeyToUse);
+    }
+    if (socialDataKeyToUse && isEncrypted(socialDataKeyToUse)) {
+      socialDataKeyToUse = decryptSensitiveData(socialDataKeyToUse);
+    }
+
+    // SECURITY: Only log presence, not key content
+    console.log(`[Scrape API] SocialData key: ${socialDataKeyToUse ? 'configured' : 'none'}`);
+    console.log(`[Scrape API] Apify key: ${apifyKeyToUse ? 'configured' : 'none'}`);
 
     // Set SocialData API key (primary)
     if (socialDataKeyToUse) {
@@ -242,6 +258,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

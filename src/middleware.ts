@@ -33,16 +33,19 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   }
 
   // Content Security Policy
+  // SECURITY: Removed 'unsafe-eval' - only allow 'unsafe-inline' for Next.js hydration
+  // In production, consider using nonces for better security
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live", // Required for Next.js + Vercel
-    "style-src 'self' 'unsafe-inline'", // Required for styled components
+    "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com", // Removed unsafe-eval
+    "style-src 'self' 'unsafe-inline'", // Required for styled components / Tailwind
     "img-src 'self' data: https: blob:",
-    "font-src 'self' data: https://fonts.gstatic.com", // Allow Google Fonts
-    "connect-src 'self' https:",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https: wss:", // Allow WebSocket for dev tools
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    "upgrade-insecure-requests", // Force HTTPS for all resources
   ].join("; ");
   response.headers.set("Content-Security-Policy", csp);
 
@@ -187,9 +190,15 @@ const authMiddleware = auth((req) => {
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("Middleware error:", error);
-    // On error, allow the request through with security headers
-    const response = NextResponse.next();
-    return addSecurityHeaders(response);
+    // SECURITY: On error, deny access instead of allowing through
+    // This prevents potential bypass attacks
+    return new NextResponse("Internal Server Error", {
+      status: 500,
+      headers: {
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+      }
+    });
   }
 });
 

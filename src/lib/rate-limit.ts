@@ -154,4 +154,19 @@ export const RATE_LIMITS = {
 
   // Failed auth attempts - strict limit per IP
   authFailed: { limit: 5, windowMs: 5 * 60 * 1000 }, // 5 attempts per 5 minutes
+
+  // SECURITY: Broadcast messages - very strict to prevent spam (3 per minute)
+  broadcast: { limit: 3, windowMs: 60 * 1000 },
+
+  // SECURITY: Individual telegram messages - moderate limit (30 per minute)
+  messaging: { limit: 30, windowMs: 60 * 1000 },
+
+  // SECURITY: Email resend - prevent email spam (5 per 5 minutes)
+  emailResend: { limit: 5, windowMs: 5 * 60 * 1000 },
+
+  // SECURITY: File uploads - prevent storage abuse (10 per minute)
+  fileUpload: { limit: 10, windowMs: 60 * 1000 },
+
+  // SECURITY: Webhook endpoints - higher limit for automated systems
+  webhook: { limit: 200, windowMs: 60 * 1000 },
 } as const;

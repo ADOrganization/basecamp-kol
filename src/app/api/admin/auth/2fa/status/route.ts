@@ -1,11 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
-);
+// SECURITY: Lazy-load JWT secret - NEVER use hardcoded fallback
+function getAdminJwtSecret(): Uint8Array {
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: ADMIN_JWT_SECRET or AUTH_SECRET environment variable is required");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 async function getAdminFromToken() {
   const cookieStore = await cookies();
@@ -14,7 +20,7 @@ async function getAdminFromToken() {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
+    const { payload } = await jwtVerify(token, getAdminJwtSecret());
     if (payload.type !== "admin" || !payload.sub) return null;
     return payload.sub as string;
   } catch {
@@ -23,7 +29,11 @@ async function getAdminFromToken() {
 }
 
 // GET - Get 2FA status
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const adminId = await getAdminFromToken();
     if (!adminId) {

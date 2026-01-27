@@ -36,8 +36,17 @@ declare module "@auth/core/jwt" {
     organizationType?: OrganizationType;
     organizationRole?: OrganizationRole;
     organizationName?: string;
+    lastActivity?: number; // Unix timestamp of last activity
   }
 }
+
+// SECURITY: Idle timeout configuration (in seconds)
+// Clients are logged out after 30 minutes of inactivity
+// Agency users get 2 hours (they work longer sessions)
+export const IDLE_TIMEOUT = {
+  CLIENT: 30 * 60, // 30 minutes for clients
+  AGENCY: 2 * 60 * 60, // 2 hours for agency users
+} as const;
 
 /**
  * NextAuth configuration for Basecamp
@@ -56,9 +65,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
   providers: [],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       try {
         if (user) {
+          // Initial login - set all user data and activity timestamp
           token.id = user.id;
           token.email = user.email as string;
           token.name = user.name;
@@ -66,7 +76,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.organizationType = user.organizationType;
           token.organizationRole = user.organizationRole;
           token.organizationName = user.organizationName;
+          token.lastActivity = Math.floor(Date.now() / 1000);
         }
+
+        // Update lastActivity on session refresh (triggered by client-side activity tracker)
+        if (trigger === "update" && token.id) {
+          token.lastActivity = Math.floor(Date.now() / 1000);
+        }
+
+        // SECURITY: Check idle timeout
+        if (token.lastActivity && token.organizationType) {
+          const now = Math.floor(Date.now() / 1000);
+          const idleTime = now - (token.lastActivity as number);
+          const maxIdleTime = token.organizationType === "CLIENT"
+            ? IDLE_TIMEOUT.CLIENT
+            : IDLE_TIMEOUT.AGENCY;
+
+          if (idleTime > maxIdleTime) {
+            // Session expired due to inactivity - return empty token to force re-login
+            console.log(`[Auth] Session expired due to inactivity for ${token.email} (idle: ${idleTime}s, max: ${maxIdleTime}s)`);
+            return {
+              ...token,
+              id: undefined,
+              email: undefined,
+              organizationId: undefined,
+              organizationType: undefined,
+              expired: true,
+            };
+          }
+        }
+
         return token;
       } catch (error) {
         console.error("JWT callback error:", error);
@@ -75,6 +114,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       try {
+        // Check if token was marked as expired
+        if ((token as any).expired) {
+          // Return a minimal session that will trigger re-login
+          return {
+            ...session,
+            user: {
+              id: "",
+              email: "",
+              name: null,
+              organizationId: "",
+              organizationType: "AGENCY" as OrganizationType,
+              organizationRole: "MEMBER" as OrganizationRole,
+              organizationName: "",
+            },
+            expired: true,
+          };
+        }
+
         // Validate token has required fields
         if (!token.id || !token.email || !token.organizationId || !token.organizationType) {
           // Return a minimal session that will trigger re-login

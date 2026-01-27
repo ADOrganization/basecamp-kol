@@ -6,14 +6,22 @@ import {
   setSocialDataApiKey,
   setApifyApiKey,
 } from "@/lib/scraper/x-scraper";
+import { decryptSensitiveData, isEncrypted } from "@/lib/crypto";
 
 // Secret for protecting cron endpoint
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function POST(request: Request) {
-  // Verify cron secret
+  // SECURITY: Always require cron secret in production
   const authHeader = request.headers.get("authorization");
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (!CRON_SECRET) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[Cron] CRON_SECRET not configured in production");
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+    }
+    // Allow in development without secret for testing
+    console.warn("[Cron] WARNING: CRON_SECRET not set, allowing unauthenticated access (dev only)");
+  } else if (authHeader !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -36,12 +44,24 @@ export async function POST(request: Request) {
     // Use the first org's keys (cron job context)
     if (orgsWithKeys.length > 0) {
       const org = orgsWithKeys[0];
-      if (org.socialDataApiKey) {
-        setSocialDataApiKey(org.socialDataApiKey);
+
+      // SECURITY: Decrypt API keys if encrypted
+      let socialDataKey = org.socialDataApiKey;
+      let apifyKey = org.apifyApiKey;
+
+      if (socialDataKey && isEncrypted(socialDataKey)) {
+        socialDataKey = decryptSensitiveData(socialDataKey);
+      }
+      if (apifyKey && isEncrypted(apifyKey)) {
+        apifyKey = decryptSensitiveData(apifyKey);
+      }
+
+      if (socialDataKey) {
+        setSocialDataApiKey(socialDataKey);
         console.log(`[Cron] Using SocialData API key from org ${org.id}`);
       }
-      if (org.apifyApiKey) {
-        setApifyApiKey(org.apifyApiKey);
+      if (apifyKey) {
+        setApifyApiKey(apifyKey);
         console.log(`[Cron] Using Apify API key from org ${org.id}`);
       }
     }

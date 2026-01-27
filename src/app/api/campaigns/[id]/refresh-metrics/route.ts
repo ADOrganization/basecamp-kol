@@ -1,12 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasAnyScraperConfigured } from "@/lib/scraper/x-scraper";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { decryptSensitiveData, isEncrypted } from "@/lib/crypto";
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply strict rate limiting for heavy operations (external API calls)
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.heavy);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const authContext = await getApiAuthContext();
   const { id: campaignId } = await params;
 
@@ -27,12 +33,24 @@ export async function POST(
     });
 
     console.log(`[Refresh Metrics] Org found: ${org?.id}, name: ${org?.name}`);
-    console.log(`[Refresh Metrics] SocialData key in DB: ${org?.socialDataApiKey ? `yes (${org.socialDataApiKey.slice(0, 8)}...)` : 'NOT SET'}`);
-    console.log(`[Refresh Metrics] Apify key in DB: ${org?.apifyApiKey ? `yes (${org.apifyApiKey.slice(0, 8)}...)` : 'NOT SET'}`);
+    // SECURITY: Only log presence, not key content
+    console.log(`[Refresh Metrics] SocialData key in DB: ${org?.socialDataApiKey ? 'configured' : 'NOT SET'}`);
+    console.log(`[Refresh Metrics] Apify key in DB: ${org?.apifyApiKey ? 'configured' : 'NOT SET'}`);
+
+    // SECURITY: Decrypt API keys if encrypted
+    let socialDataKey = org?.socialDataApiKey || null;
+    let apifyKey = org?.apifyApiKey || null;
+
+    if (socialDataKey && isEncrypted(socialDataKey)) {
+      socialDataKey = decryptSensitiveData(socialDataKey);
+    }
+    if (apifyKey && isEncrypted(apifyKey)) {
+      apifyKey = decryptSensitiveData(apifyKey);
+    }
 
     // Set SocialData API key (primary)
-    if (org?.socialDataApiKey) {
-      setSocialDataApiKey(org.socialDataApiKey);
+    if (socialDataKey) {
+      setSocialDataApiKey(socialDataKey);
       console.log(`[Refresh Metrics] SocialData key configured (primary)`);
     } else {
       clearSocialDataApiKey();
@@ -40,8 +58,8 @@ export async function POST(
     }
 
     // Set Apify API key (fallback)
-    if (org?.apifyApiKey) {
-      setApifyApiKey(org.apifyApiKey);
+    if (apifyKey) {
+      setApifyApiKey(apifyKey);
       console.log(`[Refresh Metrics] Apify key configured (fallback)`);
     } else {
       clearApifyApiKey();

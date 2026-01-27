@@ -12,11 +12,18 @@ import { jwtVerify } from "jose";
 import { encode } from "next-auth/jwt";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
-import crypto from "crypto";
+import {
+  verifyBackupCode,
+  areCodesHashed,
+  timingSafeBackupCodeCheck,
+} from "@/lib/backup-codes";
 
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "auth-secret-key"
-);
+// SECURITY: Require AUTH_SECRET - never use fallback
+const AUTH_SECRET_RAW = process.env.AUTH_SECRET;
+if (!AUTH_SECRET_RAW) {
+  throw new Error("SECURITY: AUTH_SECRET environment variable is required");
+}
+const AUTH_SECRET = new TextEncoder().encode(AUTH_SECRET_RAW);
 
 // Cookie name changes based on environment (Auth.js convention)
 const isProduction = process.env.NODE_ENV === "production";
@@ -25,27 +32,7 @@ const SESSION_COOKIE_NAME = isProduction
   : "authjs.session-token";
 const VERIFY_TOKEN_NAME = "user_2fa_verify_token";
 
-// SECURITY: Timing-safe backup code comparison
-function timingSafeBackupCodeCheck(code: string, backupCodes: string[]): number {
-  const normalizedCode = code.toUpperCase().replace(/-/g, "");
-  let foundIndex = -1;
-
-  // Always iterate all codes to prevent timing attacks
-  for (let i = 0; i < backupCodes.length; i++) {
-    const normalizedBackup = backupCodes[i].toUpperCase().replace(/-/g, "");
-    // Use timing-safe comparison for each code
-    if (normalizedCode.length === normalizedBackup.length) {
-      const isMatch = crypto.timingSafeEqual(
-        Buffer.from(normalizedCode),
-        Buffer.from(normalizedBackup)
-      );
-      if (isMatch && foundIndex === -1) {
-        foundIndex = i;
-      }
-    }
-  }
-  return foundIndex;
-}
+// SECURITY: Backup code utilities imported from @/lib/backup-codes
 
 // POST - Verify 2FA code and create session
 export async function POST(request: NextRequest) {
@@ -124,11 +111,21 @@ export async function POST(request: NextRequest) {
     let isValid = !!totpResult;
     let usedBackupCode = false;
 
-    // SECURITY: If TOTP failed, try backup codes with timing-safe comparison
+    // SECURITY: If TOTP failed, try backup codes
     // Backup codes can be in format XXXXX-XXXXX (11 chars) or XXXXXXXXXX (10 chars)
     const normalizedCode = code.toUpperCase().replace(/-/g, "");
-    if (!isValid && (normalizedCode.length === 10 || code.length === 8)) {
-      const backupCodeIndex = timingSafeBackupCodeCheck(code, user.backupCodes);
+    if (!isValid && (normalizedCode.length === 10 || code.length === 8 || code.length === 11)) {
+      // Check if codes are hashed (new format) or plain text (legacy)
+      const codesAreHashed = areCodesHashed(user.backupCodes);
+
+      let backupCodeIndex: number;
+      if (codesAreHashed) {
+        // SECURITY: Use bcrypt comparison for hashed codes
+        backupCodeIndex = await verifyBackupCode(code, user.backupCodes);
+      } else {
+        // Legacy: Use timing-safe comparison for plain text codes
+        backupCodeIndex = timingSafeBackupCodeCheck(code, user.backupCodes);
+      }
 
       if (backupCodeIndex !== -1) {
         isValid = true;

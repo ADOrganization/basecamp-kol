@@ -4,40 +4,24 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { SignJWT } from "jose";
 import { verify } from "otplib";
-import crypto from "crypto";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
+import {
+  verifyBackupCode,
+  areCodesHashed,
+  timingSafeBackupCodeCheck,
+} from "@/lib/backup-codes";
 
-// SECURITY: Lazy-load JWT secret to avoid build-time errors
+// SECURITY: Lazy-load JWT secret - NEVER use hardcoded fallback
 function getAdminJwtSecret(): Uint8Array {
-  const secret = process.env.ADMIN_JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_JWT_SECRET required in production");
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: ADMIN_JWT_SECRET or AUTH_SECRET environment variable is required");
   }
-  return new TextEncoder().encode(secret || process.env.AUTH_SECRET || "dev-only-admin-secret");
+  return new TextEncoder().encode(secret);
 }
 
-// SECURITY: Timing-safe backup code comparison
-function timingSafeBackupCodeCheck(code: string, backupCodes: string[]): number {
-  const normalizedCode = code.toUpperCase().replace(/-/g, "");
-  let foundIndex = -1;
-
-  // Always iterate all codes to prevent timing attacks
-  for (let i = 0; i < backupCodes.length; i++) {
-    const normalizedBackup = backupCodes[i].toUpperCase().replace(/-/g, "");
-    // Use timing-safe comparison for each code
-    if (normalizedCode.length === normalizedBackup.length) {
-      const isMatch = crypto.timingSafeEqual(
-        Buffer.from(normalizedCode),
-        Buffer.from(normalizedBackup)
-      );
-      if (isMatch && foundIndex === -1) {
-        foundIndex = i;
-      }
-    }
-  }
-  return foundIndex;
-}
+// SECURITY: Backup code utilities imported from @/lib/backup-codes
 
 export async function POST(request: NextRequest) {
   // SECURITY: Apply strict rate limiting to prevent brute force attacks
@@ -120,9 +104,21 @@ export async function POST(request: NextRequest) {
         secret: admin.twoFactorSecret,
       });
 
-      // SECURITY: Check backup codes with timing-safe comparison
-      const backupCodeIndex = timingSafeBackupCodeCheck(twoFactorCode, admin.backupCodes);
-      const isBackupCode = backupCodeIndex !== -1;
+      // SECURITY: Check backup codes (supports both hashed and legacy plain text)
+      let backupCodeIndex = -1;
+      let isBackupCode = false;
+
+      if (!isValidCode) {
+        const codesAreHashed = areCodesHashed(admin.backupCodes);
+        if (codesAreHashed) {
+          // SECURITY: Use bcrypt comparison for hashed codes
+          backupCodeIndex = await verifyBackupCode(twoFactorCode, admin.backupCodes);
+        } else {
+          // Legacy: Use timing-safe comparison for plain text codes
+          backupCodeIndex = timingSafeBackupCodeCheck(twoFactorCode, admin.backupCodes);
+        }
+        isBackupCode = backupCodeIndex !== -1;
+      }
 
       if (!isValidCode && !isBackupCode) {
         // SECURITY: Log 2FA failure

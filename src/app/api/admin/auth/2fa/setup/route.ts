@@ -4,31 +4,18 @@ import { generateSecret, verify, generateURI } from "otplib";
 import QRCode from "qrcode";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
-import crypto from "crypto";
+import { generateBackupCodes } from "@/lib/backup-codes";
 
-// SECURITY: Lazy-load JWT secret to avoid build-time errors
+// SECURITY: Lazy-load JWT secret - NEVER use hardcoded fallback
 function getAdminJwtSecret(): Uint8Array {
-  const secret = process.env.ADMIN_JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_JWT_SECRET required in production");
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: ADMIN_JWT_SECRET or AUTH_SECRET environment variable is required");
   }
-  return new TextEncoder().encode(secret || process.env.AUTH_SECRET || "dev-only-admin-secret");
+  return new TextEncoder().encode(secret);
 }
 
-/**
- * Generate cryptographically secure backup codes
- */
-function generateSecureBackupCodes(count: number = 10): string[] {
-  const codes: string[] = [];
-  for (let i = 0; i < count; i++) {
-    // Generate 10 random bytes and convert to base32-like string (uppercase alphanumeric)
-    const bytes = crypto.randomBytes(6);
-    const code = bytes.toString("hex").toUpperCase().slice(0, 10);
-    // Format as XXXXX-XXXXX for readability
-    codes.push(`${code.slice(0, 5)}-${code.slice(5)}`);
-  }
-  return codes;
-}
+// SECURITY: Backup code generation moved to @/lib/backup-codes for hashed storage
 
 async function getAdminFromToken(): Promise<{ adminId: string; isSetupToken: boolean } | null> {
   const cookieStore = await cookies();
@@ -139,16 +126,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SECURITY: Generate cryptographically secure backup codes
-    const backupCodes = generateSecureBackupCodes(10);
+    // SECURITY: Generate cryptographically secure backup codes with hashing
+    const { plainTextCodes, hashedCodes } = await generateBackupCodes(10);
 
-    // Store the secret and enable 2FA
+    // Store the secret and enable 2FA (backup codes are hashed for security)
     const admin = await db.adminUser.update({
       where: { id: authResult.adminId },
       data: {
         twoFactorEnabled: true,
         twoFactorSecret: secret,
-        backupCodes: backupCodes,
+        backupCodes: hashedCodes, // SECURITY: Store hashed codes only
       },
     });
 
@@ -187,7 +174,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      backupCodes,
+      backupCodes: plainTextCodes, // Return plain text codes to show user ONCE
       redirectTo: authResult.isSetupToken ? "/agency/dashboard" : undefined,
     });
   } catch (error) {

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting for sensitive operations
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -98,6 +103,10 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting for sensitive operations
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.sensitive);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

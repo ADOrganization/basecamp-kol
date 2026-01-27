@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { postSchema } from "@/lib/validations";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -11,6 +12,10 @@ function findKeywordMatches(content: string, keywords: string[]): string[] {
 }
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -55,6 +60,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

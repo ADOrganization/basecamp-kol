@@ -10,8 +10,17 @@ import { db } from "@/lib/db";
 import { verifyInvitationToken, acceptInvitation } from "@/lib/magic-link";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
-import { encode } from "next-auth/jwt";
+import { SignJWT } from "jose";
 import type { OrganizationType, OrganizationRole } from "@prisma/client";
+
+// SECURITY: Require AUTH_SECRET - never use fallback
+function getAuthSecret(): Uint8Array {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: AUTH_SECRET environment variable is required");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 // Simple text sanitization (strip HTML tags)
 function sanitizeText(input: string): string {
@@ -131,15 +140,6 @@ export async function POST(request: NextRequest) {
       data: { lastLoginAt: new Date() },
     });
 
-    // Log successful login
-    await logSecurityEvent({
-      userId: user.id,
-      action: "LOGIN_SUCCESS",
-      ipAddress: ipAddress || undefined,
-      userAgent: userAgent || undefined,
-      metadata: { email: invitation.email, method: "invitation" },
-    });
-
     await logSecurityEvent({
       userId: user.id,
       action: "INVITE_ACCEPTED",
@@ -151,40 +151,80 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create JWT token for the session
-    // The salt must match the cookie name for Auth.js to decode it properly
-    const jwtToken = await encode({
-      token: {
-        id: user.id,
+    // SECURITY: Check if user has 2FA enabled
+    // If not, redirect to 2FA setup instead of granting full session
+    if (!user.twoFactorEnabled) {
+      // Create a setup token for 2FA (not a full session)
+      const setupToken = await new SignJWT({
+        sub: user.id,
         email: user.email,
-        name: user.name,
+        type: "user_2fa_setup",
         organizationId: invitation.organizationId,
-        organizationType: invitation.organizationType as OrganizationType,
-        organizationRole: invitation.role as OrganizationRole,
+        organizationType: invitation.organizationType,
+        organizationRole: invitation.role,
         organizationName: invitation.organizationName,
-      },
-      secret: process.env.AUTH_SECRET!,
-      salt: SESSION_COOKIE_NAME,
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("15m") // 15 minutes to complete setup
+        .sign(getAuthSecret());
+
+      await logSecurityEvent({
+        userId: user.id,
+        action: "2FA_SETUP_REQUIRED",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: { email: invitation.email, viaInvitation: true },
+      });
+
+      // Create response with setup token (not full session)
+      const response = NextResponse.json({
+        success: true,
+        requires2FASetup: true,
+        redirectTo: "/setup-2fa",
+      });
+
+      response.cookies.set("user_2fa_setup_token", setupToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        maxAge: 15 * 60, // 15 minutes
+        path: "/",
+      });
+
+      return response;
+    }
+
+    // User has 2FA enabled - redirect to verify 2FA
+    const verifyToken = await new SignJWT({
+      sub: user.id,
+      email: user.email,
+      type: "user_2fa_verify",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("5m") // 5 minutes to enter code
+      .sign(getAuthSecret());
+
+    await logSecurityEvent({
+      userId: user.id,
+      action: "2FA_VERIFICATION_REQUIRED",
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: { email: invitation.email, viaInvitation: true },
     });
 
-    // Determine redirect
-    const redirectTo = invitation.organizationType === "AGENCY"
-      ? "/agency/dashboard"
-      : "/client/dashboard";
-
-    // Create response and set the session cookie on it
     const response = NextResponse.json({
       success: true,
-      redirectTo,
+      requires2FAVerify: true,
+      redirectTo: "/verify-2fa",
     });
 
-    // Set the session cookie on the response object directly
-    response.cookies.set(SESSION_COOKIE_NAME, jwtToken, {
+    response.cookies.set("user_2fa_verify_token", verifyToken, {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 5 * 60, // 5 minutes
       path: "/",
     });
 

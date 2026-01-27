@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { postApprovalSchema } from "@/lib/validations";
 import { TelegramClient } from "@/lib/telegram/client";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -15,6 +16,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -65,6 +70,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {
@@ -185,6 +194,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authContext = await getApiAuthContext();
     if (!authContext) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { encryptSensitiveData, decryptSensitiveData, isEncrypted } from "@/lib/crypto";
 
 const twitterSettingsSchema = z.object({
   apifyApiKey: z.string().optional(),
@@ -28,13 +29,25 @@ export async function GET() {
       return NextResponse.json({ error: "Organization not found" }, { status: 404 });
     }
 
+    // SECURITY: Decrypt keys if encrypted, then mask for display
+    let apifyKey = org.apifyApiKey;
+    let socialDataKey = org.socialDataApiKey;
+
+    // Decrypt if encrypted
+    if (apifyKey && isEncrypted(apifyKey)) {
+      apifyKey = decryptSensitiveData(apifyKey);
+    }
+    if (socialDataKey && isEncrypted(socialDataKey)) {
+      socialDataKey = decryptSensitiveData(socialDataKey);
+    }
+
     // Mask the API keys for security (show only last 4 chars)
-    const maskedApifyKey = org.apifyApiKey
-      ? `${"*".repeat(Math.max(0, org.apifyApiKey.length - 4))}${org.apifyApiKey.slice(-4)}`
+    const maskedApifyKey = apifyKey
+      ? `${"*".repeat(Math.max(0, apifyKey.length - 4))}${apifyKey.slice(-4)}`
       : null;
 
-    const maskedSocialDataKey = org.socialDataApiKey
-      ? `${"*".repeat(Math.max(0, org.socialDataApiKey.length - 4))}${org.socialDataApiKey.slice(-4)}`
+    const maskedSocialDataKey = socialDataKey
+      ? `${"*".repeat(Math.max(0, socialDataKey.length - 4))}${socialDataKey.slice(-4)}`
       : null;
 
     return NextResponse.json({
@@ -83,12 +96,17 @@ export async function PUT(request: NextRequest) {
 
     const updateData: { apifyApiKey?: string | null; socialDataApiKey?: string | null } = {};
 
+    // SECURITY: Encrypt API keys before storing
     if (validatedData.apifyApiKey !== undefined) {
-      updateData.apifyApiKey = validatedData.apifyApiKey || null;
+      updateData.apifyApiKey = validatedData.apifyApiKey
+        ? encryptSensitiveData(validatedData.apifyApiKey)
+        : null;
     }
 
     if (validatedData.socialDataApiKey !== undefined) {
-      updateData.socialDataApiKey = validatedData.socialDataApiKey || null;
+      updateData.socialDataApiKey = validatedData.socialDataApiKey
+        ? encryptSensitiveData(validatedData.socialDataApiKey)
+        : null;
     }
 
     await db.organization.update({

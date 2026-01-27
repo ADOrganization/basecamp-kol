@@ -11,11 +11,17 @@ import { generateSecret, verify, generateURI } from "otplib";
 import QRCode from "qrcode";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
-import crypto from "crypto";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { generateBackupCodes } from "@/lib/backup-codes";
 
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "auth-secret-key"
-);
+// SECURITY: Lazy-load JWT secret - NEVER use fallback
+function getAuthSecret(): Uint8Array {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: AUTH_SECRET environment variable is required");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 // Cookie name changes based on environment (Auth.js convention)
 const isProduction = process.env.NODE_ENV === "production";
@@ -31,7 +37,7 @@ async function getUserFromToken(): Promise<{ userId: string; isSetupToken: boole
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (sessionToken) {
     try {
-      const { payload } = await jwtVerify(sessionToken, AUTH_SECRET, {
+      const { payload } = await jwtVerify(sessionToken, getAuthSecret(), {
         // Auth.js uses a specific salt for encoding
       });
       if (payload.id) {
@@ -46,7 +52,7 @@ async function getUserFromToken(): Promise<{ userId: string; isSetupToken: boole
   const setupToken = cookieStore.get(SETUP_TOKEN_NAME)?.value;
   if (setupToken) {
     try {
-      const { payload } = await jwtVerify(setupToken, AUTH_SECRET);
+      const { payload } = await jwtVerify(setupToken, getAuthSecret());
       if (payload.type === "user_2fa_setup" && payload.sub) {
         return { userId: payload.sub as string, isSetupToken: true };
       }
@@ -59,7 +65,11 @@ async function getUserFromToken(): Promise<{ userId: string; isSetupToken: boole
 }
 
 // GET - Generate new 2FA secret and QR code
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authResult = await getUserFromToken();
     if (!authResult) {
@@ -110,6 +120,10 @@ export async function GET() {
 
 // POST - Verify and enable 2FA
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply strict rate limiting for 2FA setup
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.authFailed);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authResult = await getUserFromToken();
     if (!authResult) {
@@ -136,23 +150,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SECURITY: Generate cryptographically secure backup codes
-    const backupCodes: string[] = [];
-    for (let i = 0; i < 10; i++) {
-      // Generate 6 random bytes and convert to hex for a secure backup code
-      const bytes = crypto.randomBytes(6);
-      const code = bytes.toString("hex").toUpperCase().slice(0, 10);
-      // Format as XXXXX-XXXXX for readability
-      backupCodes.push(`${code.slice(0, 5)}-${code.slice(5)}`);
-    }
+    // SECURITY: Generate cryptographically secure backup codes with hashing
+    const { plainTextCodes, hashedCodes } = await generateBackupCodes(10);
 
-    // Store the secret and enable 2FA
+    // Store the secret and enable 2FA (backup codes are hashed for security)
     const user = await db.user.update({
       where: { id: authResult.userId },
       data: {
         twoFactorEnabled: true,
         twoFactorSecret: secret,
-        backupCodes: backupCodes,
+        backupCodes: hashedCodes, // SECURITY: Store hashed codes only
       },
       include: {
         memberships: {
@@ -211,7 +218,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      backupCodes,
+      backupCodes: plainTextCodes, // Return plain text codes to show user ONCE
       redirectTo: authResult.isSetupToken ? redirectTo : undefined,
     });
   } catch (error) {

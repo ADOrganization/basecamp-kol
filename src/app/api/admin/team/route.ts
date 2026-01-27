@@ -4,14 +4,16 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 
-// SECURITY: Lazy-load JWT secret to avoid build-time errors
+// SECURITY: Lazy-load JWT secret - NEVER use hardcoded fallback
 function getAdminJwtSecret(): Uint8Array {
-  const secret = process.env.ADMIN_JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") {
-    throw new Error("ADMIN_JWT_SECRET required in production");
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: ADMIN_JWT_SECRET or AUTH_SECRET environment variable is required");
   }
-  return new TextEncoder().encode(secret || process.env.AUTH_SECRET || "dev-only-admin-secret");
+  return new TextEncoder().encode(secret);
 }
 
 async function getAdminFromToken() {
@@ -37,7 +39,11 @@ async function getAdminFromToken() {
 }
 
 // GET - List all admin team members
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const admin = await getAdminFromToken();
     if (!admin) {
@@ -73,6 +79,12 @@ export async function GET() {
 
 // POST - Invite new admin team member
 export async function POST(request: NextRequest) {
+  // SECURITY: Apply rate limiting - sensitive operation
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.authFailed);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const { ipAddress, userAgent } = getRequestMetadata(request);
+
   try {
     const admin = await getAdminFromToken();
     if (!admin) {
@@ -129,6 +141,14 @@ export async function POST(request: NextRequest) {
         role: true,
         createdAt: true,
       },
+    });
+
+    // SECURITY: Log admin invite event
+    await logSecurityEvent({
+      action: "ADMIN_INVITED",
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: { invitedBy: admin.id, invitedEmail: newAdmin.email },
     });
 
     // SECURITY: In production, send temp password via email only

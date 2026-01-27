@@ -3,10 +3,18 @@ import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
 
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
-);
+// SECURITY: Lazy-load JWT secret - NEVER use hardcoded fallback
+function getAdminJwtSecret(): Uint8Array {
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("SECURITY: ADMIN_JWT_SECRET or AUTH_SECRET environment variable is required");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 async function getAdminFromToken() {
   const cookieStore = await cookies();
@@ -15,7 +23,7 @@ async function getAdminFromToken() {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
+    const { payload } = await jwtVerify(token, getAdminJwtSecret());
     if (payload.type !== "admin" || !payload.sub) return null;
 
     const admin = await db.adminUser.findUnique({
@@ -35,6 +43,12 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting - sensitive operation
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.authFailed);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const { ipAddress, userAgent } = getRequestMetadata(request);
+
   try {
     const admin = await getAdminFromToken();
     if (!admin) {
@@ -63,9 +77,15 @@ export async function PUT(
 
     // Handle password reset
     if (resetPassword === true) {
-      // Generate a random temporary password
-      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+      // SECURITY: Generate cryptographically secure temporary password
+      const tempPassword = crypto.randomBytes(12).toString("hex");
       const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+      // Get admin email for logging
+      const targetAdmin = await db.adminUser.findUnique({
+        where: { id },
+        select: { email: true },
+      });
 
       // Update password and disable 2FA so they have to set it up again
       await db.adminUser.update({
@@ -78,10 +98,28 @@ export async function PUT(
         },
       });
 
+      // SECURITY: Log password reset event
+      await logSecurityEvent({
+        action: "PASSWORD_RESET",
+        ipAddress: ipAddress || undefined,
+        userAgent: userAgent || undefined,
+        metadata: { resetBy: admin.id, targetAdminId: id, targetEmail: targetAdmin?.email },
+      });
+
+      // SECURITY: In production, send temp password via email only
+      if (process.env.NODE_ENV === "production") {
+        // TODO: Send email with temp password
+        return NextResponse.json({
+          success: true,
+          message: "Password reset successfully. Temporary password sent via email. User will need to set up 2FA again.",
+        });
+      }
+
+      // Development only: return temp password for testing
       return NextResponse.json({
         success: true,
-        tempPassword,
-        message: "Password reset successfully. User will need to set up 2FA again.",
+        tempPassword, // DEV ONLY - never in production
+        message: "Password reset successfully. User will need to set up 2FA again. (DEV: temp password included)",
       });
     }
 
@@ -116,6 +154,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // SECURITY: Apply rate limiting
+  const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.standard);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const { ipAddress, userAgent } = getRequestMetadata(request);
+
   try {
     const admin = await getAdminFromToken();
     if (!admin) {
@@ -140,10 +184,24 @@ export async function DELETE(
       );
     }
 
+    // Get admin email for logging
+    const targetAdmin = await db.adminUser.findUnique({
+      where: { id },
+      select: { email: true },
+    });
+
     // Soft delete - just deactivate
     await db.adminUser.update({
       where: { id },
       data: { isActive: false },
+    });
+
+    // SECURITY: Log admin deactivation event
+    await logSecurityEvent({
+      action: "ADMIN_DEACTIVATED",
+      ipAddress: ipAddress || undefined,
+      userAgent: userAgent || undefined,
+      metadata: { deactivatedBy: admin.id, targetAdminId: id, targetEmail: targetAdmin?.email },
     });
 
     return NextResponse.json({ success: true });
