@@ -49,22 +49,39 @@ export async function POST(
     const socialDataKey = safeDecrypt(org?.socialDataApiKey || null);
     const apifyKey = safeDecrypt(org?.apifyApiKey || null);
 
+    // Debug: Log key lengths to verify decryption worked (not actual keys)
+    console.log(`[Refresh Metrics] Raw DB socialDataApiKey length: ${org?.socialDataApiKey?.length || 0}`);
+    console.log(`[Refresh Metrics] Raw DB apifyApiKey length: ${org?.apifyApiKey?.length || 0}`);
+    console.log(`[Refresh Metrics] After safeDecrypt socialDataKey length: ${socialDataKey?.length || 0}`);
+    console.log(`[Refresh Metrics] After safeDecrypt apifyKey length: ${apifyKey?.length || 0}`);
+
+    // Check if the key looks like an encrypted blob (base64, long) vs actual API key (shorter, alphanumeric)
+    const socialDataLooksEncrypted = socialDataKey && socialDataKey.length > 100;
+    const apifyLooksEncrypted = apifyKey && apifyKey.length > 100;
+
+    if (socialDataLooksEncrypted) {
+      console.log(`[Refresh Metrics] WARNING: socialDataKey looks like encrypted blob, decryption may have failed`);
+    }
+    if (apifyLooksEncrypted) {
+      console.log(`[Refresh Metrics] WARNING: apifyKey looks like encrypted blob, decryption may have failed`);
+    }
+
     // Set SocialData API key (primary)
-    if (socialDataKey) {
+    if (socialDataKey && !socialDataLooksEncrypted) {
       setSocialDataApiKey(socialDataKey);
       console.log(`[Refresh Metrics] SocialData key configured (primary)`);
     } else {
       clearSocialDataApiKey();
-      console.log(`[Refresh Metrics] No SocialData key - cleared`);
+      console.log(`[Refresh Metrics] No valid SocialData key - cleared`);
     }
 
     // Set Apify API key (fallback)
-    if (apifyKey) {
+    if (apifyKey && !apifyLooksEncrypted) {
       setApifyApiKey(apifyKey);
       console.log(`[Refresh Metrics] Apify key configured (fallback)`);
     } else {
       clearApifyApiKey();
-      console.log(`[Refresh Metrics] No Apify key - cleared`);
+      console.log(`[Refresh Metrics] No valid Apify key - cleared`);
     }
 
     if (!org?.socialDataApiKey && !org?.apifyApiKey) {

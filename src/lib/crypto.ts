@@ -125,15 +125,21 @@ export function safeDecrypt(value: string | null): string | null {
   if (!value) return null;
 
   // If it doesn't look encrypted, return as-is
-  if (!isEncrypted(value)) return value;
+  if (!isEncrypted(value)) {
+    console.log(`[Crypto] Value doesn't look encrypted (length: ${value.length}), returning as-is`);
+    return value;
+  }
 
   // Try to decrypt, fall back to original if it fails
   try {
-    return decryptSensitiveData(value);
-  } catch {
+    const decrypted = decryptSensitiveData(value);
+    console.log(`[Crypto] Successfully decrypted value (original: ${value.length} chars, decrypted: ${decrypted.length} chars)`);
+    return decrypted;
+  } catch (error) {
     // Decryption failed - the value is likely plain text that happened to
     // look like base64 encoded data. Return the original value.
-    console.warn("[Crypto] Decryption failed, assuming plain text value");
+    console.warn(`[Crypto] Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.warn(`[Crypto] Returning original value (length: ${value.length})`);
     return value;
   }
 }
