@@ -286,7 +286,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     try {
       const response = await fetch("/api/kols");
       if (response.ok) {
-        const allKols = await response.json();
+        const result = await response.json();
+        // API returns { data: [...], pagination: {...} }
+        const allKols = result.data || [];
         const assignedKolIds = campaign?.campaignKols.map((ck) => ck.kol.id) || [];
         const available = allKols.filter((kol: AvailableKOL) => !assignedKolIds.includes(kol.id));
         setAvailableKols(available);
