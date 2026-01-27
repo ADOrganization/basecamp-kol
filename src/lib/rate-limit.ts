@@ -137,8 +137,8 @@ export const RATE_LIMITS = {
   // With 50 KOLs per page max, this limits to 500 KOL records per 5 minutes
   kolRoster: { limit: 10, windowMs: 5 * 60 * 1000 },
 
-  // Heavy operations (refresh metrics, scraping) - 5 requests per minute
-  heavy: { limit: 5, windowMs: 60 * 1000 },
+  // Heavy operations (refresh metrics, scraping) - 20 requests per minute
+  heavy: { limit: 20, windowMs: 60 * 1000 },
 
   // Auth endpoints - 10 requests per minute to prevent brute force
   auth: { limit: 10, windowMs: 60 * 1000 },
