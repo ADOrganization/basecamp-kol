@@ -64,7 +64,7 @@ export default function AdminLoginPage() {
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-[#0A0A0F]">
       <div className="w-full max-w-md px-4" style={{ opacity: 1 }}>
-        <div className="absolute -inset-4 bg-gradient-to-r from-[#6366F1]/15 to-[#8B5CF6]/10 rounded-3xl blur-2xl"></div>
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#6366F1]/5 to-[#8B5CF6]/5 rounded-3xl blur-xl"></div>
         <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#6366F1]/15 to-[#8B5CF6]/15 border border-white/10 mb-6">
@@ -149,8 +149,7 @@ export default function AdminLoginPage() {
               type="submit"
               disabled={isLoading || (!requires2FA && (!email || !password)) || (requires2FA && twoFactorCode.length < 6)}
               className="w-full h-12 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:from-[#7C3AED] hover:to-[#A78BFA] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
-              style={{ boxShadow: "0 8px 32px rgba(99, 102, 241, 0.3)" }}
-            >
+                          >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (

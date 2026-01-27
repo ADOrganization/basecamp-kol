@@ -91,10 +91,10 @@ function AcceptInviteContent() {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="w-full max-w-md relative">
-          <div className="absolute -inset-4 bg-gradient-to-r from-red-500/15 to-rose-500/10 rounded-3xl blur-2xl"></div>
+          <div className="absolute -inset-4 bg-gradient-to-r from-red-500/5 to-rose-500/5 rounded-3xl blur-xl"></div>
           <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(239, 68, 68, 0.3)" }}>
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 mb-6 shadow-xl" >
                 <AlertCircle className="w-8 h-8 text-white" />
               </div>
               <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
@@ -119,7 +119,7 @@ function AcceptInviteContent() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-md relative">
-        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/5 to-[#0D9488]/5 rounded-3xl blur-xl"></div>
         <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}>
@@ -168,8 +168,7 @@ function AcceptInviteContent() {
               type="submit"
               disabled={isSubmitting}
               className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
-              style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
-            >
+                          >
               {isSubmitting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (

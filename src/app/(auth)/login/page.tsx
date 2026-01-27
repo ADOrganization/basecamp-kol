@@ -78,10 +78,10 @@ export default function LoginPage() {
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="w-full max-w-md relative">
-          <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+          <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/5 to-[#0D9488]/5 rounded-3xl blur-xl"></div>
           <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] mb-6 shadow-xl" style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}>
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] mb-6">
                 <CheckCircle2 className="w-8 h-8 text-white" />
               </div>
               <h1 className="font-display text-3xl md:text-4xl font-extrabold mb-2 text-white">
@@ -119,7 +119,7 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-md relative">
-        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/10 rounded-3xl blur-2xl"></div>
+        <div className="absolute -inset-4 bg-gradient-to-r from-[#14B8A6]/5 to-[#0D9488]/5 rounded-3xl blur-xl"></div>
         <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-10">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#14B8A6]/15 to-[#0D9488]/15 border border-white/10 mb-6">
@@ -161,8 +161,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={isLoading || !email}
-              className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl shadow-xl transition-all duration-300"
-              style={{ boxShadow: "0 8px 32px rgba(20, 184, 166, 0.3)" }}
+              className="w-full h-12 bg-gradient-to-r from-[#14B8A6] to-[#0D9488] hover:from-[#0D9488] hover:to-[#14B8A6] text-white font-semibold rounded-xl transition-all duration-300"
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
