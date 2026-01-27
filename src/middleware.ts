@@ -88,8 +88,9 @@ function handleAdminSubdomain(req: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
-  // Block client routes on admin subdomain - redirect to dashboard (if logged in) or login
-  if (nextUrl.pathname.startsWith("/client")) {
+  // Block client portal routes on admin subdomain - redirect to dashboard (if logged in) or login
+  // Note: Use "/client/" to avoid matching "/clients" (admin clients page)
+  if (nextUrl.pathname.startsWith("/client/") || nextUrl.pathname === "/client") {
     const url = nextUrl.clone();
     url.pathname = isLoggedIn ? "/dashboard" : "/";
     return NextResponse.redirect(url);
@@ -149,7 +150,8 @@ const authMiddleware = auth((req) => {
       nextUrl.pathname.startsWith("/setup-2fa") ||
       nextUrl.pathname.startsWith("/verify-2fa");
 
-    const isClientRoute = nextUrl.pathname.startsWith("/client");
+    // Note: Use "/client/" to avoid matching "/clients" (admin clients page)
+    const isClientRoute = nextUrl.pathname.startsWith("/client/") || nextUrl.pathname === "/client";
     const isAdminRoute = nextUrl.pathname.startsWith("/admin");
     const isAdminPortalRoute = isAdminProtectedRoute(nextUrl.pathname);
 
