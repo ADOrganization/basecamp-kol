@@ -186,11 +186,13 @@ export async function POST(request: NextRequest) {
 
     if (validatedData.clientUsers && validatedData.clientUsers.length > 0) {
       // Create a client organization for this campaign
+      // Use the project's X avatar as the organization logo
       const clientOrg = await db.organization.create({
         data: {
           name: `${validatedData.name} - Client`,
           slug: `client-${validatedData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
           type: "CLIENT",
+          logoUrl: projectAvatarUrl, // Set org logo to X profile picture
         },
       });
       clientId = clientOrg.id;

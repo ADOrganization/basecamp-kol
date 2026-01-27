@@ -192,6 +192,15 @@ export async function PUT(
 
     // Handle client users if provided
     let clientId = validatedData.clientId || existingCampaign.clientId || null;
+
+    // Update existing client org's logo if X handle changed
+    if (clientId && projectAvatarUrl && newHandle !== oldHandle) {
+      await db.organization.update({
+        where: { id: clientId },
+        data: { logoUrl: projectAvatarUrl },
+      });
+      console.log("[Campaign Update] Updated existing client org logo from X handle change");
+    }
     const clientUsersCreated: { email: string; name?: string; invited: boolean }[] = [];
 
     console.log("[Campaign Update] clientUsers in request:", validatedData.clientUsers);
@@ -206,12 +215,14 @@ export async function PUT(
             name: `${validatedData.name} - Client`,
             slug: `client-${validatedData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
             type: "CLIENT",
+            logoUrl: projectAvatarUrl, // Set org logo to X profile picture
           },
         });
         clientId = clientOrg.id;
         console.log("[Campaign Update] Created client org:", clientId);
       } else {
         console.log("[Campaign Update] Using existing clientId:", clientId);
+        // Logo update is already handled above when X handle changes
       }
 
       // Create users and send invitations
