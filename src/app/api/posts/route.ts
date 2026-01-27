@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { postSchema } from "@/lib/validations";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { refreshPostMetrics } from "@/lib/metrics-refresh";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -165,6 +166,19 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Auto-refresh metrics if post has a tweet URL (fire and forget - don't block response)
+    if (post.tweetUrl) {
+      refreshPostMetrics(post.id, post.tweetUrl, authContext.organizationId)
+        .then(result => {
+          if (result.success) {
+            console.log(`[Posts API] Auto-refreshed metrics for new post ${post.id}`);
+          } else {
+            console.log(`[Posts API] Auto-refresh failed for post ${post.id}: ${result.error}`);
+          }
+        })
+        .catch(err => console.error(`[Posts API] Auto-refresh error:`, err));
+    }
 
     return NextResponse.json(post, { status: 201 });
   } catch (error) {

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { postApprovalSchema } from "@/lib/validations";
 import { TelegramClient } from "@/lib/telegram/client";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
+import { refreshPostMetrics } from "@/lib/metrics-refresh";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -178,6 +179,20 @@ export async function PUT(
         body.clientNotes || null,
         authContext.organizationId
       );
+    }
+
+    // Auto-refresh metrics if tweetUrl was added or changed
+    const tweetUrlChanged = body.tweetUrl && body.tweetUrl !== existingPost.tweetUrl;
+    if (tweetUrlChanged) {
+      refreshPostMetrics(post.id, body.tweetUrl, authContext.organizationId)
+        .then(result => {
+          if (result.success) {
+            console.log(`[Posts API] Auto-refreshed metrics for updated post ${post.id}`);
+          } else {
+            console.log(`[Posts API] Auto-refresh failed for post ${post.id}: ${result.error}`);
+          }
+        })
+        .catch(err => console.error(`[Posts API] Auto-refresh error:`, err));
     }
 
     return NextResponse.json(post);

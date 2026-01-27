@@ -5,6 +5,7 @@ import { fetchTwitterAvatar, fetchTwitterProfile } from "@/lib/scraper/x-scraper
 import { applyRateLimit, addSecurityHeaders, RATE_LIMITS } from "@/lib/api-security";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { logSecurityEvent } from "@/lib/security-audit";
+import { refreshKolMetrics } from "@/lib/metrics-refresh";
 
 // SECURITY: Maximum number of KOLs returned per request to prevent bulk scraping
 const MAX_KOLS_PER_PAGE = 50;
@@ -266,6 +267,17 @@ export async function POST(request: NextRequest) {
         tags: true,
       },
     });
+
+    // Auto-refresh KOL metrics in background (fire and forget - don't block response)
+    refreshKolMetrics(kol.id, twitterHandle, authContext.organizationId)
+      .then(result => {
+        if (result.success) {
+          console.log(`[KOL Create] Auto-refreshed metrics for new KOL ${kol.id}`);
+        } else {
+          console.log(`[KOL Create] Auto-refresh failed for KOL ${kol.id}: ${result.error}`);
+        }
+      })
+      .catch(err => console.error(`[KOL Create] Auto-refresh error:`, err));
 
     return NextResponse.json(kol, { status: 201 });
   } catch (error) {
