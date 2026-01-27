@@ -5,9 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, User, Users, Shield, FileText, Settings } from "lucide-react";
+import { Building2, User, Users, FileText, Settings } from "lucide-react";
 import { ProfileForm } from "@/components/settings/profile-form";
-import { PasswordForm } from "@/components/settings/password-form";
 import { OrganizationForm } from "@/components/settings/organization-form";
 import { TeamManagement } from "@/components/settings/team-management";
 
@@ -69,16 +68,11 @@ export default async function ClientSettingsPage() {
             <Users className="h-4 w-4" />
             Team
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-background">
-            <Shield className="h-4 w-4" />
-            Security
-          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
           <ProfileForm user={user} variant="client" />
-          <PasswordForm />
         </TabsContent>
 
         {/* Organization Tab */}
@@ -134,11 +128,6 @@ export default async function ClientSettingsPage() {
             variant="client"
             hideInvite={true}
           />
-        </TabsContent>
-
-        {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
-          <PasswordForm />
         </TabsContent>
       </Tabs>
     </div>

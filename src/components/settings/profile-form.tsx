@@ -31,8 +31,6 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl || null);
   const [formData, setFormData] = useState({
     name: user.name || "",
-    phone: "",
-    role: "",
     twitterUsername: user.twitterUsername || "",
     telegramUsername: user.telegramUsername || "",
   });
@@ -220,28 +218,7 @@ export function ProfileForm({ user, variant = "agency" }: ProfileFormProps) {
                   />
                 </div>
               </>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+1 (555) 000-0000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input
-                    id="role"
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    placeholder="Marketing Manager"
-                  />
-                </div>
-              </>
-            )}
+            ) : null}
           </div>
 
           <div className="flex justify-end">

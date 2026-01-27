@@ -37,7 +37,6 @@ const navigation = [
   { name: "Campaigns", href: "/client/campaigns", icon: Megaphone },
   { name: "Review Posts", href: "/client/review", icon: FileCheck },
   { name: "Analytics", href: "/client/analytics", icon: BarChart3 },
-  { name: "Settings", href: "/client/settings", icon: Settings },
 ];
 
 export function ClientSidebar({ user, organizationLogo }: ClientSidebarProps) {
