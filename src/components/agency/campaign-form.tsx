@@ -151,15 +151,15 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
         const failed = data.clientUsersCreated.filter((u: { invited: boolean }) => !u.invited);
 
         if (failed.length > 0 && invited.length === 0) {
-          alert(`Campaign created! ${data.clientUsersCreated.length} client account(s) created, but email invitations failed. Please check RESEND_API_KEY configuration or manually share login link.`);
+          alert(`Campaign saved! ${data.clientUsersCreated.length} client account(s) created, but email invitations failed. Please check RESEND_API_KEY configuration or manually share login link.`);
         } else if (failed.length > 0) {
-          alert(`Campaign created! ${invited.length} client(s) invited successfully. ${failed.length} invitation(s) failed - check email configuration.`);
+          alert(`Campaign saved! ${invited.length} client(s) invited successfully. ${failed.length} invitation(s) failed - check email configuration.`);
         } else if (invited.length > 0) {
-          alert(`Campaign created! ${invited.length} client(s) invited successfully. They will receive login links via email.`);
+          alert(`Campaign saved! ${invited.length} client(s) invited successfully. They will receive login links via email.`);
         }
       } else if (clientUsers.length > 0) {
         // Client users were provided but nothing returned - unexpected
-        alert("Campaign created! Client accounts may not have been created properly. Check server logs.");
+        alert("Campaign saved! Client accounts may not have been created properly. Check server logs.");
       }
 
       setIsLoading(false);

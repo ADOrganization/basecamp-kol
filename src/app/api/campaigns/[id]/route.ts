@@ -3,6 +3,8 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { campaignSchema } from "@/lib/validations";
 import { fetchTwitterMedia, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey } from "@/lib/scraper/x-scraper";
+import { sendClientPortalAccessEmail } from "@/lib/email";
+import crypto from "crypto";
 
 export async function GET(
   request: NextRequest,
@@ -188,10 +190,102 @@ export async function PUT(
       projectBannerUrl = null;
     }
 
+    // Handle client users if provided
+    let clientId = validatedData.clientId || existingCampaign.clientId || null;
+    const clientUsersCreated: { email: string; name?: string; invited: boolean }[] = [];
+
+    if (validatedData.clientUsers && validatedData.clientUsers.length > 0) {
+      // Create a client organization if one doesn't exist
+      if (!clientId) {
+        const clientOrg = await db.organization.create({
+          data: {
+            name: `${validatedData.name} - Client`,
+            slug: `client-${validatedData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
+            type: "CLIENT",
+          },
+        });
+        clientId = clientOrg.id;
+      }
+
+      // Create users and send invitations
+      for (const clientUser of validatedData.clientUsers) {
+        try {
+          // Check if user already exists
+          let user = await db.user.findUnique({
+            where: { email: clientUser.email.toLowerCase() },
+          });
+
+          if (!user) {
+            // Create new user
+            user = await db.user.create({
+              data: {
+                email: clientUser.email.toLowerCase(),
+                name: clientUser.name || null,
+              },
+            });
+          }
+
+          // Check if already a member
+          const existingMember = await db.organizationMember.findUnique({
+            where: {
+              organizationId_userId: {
+                organizationId: clientId,
+                userId: user.id,
+              },
+            },
+          });
+
+          if (!existingMember) {
+            // Add user to organization
+            await db.organizationMember.create({
+              data: {
+                organizationId: clientId,
+                userId: user.id,
+                role: "MEMBER",
+              },
+            });
+          }
+
+          // Generate verification token for magic link
+          const token = crypto.randomBytes(32).toString("hex");
+          const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+          await db.verificationToken.create({
+            data: {
+              identifier: clientUser.email.toLowerCase(),
+              token,
+              expires,
+            },
+          });
+
+          // Send invitation email
+          const emailResult = await sendClientPortalAccessEmail(
+            clientUser.email.toLowerCase(),
+            token,
+            validatedData.name,
+            clientUser.name
+          );
+
+          clientUsersCreated.push({
+            email: clientUser.email,
+            name: clientUser.name,
+            invited: emailResult.success,
+          });
+        } catch (userError) {
+          console.error(`Error creating client user ${clientUser.email}:`, userError);
+          clientUsersCreated.push({
+            email: clientUser.email,
+            name: clientUser.name,
+            invited: false,
+          });
+        }
+      }
+    }
+
     const campaign = await db.campaign.update({
       where: { id },
       data: {
-        clientId: validatedData.clientId || null,
+        clientId,
         name: validatedData.name,
         description: validatedData.description || null,
         projectTwitterHandle: validatedData.projectTwitterHandle,
@@ -211,7 +305,10 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json(campaign);
+    return NextResponse.json({
+      ...campaign,
+      clientUsersCreated: clientUsersCreated.length > 0 ? clientUsersCreated : undefined,
+    });
   } catch (error) {
     console.error("Error updating campaign:", error);
 
