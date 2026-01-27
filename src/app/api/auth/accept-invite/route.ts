@@ -6,7 +6,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { verifyInvitationToken, acceptInvitation } from "@/lib/magic-link";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
@@ -16,6 +15,12 @@ import DOMPurify from "isomorphic-dompurify";
 import type { OrganizationType, OrganizationRole } from "@prisma/client";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://basecampnetwork.xyz";
+
+// Cookie name changes based on environment (Auth.js convention)
+const isProduction = process.env.NODE_ENV === "production";
+const SESSION_COOKIE_NAME = isProduction
+  ? "__Secure-authjs.session-token"
+  : "authjs.session-token";
 
 export async function POST(request: NextRequest) {
   const rateLimitResponse = applyRateLimit(request, RATE_LIMITS.auth);
@@ -140,6 +145,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create JWT token for the session
+    // The salt must match the cookie name for Auth.js to decode it properly
     const jwtToken = await encode({
       token: {
         id: user.id,
@@ -151,18 +157,8 @@ export async function POST(request: NextRequest) {
         organizationName: invitation.organizationName,
       },
       secret: process.env.AUTH_SECRET!,
-      salt: "authjs.session-token",
+      salt: SESSION_COOKIE_NAME,
       maxAge: 7 * 24 * 60 * 60, // 7 days
-    });
-
-    // Set the session cookie
-    const cookieStore = await cookies();
-    cookieStore.set("authjs.session-token", jwtToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/",
     });
 
     // Determine redirect
@@ -170,10 +166,22 @@ export async function POST(request: NextRequest) {
       ? "/agency/dashboard"
       : "/client/dashboard";
 
-    return NextResponse.json({
+    // Create response and set the session cookie on it
+    const response = NextResponse.json({
       success: true,
       redirectTo,
     });
+
+    // Set the session cookie on the response object directly
+    response.cookies.set(SESSION_COOKIE_NAME, jwtToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Accept invitation error:", error);
 

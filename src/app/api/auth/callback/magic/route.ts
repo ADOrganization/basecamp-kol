@@ -6,7 +6,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { verifyMagicLinkToken } from "@/lib/magic-link";
 import { logSecurityEvent, getRequestMetadata } from "@/lib/security-audit";
@@ -14,6 +13,12 @@ import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 import { encode } from "next-auth/jwt";
 
 const APP_URL = process.env.NEXTAUTH_URL || "https://basecampnetwork.xyz";
+
+// Cookie name changes based on environment (Auth.js convention)
+const isProduction = process.env.NODE_ENV === "production";
+const SESSION_COOKIE_NAME = isProduction
+  ? "__Secure-authjs.session-token"
+  : "authjs.session-token";
 
 export async function GET(request: NextRequest) {
   // Rate limiting
@@ -121,6 +126,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Create JWT token for the session
+    // The salt must match the cookie name for Auth.js to decode it properly
     const jwtToken = await encode({
       token: {
         id: user.id,
@@ -132,18 +138,8 @@ export async function GET(request: NextRequest) {
         organizationName: membership.organization.name,
       },
       secret: process.env.AUTH_SECRET!,
-      salt: "authjs.session-token",
+      salt: SESSION_COOKIE_NAME,
       maxAge: 7 * 24 * 60 * 60, // 7 days
-    });
-
-    // Set the session cookie
-    const cookieStore = await cookies();
-    cookieStore.set("authjs.session-token", jwtToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: "/",
     });
 
     // Redirect to appropriate dashboard
@@ -151,7 +147,20 @@ export async function GET(request: NextRequest) {
       ? "/agency/dashboard"
       : "/client/dashboard";
 
-    return NextResponse.redirect(new URL(redirectTo, APP_URL));
+    // Create redirect response and set the session cookie on it
+    const response = NextResponse.redirect(new URL(redirectTo, APP_URL));
+
+    // Set the session cookie on the response object directly
+    // This ensures the cookie is included in the redirect response
+    response.cookies.set(SESSION_COOKIE_NAME, jwtToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Magic link callback error:", error);
 
