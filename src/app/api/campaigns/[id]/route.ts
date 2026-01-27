@@ -193,20 +193,36 @@ export async function PUT(
     // Handle client users if provided
     let clientId = validatedData.clientId || existingCampaign.clientId || null;
 
-    // Update existing client org's logo if X handle changed OR if org has no logo yet
-    if (clientId && projectAvatarUrl) {
+    // Always sync client org logo with campaign's X profile picture
+    if (clientId && newHandle) {
       const clientOrg = await db.organization.findUnique({
         where: { id: clientId },
         select: { logoUrl: true },
       });
 
-      // Update if handle changed or org has no logo
-      if (newHandle !== oldHandle || !clientOrg?.logoUrl) {
-        await db.organization.update({
-          where: { id: clientId },
-          data: { logoUrl: projectAvatarUrl },
-        });
-        console.log("[Campaign Update] Updated existing client org logo");
+      // Update if org has no logo OR logo differs from campaign avatar
+      if (!clientOrg?.logoUrl || clientOrg.logoUrl !== projectAvatarUrl) {
+        // Fetch fresh avatar if we don't have one
+        let avatarToUse = projectAvatarUrl;
+        if (!avatarToUse) {
+          try {
+            const media = await fetchTwitterMedia(newHandle);
+            avatarToUse = media.avatarUrl;
+            // Also update the campaign's avatar
+            projectAvatarUrl = media.avatarUrl;
+            projectBannerUrl = media.bannerUrl || projectBannerUrl;
+          } catch (error) {
+            console.log("[Campaign Update] Failed to fetch avatar for logo sync:", error);
+          }
+        }
+
+        if (avatarToUse) {
+          await db.organization.update({
+            where: { id: clientId },
+            data: { logoUrl: avatarToUse },
+          });
+          console.log("[Campaign Update] Synced client org logo with X profile picture");
+        }
       }
     }
     const clientUsersCreated: { email: string; name?: string; invited: boolean }[] = [];

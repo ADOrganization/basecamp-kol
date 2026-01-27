@@ -13,8 +13,6 @@ import {
   ExternalLink,
   ThumbsUp,
   FileText,
-  FileCheck,
-  AlertCircle,
   Search,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
@@ -238,31 +236,7 @@ export default function ClientReviewPage() {
   );
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 p-8 text-white">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/20 rounded-full blur-3xl -mr-32 -mt-32" />
-        <div className="relative flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-teal-200 mb-2">
-              <FileCheck className="h-5 w-5" />
-              <span className="text-sm font-medium">Content Review</span>
-            </div>
-            <h1 className="text-3xl font-bold mb-2">Review Posts</h1>
-            <p className="text-teal-100 max-w-xl">
-              Review and approve content from your KOL campaigns before it goes live.
-            </p>
-          </div>
-          {pendingPosts.length > 0 && (
-            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-amber-500/90 rounded-xl">
-              <AlertCircle className="h-5 w-5" />
-              <span className="font-medium">{pendingPosts.length} posts need review</span>
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="relative overflow-hidden">

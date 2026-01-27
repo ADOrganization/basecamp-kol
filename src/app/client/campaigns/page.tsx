@@ -91,13 +91,6 @@ export default function ClientCampaignsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        {/* Header Skeleton */}
-        <div className="rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 p-8 animate-pulse">
-          <div className="h-6 w-40 bg-primary/10 rounded mb-4" />
-          <div className="h-8 w-64 bg-primary/10 rounded mb-2" />
-          <div className="h-4 w-80 bg-primary/10 rounded" />
-        </div>
-
         {/* Stats Skeleton */}
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -140,34 +133,6 @@ export default function ClientCampaignsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
-        <div className="relative flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-primary-foreground/70 mb-2">
-              <Megaphone className="h-5 w-5" />
-              <span className="text-sm font-medium">Campaign Overview</span>
-            </div>
-            <h1 className="text-3xl font-bold mb-2">Your Campaigns</h1>
-            <p className="text-primary-foreground/80 max-w-xl">
-              Monitor and track all your influencer marketing campaigns in one place.
-            </p>
-          </div>
-          <div className="hidden md:flex items-center gap-4">
-            <div className="text-center px-6 py-3 bg-white/10 rounded-xl backdrop-blur-sm">
-              <p className="text-3xl font-bold">{campaigns.length}</p>
-              <p className="text-sm text-primary-foreground/70">Total</p>
-            </div>
-            <div className="text-center px-6 py-3 bg-white/10 rounded-xl backdrop-blur-sm">
-              <p className="text-3xl font-bold">{activeCampaigns}</p>
-              <p className="text-sm text-primary-foreground/70">Active</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Stats Row */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="relative overflow-hidden">
