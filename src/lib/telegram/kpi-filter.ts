@@ -76,7 +76,7 @@ export async function calculateKOLProgress(
     (sum, d) => sum + Math.min(d.completed, d.required),
     0
   );
-  const percentage = totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 100;
+  const percentage = totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 0;
 
   return {
     kolId,
@@ -84,7 +84,7 @@ export async function calculateKOLProgress(
     totalRequired,
     totalCompleted,
     percentage,
-    metKpi: percentage >= 100,
+    metKpi: totalRequired > 0 && percentage >= 100,
     deliverables: activeDeliverables,
   };
 }
@@ -157,8 +157,8 @@ export async function getChatsFilteredByKPI(
         (sum, d) => sum + Math.min(d.completed, d.required),
         0
       );
-      const percentage = totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 100;
-      const metKpi = percentage >= 100;
+      const percentage = totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 0;
+      const metKpi = totalRequired > 0 && percentage >= 100;
 
       if (metKpi) anyMetKpi = true;
       else anyNotMetKpi = true;

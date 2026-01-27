@@ -253,7 +253,7 @@ async function getDashboardStats(organizationId: string) {
 
     const totalReq = totalRequired.posts + totalRequired.threads + totalRequired.retweets + totalRequired.spaces;
     const totalComp = totalCompleted.posts + totalCompleted.threads + totalCompleted.retweets + totalCompleted.spaces;
-    const progress = totalReq > 0 ? (totalComp / totalReq) * 100 : 100;
+    const progress = totalReq > 0 ? (totalComp / totalReq) * 100 : 0;
 
     const allocatedBudget = campaign.campaignKols.reduce((sum, ck) => sum + ck.assignedBudget, 0);
 

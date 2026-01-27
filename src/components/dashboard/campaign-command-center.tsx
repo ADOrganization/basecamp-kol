@@ -64,7 +64,7 @@ function calculateOverallProgress(deliverables: CampaignData['deliverables']): n
     deliverables.required.retweets +
     deliverables.required.spaces;
 
-  if (totalRequired === 0) return 100;
+  if (totalRequired === 0) return 0;
 
   const totalCompleted =
     Math.min(deliverables.completed.posts, deliverables.required.posts) +
