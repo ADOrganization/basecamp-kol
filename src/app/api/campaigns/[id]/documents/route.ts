@@ -3,10 +3,9 @@ import { db } from "@/lib/db";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
-import { writeFile, mkdir, chmod } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
+import { put, del } from "@vercel/blob";
 import crypto from "crypto";
+import path from "path";
 
 // SECURITY: Lazy-load JWT secret - NEVER use hardcoded fallback
 function getAdminJwtSecret(): Uint8Array {
@@ -42,8 +41,6 @@ async function getAdminFromToken() {
 // SECURITY: Only admins can upload/view campaign documents
 // Documents contain sensitive legal contracts
 
-// SECURITY: Use absolute path outside web root for uploads
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve(process.cwd(), "../uploads/documents");
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_CAMPAIGN_STORAGE = 100 * 1024 * 1024; // 100MB per campaign
 
@@ -255,31 +252,13 @@ export async function POST(
     // SECURITY: Generate a random filename to prevent path traversal
     const randomName = crypto.randomBytes(16).toString("hex");
     const safeFilename = `${randomName}${fileExt}`;
+    const blobPath = `campaigns/${campaignId}/documents/${safeFilename}`;
 
-    // SECURITY: Validate upload directory is resolved to expected location
-    const uploadPath = path.resolve(UPLOAD_DIR, campaignId);
-    if (!uploadPath.startsWith(path.resolve(UPLOAD_DIR))) {
-      console.error(`[Documents] Path traversal attempt detected: ${uploadPath}`);
-      return NextResponse.json({ error: "Invalid campaign ID" }, { status: 400 });
-    }
-
-    // Create upload directory if it doesn't exist
-    if (!existsSync(uploadPath)) {
-      await mkdir(uploadPath, { recursive: true, mode: 0o750 });
-    }
-
-    // SECURITY: Final path validation
-    const filePath = path.resolve(uploadPath, safeFilename);
-    if (!filePath.startsWith(uploadPath)) {
-      console.error(`[Documents] Path traversal attempt in filename: ${safeFilename}`);
-      return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
-    }
-
-    // Write file to disk with restricted permissions
-    await writeFile(filePath, buffer, { mode: 0o600 });
-
-    // SECURITY: Explicitly set file permissions (defense in depth)
-    await chmod(filePath, 0o600);
+    // Upload to Vercel Blob
+    const blob = await put(blobPath, buffer, {
+      access: "public", // We control access via our API
+      contentType: file.type,
+    });
 
     // Create database record
     const document = await db.campaignDocument.create({
@@ -290,8 +269,8 @@ export async function POST(
         type: (type as any) || "CONTRACT",
         mimeType: file.type,
         fileSize: file.size,
-        storagePath: filePath,
-        storageType: "local",
+        storagePath: blob.url,
+        storageType: "blob",
         description: description || null,
         uploadedBy: admin.id,
       },
