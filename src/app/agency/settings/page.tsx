@@ -8,6 +8,7 @@ import { OrganizationForm } from "@/components/settings/organization-form";
 import { TwitterIntegrationCard, TelegramIntegrationCard, NotificationsCard } from "@/components/settings/integrations-card";
 import { TwoFactorAuth } from "@/components/settings/two-factor-auth";
 import { AdminTeamManagement } from "@/components/settings/admin-team-management";
+import { AdminPasswordChange } from "@/components/settings/admin-password-change";
 
 export default async function SettingsPage() {
   const context = await getAgencyContext();
@@ -194,14 +195,22 @@ export default async function SettingsPage() {
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
+          {/* Password Change - Admin Only */}
+          {context.isAdmin && (
+            <div className="rounded-xl border bg-card p-6">
+              <AdminPasswordChange />
+            </div>
+          )}
+
+          {/* Two-Factor Authentication */}
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                 <Shield className="h-4 w-4 text-emerald-500" />
               </div>
               <div>
-                <h2 className="font-semibold">Security Settings</h2>
-                <p className="text-sm text-muted-foreground">Manage your account security and authentication</p>
+                <h2 className="font-semibold">Two-Factor Authentication</h2>
+                <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
               </div>
             </div>
             {context.isAdmin ? (

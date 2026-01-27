@@ -54,8 +54,8 @@ export default function KOLsPage() {
     try {
       const response = await fetch("/api/kols");
       if (response.ok) {
-        const data = await response.json();
-        setKols(data);
+        const result = await response.json();
+        setKols(result.data || []);
       }
     } catch (error) {
       console.error("Failed to fetch KOLs:", error);
