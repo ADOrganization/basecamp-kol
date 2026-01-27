@@ -210,6 +210,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // Document count state
+  const [documentCount, setDocumentCount] = useState(0);
+
   // Load auth from localStorage
   useEffect(() => {
     const savedApiKey = localStorage.getItem("twitter_api_key");
@@ -239,6 +242,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     fetchCampaign();
     fetchTelegramChats();
+    fetchDocumentCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -263,6 +267,18 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       }
     } catch (error) {
       console.error("Failed to fetch telegram chats:", error);
+    }
+  };
+
+  const fetchDocumentCount = async () => {
+    try {
+      const response = await fetch(`/api/campaigns/${id}/documents`);
+      if (response.ok) {
+        const data = await response.json();
+        setDocumentCount(Array.isArray(data) ? data.length : 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch document count:", error);
     }
   };
 
@@ -771,7 +787,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <FolderOpen className="h-4 w-4" />
-            Documents
+            Documents ({documentCount})
           </TabsTrigger>
         </TabsList>
 
