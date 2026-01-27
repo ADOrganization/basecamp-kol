@@ -4,10 +4,31 @@ import { generateSecret, verify, generateURI } from "otplib";
 import QRCode from "qrcode";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import crypto from "crypto";
 
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
-);
+// SECURITY: Lazy-load JWT secret to avoid build-time errors
+function getAdminJwtSecret(): Uint8Array {
+  const secret = process.env.ADMIN_JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("ADMIN_JWT_SECRET required in production");
+  }
+  return new TextEncoder().encode(secret || process.env.AUTH_SECRET || "dev-only-admin-secret");
+}
+
+/**
+ * Generate cryptographically secure backup codes
+ */
+function generateSecureBackupCodes(count: number = 10): string[] {
+  const codes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    // Generate 10 random bytes and convert to base32-like string (uppercase alphanumeric)
+    const bytes = crypto.randomBytes(6);
+    const code = bytes.toString("hex").toUpperCase().slice(0, 10);
+    // Format as XXXXX-XXXXX for readability
+    codes.push(`${code.slice(0, 5)}-${code.slice(5)}`);
+  }
+  return codes;
+}
 
 async function getAdminFromToken(): Promise<{ adminId: string; isSetupToken: boolean } | null> {
   const cookieStore = await cookies();
@@ -16,7 +37,7 @@ async function getAdminFromToken(): Promise<{ adminId: string; isSetupToken: boo
   const token = cookieStore.get("admin_token")?.value;
   if (token) {
     try {
-      const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
+      const { payload } = await jwtVerify(token, getAdminJwtSecret());
       if (payload.type === "admin" && payload.sub) {
         return { adminId: payload.sub as string, isSetupToken: false };
       }
@@ -29,7 +50,7 @@ async function getAdminFromToken(): Promise<{ adminId: string; isSetupToken: boo
   const setupToken = cookieStore.get("admin_2fa_setup_token")?.value;
   if (setupToken) {
     try {
-      const { payload } = await jwtVerify(setupToken, ADMIN_JWT_SECRET);
+      const { payload } = await jwtVerify(setupToken, getAdminJwtSecret());
       if (payload.type === "admin_2fa_setup" && payload.sub) {
         return { adminId: payload.sub as string, isSetupToken: true };
       }
@@ -118,12 +139,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate backup codes
-    const backupCodes: string[] = [];
-    for (let i = 0; i < 10; i++) {
-      const backupCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      backupCodes.push(backupCode);
-    }
+    // SECURITY: Generate cryptographically secure backup codes
+    const backupCodes = generateSecureBackupCodes(10);
 
     // Store the secret and enable 2FA
     const admin = await db.adminUser.update({
@@ -151,7 +168,7 @@ export async function POST(request: NextRequest) {
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
         .setExpirationTime("8h")
-        .sign(ADMIN_JWT_SECRET);
+        .sign(getAdminJwtSecret());
 
       cookieStore.set("admin_token", token, {
         httpOnly: true,

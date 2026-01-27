@@ -1,10 +1,47 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { db } from "@/lib/db";
+import crypto from "crypto";
 
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
-);
+// SECURITY: Require explicit ADMIN_JWT_SECRET in production
+// Never fall back to a default value for admin authentication
+// Lazy initialization to avoid build-time errors
+
+let _adminJwtSecret: Uint8Array | null = null;
+
+function getAdminJwtSecret(): Uint8Array {
+  if (_adminJwtSecret) return _adminJwtSecret;
+
+  const secret = process.env.ADMIN_JWT_SECRET;
+
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("CRITICAL: ADMIN_JWT_SECRET environment variable is required in production");
+    }
+    // Only allow fallback in development with a warning
+    console.warn("WARNING: ADMIN_JWT_SECRET not set, using fallback. DO NOT use in production!");
+    _adminJwtSecret = new TextEncoder().encode(process.env.AUTH_SECRET || "dev-only-admin-secret");
+    return _adminJwtSecret;
+  }
+
+  // Validate secret strength
+  if (secret.length < 32) {
+    throw new Error("ADMIN_JWT_SECRET must be at least 32 characters long");
+  }
+
+  _adminJwtSecret = new TextEncoder().encode(secret);
+  return _adminJwtSecret;
+}
+
+/**
+ * Timing-safe string comparison to prevent timing attacks
+ */
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 export interface AdminSession {
   id: string;
@@ -21,7 +58,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
       return null;
     }
 
-    const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
+    const { payload } = await jwtVerify(token, getAdminJwtSecret());
 
     if (payload.type !== "admin" || !payload.sub) {
       return null;

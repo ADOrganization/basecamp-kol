@@ -11,6 +11,7 @@ import { generateSecret, verify, generateURI } from "otplib";
 import QRCode from "qrcode";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import crypto from "crypto";
 
 const AUTH_SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || "auth-secret-key"
@@ -135,11 +136,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate backup codes
+    // SECURITY: Generate cryptographically secure backup codes
     const backupCodes: string[] = [];
     for (let i = 0; i < 10; i++) {
-      const backupCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      backupCodes.push(backupCode);
+      // Generate 6 random bytes and convert to hex for a secure backup code
+      const bytes = crypto.randomBytes(6);
+      const code = bytes.toString("hex").toUpperCase().slice(0, 10);
+      // Format as XXXXX-XXXXX for readability
+      backupCodes.push(`${code.slice(0, 5)}-${code.slice(5)}`);
     }
 
     // Store the secret and enable 2FA

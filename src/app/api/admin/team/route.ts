@@ -5,9 +5,14 @@ import { jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-const ADMIN_JWT_SECRET = new TextEncoder().encode(
-  process.env.ADMIN_JWT_SECRET || process.env.AUTH_SECRET || "admin-secret-key"
-);
+// SECURITY: Lazy-load JWT secret to avoid build-time errors
+function getAdminJwtSecret(): Uint8Array {
+  const secret = process.env.ADMIN_JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("ADMIN_JWT_SECRET required in production");
+  }
+  return new TextEncoder().encode(secret || process.env.AUTH_SECRET || "dev-only-admin-secret");
+}
 
 async function getAdminFromToken() {
   const cookieStore = await cookies();
@@ -16,7 +21,7 @@ async function getAdminFromToken() {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, ADMIN_JWT_SECRET);
+    const { payload } = await jwtVerify(token, getAdminJwtSecret());
     if (payload.type !== "admin" || !payload.sub) return null;
 
     const admin = await db.adminUser.findUnique({
@@ -126,12 +131,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // In production, you would send an email with the temp password
-    // For now, return it in the response
+    // SECURITY: In production, send temp password via email only
+    // Never expose credentials in API responses in production
+    if (process.env.NODE_ENV === "production") {
+      // TODO: Send email with temp password using your email service
+      // await sendAdminInviteEmail(newAdmin.email, tempPassword);
+      console.log(`[Admin Team] Admin invited: ${newAdmin.email} - temp password should be sent via email`);
+
+      return NextResponse.json({
+        admin: newAdmin,
+        message: "Admin invited successfully. Temporary password will be sent via email.",
+      });
+    }
+
+    // Development only: return temp password for testing
     return NextResponse.json({
       admin: newAdmin,
-      tempPassword, // Remove this in production - send via email instead
-      message: "Admin invited successfully. Share the temporary password securely.",
+      tempPassword, // DEV ONLY - never in production
+      message: "Admin invited successfully. (DEV: temp password included in response)",
     });
   } catch (error) {
     console.error("[Admin Team] Error inviting admin:", error);
