@@ -66,18 +66,27 @@ export async function POST(request: NextRequest) {
 
   try {
     const authContext = await getApiAuthContext();
+    console.log("[Posts API] Auth context:", authContext ? {
+      organizationId: authContext.organizationId,
+      organizationType: authContext.organizationType,
+      isAdmin: authContext.isAdmin,
+    } : "null");
+
     if (!authContext) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.log("[Posts API] No auth context - returning 401");
+      return NextResponse.json({ error: "Unauthorized - please log in again" }, { status: 401 });
     }
 
     if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      console.log("[Posts API] Not agency and not admin - returning 403");
+      return NextResponse.json({ error: "Forbidden - agency access required" }, { status: 403 });
     }
 
     const body = await request.json();
     const validatedData = postSchema.parse(body);
 
     // Verify campaign belongs to user's org
+    console.log("[Posts API] Looking for campaign:", validatedData.campaignId, "with agencyId:", authContext.organizationId);
     const campaign = await db.campaign.findFirst({
       where: {
         id: validatedData.campaignId,
@@ -86,7 +95,20 @@ export async function POST(request: NextRequest) {
     });
 
     if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+      // Debug: check if campaign exists at all
+      const campaignExists = await db.campaign.findUnique({
+        where: { id: validatedData.campaignId },
+        select: { id: true, agencyId: true },
+      });
+      console.log("[Posts API] Campaign not found for org. Campaign exists?", campaignExists);
+      return NextResponse.json({
+        error: "Campaign not found or access denied",
+        debug: process.env.NODE_ENV !== "production" ? {
+          requestedCampaign: validatedData.campaignId,
+          userOrgId: authContext.organizationId,
+          campaignActualOrgId: campaignExists?.agencyId,
+        } : undefined,
+      }, { status: 404 });
     }
 
     // Verify KOL belongs to user's org

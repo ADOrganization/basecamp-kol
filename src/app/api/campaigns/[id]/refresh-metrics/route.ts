@@ -16,12 +16,20 @@ export async function POST(
   const authContext = await getApiAuthContext();
   const { id: campaignId } = await params;
 
+  console.log("[Refresh Metrics] Auth context:", authContext ? {
+    organizationId: authContext.organizationId,
+    organizationType: authContext.organizationType,
+    isAdmin: authContext.isAdmin,
+  } : "null");
+
   if (!authContext) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    console.log("[Refresh Metrics] No auth context - returning 401");
+    return NextResponse.json({ error: "Unauthorized - please log in again" }, { status: 401 });
   }
 
   if (authContext.organizationType !== "AGENCY" && !authContext.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    console.log("[Refresh Metrics] Not agency and not admin - returning 403");
+    return NextResponse.json({ error: "Forbidden - agency access required" }, { status: 403 });
   }
 
   try {
@@ -73,6 +81,7 @@ export async function POST(
     console.log(`[Refresh Metrics] hasAnyScraperConfigured() = ${hasAnyScraperConfigured()}`);
 
     // Get campaign with posts
+    console.log("[Refresh Metrics] Looking for campaign:", campaignId, "with agencyId:", authContext.organizationId);
     const campaign = await db.campaign.findFirst({
       where: {
         id: campaignId,
@@ -98,7 +107,13 @@ export async function POST(
     });
 
     if (!campaign) {
-      return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+      // Debug: check if campaign exists at all
+      const campaignExists = await db.campaign.findUnique({
+        where: { id: campaignId },
+        select: { id: true, agencyId: true },
+      });
+      console.log("[Refresh Metrics] Campaign not found for org. Campaign exists?", campaignExists);
+      return NextResponse.json({ error: "Campaign not found or access denied" }, { status: 404 });
     }
 
     if (campaign.posts.length === 0) {

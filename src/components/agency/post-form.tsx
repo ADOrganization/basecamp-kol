@@ -89,9 +89,12 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
     }
   };
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (!formData.kolId) return;
     setIsSubmitting(true);
+    setError(null);
 
     try {
       const hasMetrics = formData.impressions || formData.likes || formData.retweets;
@@ -121,9 +124,13 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
       if (response.ok) {
         resetForm();
         onClose();
+      } else {
+        const data = await response.json();
+        setError(data.error || `Failed to create post (${response.status})`);
       }
     } catch (error) {
       console.error("Failed to create post:", error);
+      setError("Network error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -147,6 +154,7 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
       clicks: "",
     });
     setShowMetrics(false);
+    setError(null);
   };
 
   return (
@@ -164,6 +172,11 @@ export function PostForm({ campaignId, campaignKeywords = [], kols, open, onClos
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4">
+          {error && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label>KOL *</Label>
             <Select
