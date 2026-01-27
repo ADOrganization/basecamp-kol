@@ -26,7 +26,6 @@ import {
   Building2,
   User,
   Mail,
-  Target,
   Copy,
   Check,
   Pencil,
@@ -34,9 +33,11 @@ import {
   MoreVertical,
   Megaphone,
   Search,
-  ArrowUpRight,
   Sparkles,
   Shield,
+  Send,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -74,6 +75,8 @@ interface ClientUser {
   id: string;
   email: string;
   name: string | null;
+  emailVerified: string | null;
+  lastLoginAt: string | null;
 }
 
 interface ClientMember {
@@ -128,6 +131,9 @@ export default function ClientAccountsPage() {
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Resend state
+  const [resendingClientId, setResendingClientId] = useState<string | null>(null);
+
   useEffect(() => {
     fetchClients();
     fetchCampaigns();
@@ -157,6 +163,28 @@ export default function ClientAccountsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch campaigns:", error);
+    }
+  };
+
+  const handleResendLoginLink = async (clientId: string) => {
+    setResendingClientId(clientId);
+    try {
+      const response = await fetch(`/api/clients/${clientId}/resend`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Login link sent to ${data.email}`);
+      } else {
+        alert(data.error || "Failed to send login link");
+      }
+    } catch (error) {
+      console.error("Failed to resend login link:", error);
+      alert("Failed to send login link");
+    } finally {
+      setResendingClientId(null);
     }
   };
 
@@ -484,6 +512,17 @@ export default function ClientAccountsPage() {
                               <Mail className="h-3.5 w-3.5" />
                               {client.members[0].user.email}
                             </span>
+                            {client.members[0].user.emailVerified ? (
+                              <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 border text-xs gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30 border text-xs gap-1">
+                                <Clock className="h-3 w-3" />
+                                Onboarding
+                              </Badge>
+                            )}
                           </>
                         )}
                       </div>
@@ -514,6 +553,13 @@ export default function ClientAccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => handleResendLoginLink(client.id)}
+                          disabled={resendingClientId === client.id}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          {resendingClientId === client.id ? "Sending..." : "Resend Login Link"}
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEditClick(client)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Edit
