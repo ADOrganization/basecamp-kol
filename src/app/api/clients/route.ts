@@ -110,49 +110,76 @@ export async function POST(request: NextRequest) {
       include: {
         memberships: {
           include: {
-            organization: true,
+            organization: {
+              include: {
+                clientCampaigns: {
+                  where: { agencyId: authContext.organizationId },
+                  take: 1,
+                },
+              },
+            },
           },
         },
       },
     });
 
-    // If user exists and already has a CLIENT membership, reject
+    // If user exists, check their CLIENT memberships
+    let existingClientOrg = null;
     if (existingUser) {
-      const hasClientMembership = existingUser.memberships.some(
+      const clientMembership = existingUser.memberships.find(
         m => m.organization.type === "CLIENT"
       );
-      if (hasClientMembership) {
-        return NextResponse.json(
-          { error: "This email is already associated with a client account. You can resend their login link from the Clients tab." },
-          { status: 400 }
-        );
+
+      if (clientMembership) {
+        // Check if this client org has campaigns from THIS agency
+        const hasAgencyCampaign = clientMembership.organization.clientCampaigns.length > 0;
+
+        if (hasAgencyCampaign) {
+          return NextResponse.json(
+            { error: "This email is already associated with a client account. You can resend their login link from the Clients tab." },
+            { status: 400 }
+          );
+        }
+
+        // User has a client org but not linked to this agency's campaigns - we'll reuse it
+        existingClientOrg = clientMembership.organization;
       }
     }
 
     // Create the client organization, user, and membership in a transaction
     const result = await db.$transaction(async (tx) => {
-      // Create slug from organization name
-      const slug = validatedData.organizationName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+      let clientOrg;
 
-      // Check if slug exists and make it unique
-      let finalSlug = slug;
-      let counter = 1;
-      while (await tx.organization.findUnique({ where: { slug: finalSlug } })) {
-        finalSlug = `${slug}-${counter}`;
-        counter++;
+      if (existingClientOrg) {
+        // Reuse existing client org - just update name if needed
+        clientOrg = await tx.organization.update({
+          where: { id: existingClientOrg.id },
+          data: { name: validatedData.organizationName },
+        });
+      } else {
+        // Create new client organization
+        // Create slug from organization name
+        const slug = validatedData.organizationName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
+
+        // Check if slug exists and make it unique
+        let finalSlug = slug;
+        let counter = 1;
+        while (await tx.organization.findUnique({ where: { slug: finalSlug } })) {
+          finalSlug = `${slug}-${counter}`;
+          counter++;
+        }
+
+        clientOrg = await tx.organization.create({
+          data: {
+            name: validatedData.organizationName,
+            slug: finalSlug,
+            type: "CLIENT",
+          },
+        });
       }
-
-      // Create the client organization
-      const clientOrg = await tx.organization.create({
-        data: {
-          name: validatedData.organizationName,
-          slug: finalSlug,
-          type: "CLIENT",
-        },
-      });
 
       // Create the user or use existing one
       let user;
@@ -174,14 +201,16 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Create the membership
-      await tx.organizationMember.create({
-        data: {
-          organizationId: clientOrg.id,
-          userId: user.id,
-          role: "OWNER",
-        },
-      });
+      // Create the membership only if not already a member
+      if (!existingClientOrg) {
+        await tx.organizationMember.create({
+          data: {
+            organizationId: clientOrg.id,
+            userId: user.id,
+            role: "OWNER",
+          },
+        });
+      }
 
       // Assign the campaign to the client organization
       await tx.campaign.update({
