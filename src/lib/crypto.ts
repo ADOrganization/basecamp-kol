@@ -116,3 +116,24 @@ export function ensureDecrypted(value: string | null): string | null {
   if (!isEncrypted(value)) return value;
   return decryptSensitiveData(value);
 }
+
+/**
+ * Safely decrypt a value, returning the original if decryption fails
+ * This handles the case where data might be plain text but looks like base64
+ */
+export function safeDecrypt(value: string | null): string | null {
+  if (!value) return null;
+
+  // If it doesn't look encrypted, return as-is
+  if (!isEncrypted(value)) return value;
+
+  // Try to decrypt, fall back to original if it fails
+  try {
+    return decryptSensitiveData(value);
+  } catch {
+    // Decryption failed - the value is likely plain text that happened to
+    // look like base64 encoded data. Return the original value.
+    console.warn("[Crypto] Decryption failed, assuming plain text value");
+    return value;
+  }
+}

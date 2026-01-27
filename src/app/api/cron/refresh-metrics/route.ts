@@ -6,7 +6,7 @@ import {
   setSocialDataApiKey,
   setApifyApiKey,
 } from "@/lib/scraper/x-scraper";
-import { decryptSensitiveData, isEncrypted } from "@/lib/crypto";
+import { safeDecrypt } from "@/lib/crypto";
 
 // Secret for protecting cron endpoint
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -45,16 +45,9 @@ export async function POST(request: Request) {
     if (orgsWithKeys.length > 0) {
       const org = orgsWithKeys[0];
 
-      // SECURITY: Decrypt API keys if encrypted
-      let socialDataKey = org.socialDataApiKey;
-      let apifyKey = org.apifyApiKey;
-
-      if (socialDataKey && isEncrypted(socialDataKey)) {
-        socialDataKey = decryptSensitiveData(socialDataKey);
-      }
-      if (apifyKey && isEncrypted(apifyKey)) {
-        apifyKey = decryptSensitiveData(apifyKey);
-      }
+      // SECURITY: Decrypt API keys if encrypted (safeDecrypt handles both)
+      const socialDataKey = safeDecrypt(org.socialDataApiKey);
+      const apifyKey = safeDecrypt(org.apifyApiKey);
 
       if (socialDataKey) {
         setSocialDataApiKey(socialDataKey);

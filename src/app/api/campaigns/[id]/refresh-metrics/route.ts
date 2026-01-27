@@ -3,7 +3,7 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasAnyScraperConfigured } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
-import { decryptSensitiveData, isEncrypted } from "@/lib/crypto";
+import { safeDecrypt } from "@/lib/crypto";
 
 export async function POST(
   request: NextRequest,
@@ -45,16 +45,9 @@ export async function POST(
     console.log(`[Refresh Metrics] SocialData key in DB: ${org?.socialDataApiKey ? 'configured' : 'NOT SET'}`);
     console.log(`[Refresh Metrics] Apify key in DB: ${org?.apifyApiKey ? 'configured' : 'NOT SET'}`);
 
-    // SECURITY: Decrypt API keys if encrypted
-    let socialDataKey = org?.socialDataApiKey || null;
-    let apifyKey = org?.apifyApiKey || null;
-
-    if (socialDataKey && isEncrypted(socialDataKey)) {
-      socialDataKey = decryptSensitiveData(socialDataKey);
-    }
-    if (apifyKey && isEncrypted(apifyKey)) {
-      apifyKey = decryptSensitiveData(apifyKey);
-    }
+    // SECURITY: Decrypt API keys if encrypted (safeDecrypt handles both encrypted and plain text)
+    const socialDataKey = safeDecrypt(org?.socialDataApiKey || null);
+    const apifyKey = safeDecrypt(org?.apifyApiKey || null);
 
     // Set SocialData API key (primary)
     if (socialDataKey) {

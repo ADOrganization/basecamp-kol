@@ -3,7 +3,7 @@ import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { scrapeMultipleKOLs, scrapeSingleTweet, setApifyApiKey, clearApifyApiKey, setSocialDataApiKey, clearSocialDataApiKey, hasSocialDataApiKey, hasApifyApiKey, type ScrapedTweet } from "@/lib/scraper/x-scraper";
 import { applyRateLimit, RATE_LIMITS } from "@/lib/api-security";
-import { decryptSensitiveData, isEncrypted } from "@/lib/crypto";
+import { safeDecrypt } from "@/lib/crypto";
 
 // Helper function to find keyword matches in content
 function findKeywordMatches(content: string, keywords: string[]): string[] {
@@ -47,16 +47,9 @@ export async function POST(
       select: { apifyApiKey: true, socialDataApiKey: true },
     });
 
-    // SECURITY: Decrypt API keys if encrypted
-    let apifyKeyToUse = org?.apifyApiKey || null;
-    let socialDataKeyToUse = org?.socialDataApiKey || null;
-
-    if (apifyKeyToUse && isEncrypted(apifyKeyToUse)) {
-      apifyKeyToUse = decryptSensitiveData(apifyKeyToUse);
-    }
-    if (socialDataKeyToUse && isEncrypted(socialDataKeyToUse)) {
-      socialDataKeyToUse = decryptSensitiveData(socialDataKeyToUse);
-    }
+    // SECURITY: Decrypt API keys if encrypted (safeDecrypt handles both)
+    const apifyKeyToUse = safeDecrypt(org?.apifyApiKey || null);
+    const socialDataKeyToUse = safeDecrypt(org?.socialDataApiKey || null);
 
     // SECURITY: Only log presence, not key content
     console.log(`[Scrape API] SocialData key: ${socialDataKeyToUse ? 'configured' : 'none'}`);

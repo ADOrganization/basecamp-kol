@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { encryptSensitiveData, decryptSensitiveData, isEncrypted } from "@/lib/crypto";
+import { encryptSensitiveData, safeDecrypt } from "@/lib/crypto";
 
 const twitterSettingsSchema = z.object({
   apifyApiKey: z.string().optional(),
@@ -30,16 +30,9 @@ export async function GET() {
     }
 
     // SECURITY: Decrypt keys if encrypted, then mask for display
-    let apifyKey = org.apifyApiKey;
-    let socialDataKey = org.socialDataApiKey;
-
-    // Decrypt if encrypted
-    if (apifyKey && isEncrypted(apifyKey)) {
-      apifyKey = decryptSensitiveData(apifyKey);
-    }
-    if (socialDataKey && isEncrypted(socialDataKey)) {
-      socialDataKey = decryptSensitiveData(socialDataKey);
-    }
+    // Using safeDecrypt to handle both encrypted and plain text keys (for migration)
+    const apifyKey = safeDecrypt(org.apifyApiKey);
+    const socialDataKey = safeDecrypt(org.socialDataApiKey);
 
     // Mask the API keys for security (show only last 4 chars)
     const maskedApifyKey = apifyKey
