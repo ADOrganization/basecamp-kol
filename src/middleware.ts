@@ -88,16 +88,22 @@ function handleAdminSubdomain(req: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
+  // Admin login/setup pages - ALWAYS allow access first (prevents redirect loops)
+  if (nextUrl.pathname.startsWith("/admin/")) {
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
+  }
+
   // Block client portal routes on admin subdomain - redirect to dashboard (if logged in) or login
   // Note: Use "/client/" to avoid matching "/clients" (admin clients page)
   if (nextUrl.pathname.startsWith("/client/") || nextUrl.pathname === "/client") {
     const url = nextUrl.clone();
-    url.pathname = isLoggedIn ? "/dashboard" : "/";
+    url.pathname = isLoggedIn ? "/dashboard" : "/admin/login";
     return NextResponse.redirect(url);
   }
 
   // If logged in, redirect root/login to dashboard
-  if (isLoggedIn && (nextUrl.pathname === "/" || nextUrl.pathname === "/login" || nextUrl.pathname === "/admin/login")) {
+  if (isLoggedIn && (nextUrl.pathname === "/" || nextUrl.pathname === "/login")) {
     const url = nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
@@ -111,18 +117,12 @@ function handleAdminSubdomain(req: NextRequest): NextResponse {
     return addSecurityHeaders(response);
   }
 
-  // Admin login/setup pages - allow access (no redirect needed)
-  if (nextUrl.pathname.startsWith("/admin")) {
-    const response = NextResponse.next();
-    return addSecurityHeaders(response);
-  }
-
   // Protected admin routes - require admin auth
   if (isAdminProtectedRoute(nextUrl.pathname)) {
     if (!isLoggedIn) {
-      // Redirect to root (which shows login) - clean URL
+      // Redirect to login page directly
       const url = nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = "/admin/login";
       return NextResponse.redirect(url);
     }
     const response = NextResponse.next();
