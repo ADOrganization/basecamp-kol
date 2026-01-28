@@ -52,7 +52,7 @@ export function ClientEngagementTrends({
   };
 
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Engagement Trends</CardTitle>
@@ -88,16 +88,16 @@ export function ClientEngagementTrends({
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {data.length === 0 ? (
-          <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+          <div className="h-[160px] flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No trend data available</p>
+              <p className="text-sm">No trend data available</p>
             </div>
           </div>
         ) : (
-          <div className="h-[200px]">
+          <div className="h-[160px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={data}
@@ -128,17 +128,15 @@ export function ClientEngagementTrends({
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
                   tickLine={false}
                   axisLine={false}
-                  className="text-muted-foreground"
                 />
                 <YAxis
                   tickFormatter={formatYAxis}
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
                   tickLine={false}
                   axisLine={false}
-                  className="text-muted-foreground"
                 />
                 <Tooltip
                   contentStyle={{
@@ -178,7 +176,7 @@ export function ClientEngagementTrends({
         )}
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4">
+        <div className="flex items-center justify-center gap-6 mt-3">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-sky-500" />
             <span className="text-xs text-muted-foreground">Impressions</span>

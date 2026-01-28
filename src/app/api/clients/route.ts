@@ -29,13 +29,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get all client organizations that are associated with this agency's campaigns
+    // Get all client organizations via the CampaignClient junction table
     const clients = await db.organization.findMany({
       where: {
         type: "CLIENT",
-        clientCampaigns: {
+        campaignClients: {
           some: {
-            agencyId: authContext.organizationId,
+            campaign: {
+              agencyId: authContext.organizationId,
+            },
           },
         },
       },
@@ -53,14 +55,20 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        clientCampaigns: {
+        campaignClients: {
           where: {
-            agencyId: authContext.organizationId,
+            campaign: {
+              agencyId: authContext.organizationId,
+            },
           },
-          select: {
-            id: true,
-            name: true,
-            status: true,
+          include: {
+            campaign: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+              },
+            },
           },
         },
       },
@@ -69,7 +77,13 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(clients);
+    // Transform to maintain backwards-compatible shape (clientCampaigns array)
+    const transformedClients = clients.map(({ campaignClients, ...client }) => ({
+      ...client,
+      clientCampaigns: campaignClients.map(cc => cc.campaign),
+    }));
+
+    return NextResponse.json(transformedClients);
   } catch (error) {
     console.error("Error fetching clients:", error);
     return NextResponse.json(
@@ -221,11 +235,38 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Assign the campaign to the client organization
-      await tx.campaign.update({
-        where: { id: validatedData.campaignId },
-        data: { clientId: clientOrg.id },
+      // Add client to campaign via junction table (supports multiple clients)
+      // First check if already linked
+      const existingLink = await tx.campaignClient.findUnique({
+        where: {
+          campaignId_clientId: {
+            campaignId: validatedData.campaignId,
+            clientId: clientOrg.id,
+          },
+        },
       });
+
+      if (!existingLink) {
+        await tx.campaignClient.create({
+          data: {
+            campaignId: validatedData.campaignId,
+            clientId: clientOrg.id,
+          },
+        });
+      }
+
+      // Also set as primary client if none exists (backwards compatibility)
+      const currentCampaign = await tx.campaign.findUnique({
+        where: { id: validatedData.campaignId },
+        select: { clientId: true },
+      });
+
+      if (!currentCampaign?.clientId) {
+        await tx.campaign.update({
+          where: { id: validatedData.campaignId },
+          data: { clientId: clientOrg.id },
+        });
+      }
 
       // Create verification token for magic link
       const token = crypto.randomBytes(32).toString("hex");

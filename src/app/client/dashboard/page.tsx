@@ -408,7 +408,7 @@ export default async function ClientDashboard() {
         ) : (
           <div className={cn(
             "grid gap-5",
-            stats.campaigns.length === 1 ? "md:grid-cols-1 max-w-xl" :
+            stats.campaigns.length === 1 ? "grid-cols-1" :
             stats.campaigns.length === 2 ? "md:grid-cols-2" :
             "md:grid-cols-2 lg:grid-cols-3"
           )}>

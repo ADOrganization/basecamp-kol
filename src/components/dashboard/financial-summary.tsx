@@ -140,12 +140,12 @@ export function FinancialSummary({
                   </defs>
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
                     tickLine={false}
                     axisLine={false}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(value) => value > 0 ? `$${formatNumber(value)}` : '$0'}
