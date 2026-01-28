@@ -29,23 +29,30 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[Telegram Webhook] Found org:", org.id);
+    console.log("[Telegram Webhook] Bot token present:", !!org.telegramBotToken);
 
     const update: TelegramUpdate = await request.json();
+    console.log("[Telegram Webhook] Update type:", update.message ? "message" : update.my_chat_member ? "my_chat_member" : "other");
 
     // Handle my_chat_member updates (bot added/removed from groups)
     if (update.my_chat_member) {
+      console.log("[Telegram Webhook] Processing my_chat_member update");
       await handleMyChatMemberUpdate(org.id, update.my_chat_member);
     }
 
     // Handle new messages in groups
     if (update.message) {
+      console.log("[Telegram Webhook] Processing message from chat:", update.message.chat.id, "type:", update.message.chat.type);
+      console.log("[Telegram Webhook] Message text:", update.message.text?.slice(0, 100) || "(no text)");
       await handleMessage(org.id, org.telegramBotToken, update.message);
+      console.log("[Telegram Webhook] handleMessage completed");
     }
 
     // Always return 200 to acknowledge receipt
+    console.log("[Telegram Webhook] Returning 200 OK");
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("[Telegram Webhook] CRITICAL ERROR:", error);
     // Still return 200 to prevent Telegram from retrying
     return NextResponse.json({ ok: true });
   }
@@ -107,6 +114,9 @@ async function handleMyChatMemberUpdate(
 
 async function handleMessage(organizationId: string, botToken: string | null, message: TelegramMessage) {
   const chat = message.chat;
+  const textContent = message.text || message.caption;
+
+  console.log(`[Telegram Webhook] handleMessage called - chatType: ${chat.type}, chatId: ${chat.id}, text: "${textContent?.slice(0, 50) || 'none'}"`);
 
   // Handle private messages (DMs to the bot)
   if (chat.type === "private") {
@@ -116,6 +126,7 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Only handle group/supergroup messages from here
   if (chat.type !== "group" && chat.type !== "supergroup") {
+    console.log(`[Telegram Webhook] Ignoring non-group chat type: ${chat.type}`);
     return;
   }
 
@@ -145,10 +156,17 @@ async function handleMessage(organizationId: string, botToken: string | null, me
     });
   }
 
-  // Skip if no text content
-  const textContent = message.text || message.caption;
+  // Skip if no text content (already extracted above)
   if (!textContent) {
+    console.log(`[Telegram Webhook] No text content in message, skipping`);
     return;
+  }
+
+  console.log(`[Telegram Webhook] Processing group message - checking for commands. Text starts with: "${textContent.slice(0, 20)}"`);
+
+  // Check if text is a command (starts with /)
+  if (textContent.startsWith("/")) {
+    console.log(`[Telegram Webhook] Command detected: ${textContent.split(" ")[0]}`);
   }
 
   const senderUsername = message.from?.username;
@@ -171,7 +189,23 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Check for /budget command
   if (textContent.startsWith("/budget")) {
-    await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername, chat.title || null, telegramChatId);
+    console.log(`[Telegram Webhook] /budget command detected! Calling handleBudgetCommand...`);
+    console.log(`[Telegram Webhook] Parameters: orgId=${organizationId}, chatId=${chat.id}, sender=@${senderUsername}, title="${chat.title}", telegramChatId=${telegramChatId}`);
+    try {
+      await handleBudgetCommand(organizationId, botToken, chat.id, senderUsername, chat.title || null, telegramChatId);
+      console.log(`[Telegram Webhook] handleBudgetCommand completed successfully`);
+    } catch (err) {
+      console.error(`[Telegram Webhook] handleBudgetCommand threw an error:`, err);
+      // Try to send an error message to the chat
+      if (botToken) {
+        try {
+          const client = new TelegramClient(botToken);
+          await client.sendMessage(chat.id, `An error occurred processing /budget. Please try again later.`);
+        } catch (sendErr) {
+          console.error(`[Telegram Webhook] Failed to send error message:`, sendErr);
+        }
+      }
+    }
     return;
   }
 
@@ -674,25 +708,49 @@ async function handleBudgetCommand(
   groupTitle: string | null,
   telegramChatId?: string
 ) {
-  console.log(`[Budget] Command received - orgId: ${organizationId}, chatId: ${chatId}, telegramChatId: ${telegramChatId}, sender: @${senderUsername}, groupTitle: "${groupTitle}"`);
+  console.log(`[Budget] === BUDGET COMMAND START ===`);
+  console.log(`[Budget] orgId: ${organizationId}`);
+  console.log(`[Budget] chatId (number): ${chatId}`);
+  console.log(`[Budget] telegramChatId (string): ${telegramChatId}`);
+  console.log(`[Budget] sender: @${senderUsername}`);
+  console.log(`[Budget] groupTitle: "${groupTitle}"`);
+  console.log(`[Budget] botToken present: ${!!botToken}`);
 
   if (!botToken) {
-    console.log("[Budget] No bot token - aborting");
+    console.error("[Budget] CRITICAL: No bot token - cannot send any messages!");
     return;
   }
 
   const client = new TelegramClient(botToken);
 
   // DEBUG: Send immediate acknowledgment to confirm webhook is working
+  console.log(`[Budget] Attempting to send debug message to chatId: ${chatId}`);
   try {
-    await client.sendMessage(chatId, `🔍 DEBUG: /budget received from @${senderUsername || 'unknown'} in chat ${telegramChatId}`);
+    const debugResult = await client.sendMessage(chatId, `Processing /budget command from @${senderUsername || 'unknown'}...`);
+    console.log(`[Budget] Debug message result:`, JSON.stringify(debugResult));
+    if (!debugResult.ok) {
+      console.error(`[Budget] Failed to send debug message - Telegram API error: ${debugResult.description}`);
+      // If we can't even send a debug message, something is fundamentally wrong
+      // This could be: wrong chat_id, bot not in group, bot lacks permissions
+      return;
+    }
   } catch (err) {
-    console.error("[Budget] Failed to send debug message:", err);
+    console.error("[Budget] EXCEPTION sending debug message:", err);
+    // Don't return here - try to continue and see if other operations work
   }
 
-  // Helper to send response
+  // Helper to send response with error handling
   const sendResponse = async (message: string) => {
-    await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
+    try {
+      const result = await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
+      if (!result.ok) {
+        console.error(`[Budget] sendResponse failed: ${result.description}`);
+      }
+      return result;
+    } catch (err) {
+      console.error(`[Budget] sendResponse exception:`, err);
+      throw err;
+    }
   };
 
   const normalizedUsername = senderUsername?.toLowerCase().replace("@", "");
@@ -749,6 +807,7 @@ async function handleBudgetCommand(
 
   // SECURITY: Check if user is a KOL - KOLs should NEVER see budgets
   if (normalizedUsername) {
+    console.log(`[Budget] Checking if @${normalizedUsername} is a KOL...`);
     const isKol = await db.kOL.findFirst({
       where: {
         organizationId,
@@ -761,10 +820,13 @@ async function handleBudgetCommand(
     });
 
     if (isKol) {
-      // SECURITY: KOLs are not allowed to see budget information - silently ignore
-      console.warn(`[Telegram] KOL @${normalizedUsername} attempted /budget - blocked`);
+      // SECURITY: KOLs are not allowed to see budget information
+      console.warn(`[Budget] KOL @${normalizedUsername} attempted /budget - blocked`);
+      // Send a user-friendly response instead of silently ignoring
+      await sendResponse("This command is not available for KOL accounts. Please contact your agency for budget information.");
       return;
     }
+    console.log(`[Budget] @${normalizedUsername} is not a KOL`);
   }
 
   // DECISION: Who gets access?
@@ -772,12 +834,13 @@ async function handleBudgetCommand(
   // 2. Clients in their assigned campaign group - can ONLY see their campaign's budget
   // 3. Everyone else - denied
 
+  console.log(`[Budget] Access check - isAdmin: ${isAdmin}, clientCampaign: ${clientCampaign?.name || 'null'}`);
+
   if (!isAdmin && !clientCampaign) {
     // Not an admin and not in a client campaign group
-    if (normalizedUsername) {
-      console.warn(`[Telegram] Unauthorized /budget attempt by @${normalizedUsername}`);
-    }
-    // Don't reveal that the command exists - just silently ignore
+    console.warn(`[Budget] Access denied for @${normalizedUsername || 'unknown'} - not admin, not in client group`);
+    // Send a helpful response - user is in a group but not authorized
+    await sendResponse("You don't have permission to view budget information in this group. This command is available to clients in their campaign groups.");
     return;
   }
 

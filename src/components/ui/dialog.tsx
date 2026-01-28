@@ -40,22 +40,27 @@ const DialogContent = React.forwardRef<
       className={cn(
         // Base positioning - use inset for full viewport coverage, then center with flex
         "fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8",
+        // Ensure inner content is interactive
+        "pointer-events-none",
         // Animation classes
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        className
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
       )}
       {...props}
     >
-      {/* Inner content wrapper */}
+      {/* Inner content wrapper - className prop goes here for width customization */}
       <div
         className={cn(
           "relative w-full max-w-lg bg-background border shadow-lg sm:rounded-lg",
           "max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] md:max-h-[calc(100vh-4rem)]",
           "flex flex-col",
+          // Re-enable pointer events for the actual dialog content
+          "pointer-events-auto",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           // Default padding when not using flex structure
-          "[&:not(:has(>[data-dialog-header]))]:p-6 [&:not(:has(>[data-dialog-header]))]:gap-4"
+          "[&:not(:has(>[data-dialog-header]))]:p-6 [&:not(:has(>[data-dialog-header]))]:gap-4",
+          // Apply custom className to inner wrapper for width overrides
+          className
         )}
       >
         {children}

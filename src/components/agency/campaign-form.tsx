@@ -396,10 +396,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    alert("Button clicked! Email: " + newClientEmail);
-                    addClientUser();
-                  }}
+                  onClick={addClientUser}
                   disabled={!newClientEmail.trim()}
                   className="w-full"
                 >

@@ -69,6 +69,8 @@ interface Campaign {
   id: string;
   name: string;
   status: string;
+  clientId?: string | null;
+  client?: { id: string; name: string } | null;
 }
 
 interface ClientUser {
@@ -116,6 +118,18 @@ export default function ClientAccountsPage() {
     campaignId: "",
   });
 
+  // All campaigns (for creating clients - including those with existing clients)
+  const [allCampaigns, setAllCampaigns] = useState<Campaign[]>([]);
+
+  // Add Member dialog state
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [addMemberClientId, setAddMemberClientId] = useState<string | null>(null);
+  const [addMemberFormData, setAddMemberFormData] = useState({
+    name: "",
+    email: "",
+  });
+  const [addingMember, setAddingMember] = useState(false);
+
   // Edit state
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -137,6 +151,7 @@ export default function ClientAccountsPage() {
   useEffect(() => {
     fetchClients();
     fetchCampaigns();
+    fetchAllCampaigns();
   }, []);
 
   const fetchClients = async () => {
@@ -158,11 +173,23 @@ export default function ClientAccountsPage() {
       const response = await fetch("/api/campaigns");
       if (response.ok) {
         const data = await response.json();
-        // Filter to campaigns without a client assigned
+        // Filter to campaigns without a client assigned (for stats display)
         setCampaigns(data.filter((c: Campaign & { clientId?: string | null }) => !c.clientId));
       }
     } catch (error) {
       console.error("Failed to fetch campaigns:", error);
+    }
+  };
+
+  const fetchAllCampaigns = async () => {
+    try {
+      const response = await fetch("/api/campaigns");
+      if (response.ok) {
+        const data = await response.json();
+        setAllCampaigns(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch all campaigns:", error);
     }
   };
 
@@ -313,6 +340,52 @@ export default function ClientAccountsPage() {
       console.error("Failed to delete client:", error);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleAddMemberClick = (client: Client) => {
+    setAddMemberClientId(client.id);
+    setAddMemberFormData({ name: "", email: "" });
+    setShowAddMemberDialog(true);
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addMemberClientId) return;
+
+    setError("");
+    setAddingMember(true);
+
+    try {
+      const response = await fetch(`/api/clients/${addMemberClientId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addMemberFormData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to add member");
+        setAddingMember(false);
+        return;
+      }
+
+      setShowAddMemberDialog(false);
+      setAddMemberClientId(null);
+      setAddMemberFormData({ name: "", email: "" });
+      fetchClients();
+      router.refresh();
+
+      // Show success message
+      alert(data.emailSent
+        ? `Member added. Login link sent to ${addMemberFormData.email}`
+        : `Member added. Email could not be sent - they can request a login link at the login page.`
+      );
+    } catch {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setAddingMember(false);
     }
   };
 
@@ -507,6 +580,11 @@ export default function ClientAccountsPage() {
                             <span className="flex items-center gap-1.5">
                               <User className="h-3.5 w-3.5" />
                               {client.members[0].user.name || "No name"}
+                              {client.members.length > 1 && (
+                                <span className="text-xs text-muted-foreground">
+                                  +{client.members.length - 1} more
+                                </span>
+                              )}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <Mail className="h-3.5 w-3.5" />
@@ -553,6 +631,10 @@ export default function ClientAccountsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleAddMemberClick(client)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Member
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleResendLoginLink(client.id)}
                           disabled={resendingClientId === client.id}
@@ -643,28 +725,42 @@ export default function ClientAccountsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="campaignId">Assign to Campaign *</Label>
-              {campaigns.length === 0 ? (
+              {allCampaigns.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No unassigned campaigns available. Create a campaign first.
+                  No campaigns available. Create a campaign first.
                 </p>
               ) : (
-                <Select
-                  value={formData.campaignId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, campaignId: value })
-                  }
-                >
-                  <SelectTrigger id="campaignId">
-                    <SelectValue placeholder="Select a campaign" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {campaigns.map((campaign) => (
-                      <SelectItem key={campaign.id} value={campaign.id}>
-                        {campaign.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select
+                    value={formData.campaignId}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, campaignId: value })
+                    }
+                  >
+                    <SelectTrigger id="campaignId">
+                      <SelectValue placeholder="Select a campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCampaigns.map((campaign) => (
+                        <SelectItem key={campaign.id} value={campaign.id}>
+                          <span className="flex items-center gap-2">
+                            {campaign.name}
+                            {campaign.client && (
+                              <span className="text-xs text-muted-foreground">
+                                (currently: {campaign.client.name})
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formData.campaignId && allCampaigns.find(c => c.id === formData.campaignId)?.client && (
+                    <p className="text-xs text-amber-600">
+                      This campaign is currently assigned to another client. Creating this client will reassign the campaign.
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -678,7 +774,7 @@ export default function ClientAccountsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={creating || campaigns.length === 0}
+                disabled={creating || allCampaigns.length === 0}
               >
                 {creating ? "Creating..." : "Create Account"}
               </Button>
@@ -851,6 +947,69 @@ export default function ClientAccountsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Member Dialog */}
+      <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Team Member</DialogTitle>
+            <DialogDescription>
+              Add a new user to this client organization. They will have access to the same campaigns.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddMember} className="space-y-4">
+            {error && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="memberName">Name *</Label>
+              <Input
+                id="memberName"
+                value={addMemberFormData.name}
+                onChange={(e) =>
+                  setAddMemberFormData({ ...addMemberFormData, name: e.target.value })
+                }
+                placeholder="Jane Doe"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="memberEmail">Email *</Label>
+              <Input
+                id="memberEmail"
+                type="email"
+                value={addMemberFormData.email}
+                onChange={(e) =>
+                  setAddMemberFormData({ ...addMemberFormData, email: e.target.value })
+                }
+                placeholder="jane@company.com"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                A magic link login email will be sent to this address.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddMemberDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addingMember}>
+                {addingMember ? "Adding..." : "Add Member"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
