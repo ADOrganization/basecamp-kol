@@ -115,7 +115,7 @@ export async function POST(
       ? (totalEngagements / metrics.impressions) * 100
       : 0;
 
-    // Update post with new metrics
+    // Update post with new metrics and content (if available)
     await db.post.update({
       where: { id },
       data: {
@@ -127,6 +127,10 @@ export async function POST(
         bookmarks: metrics.bookmarks,
         engagementRate: Math.round(engagementRate * 100) / 100,
         lastMetricsUpdate: new Date(),
+        // Update content if scraped and post doesn't already have content
+        ...(metrics.content && { content: metrics.content }),
+        // Update postedAt if scraped and post doesn't already have it
+        ...(metrics.postedAt && { postedAt: metrics.postedAt }),
       },
     });
 
@@ -181,6 +185,8 @@ interface MetricsResult {
   replies: number;
   quotes: number;
   bookmarks: number;
+  content?: string;
+  postedAt?: Date;
 }
 
 /**
@@ -203,13 +209,15 @@ async function fetchTweetMetricsViaScraper(tweetUrlOrId: string): Promise<Metric
       return null;
     }
 
-    const metrics = {
+    const metrics: MetricsResult = {
       impressions: tweet.metrics.views,
       likes: tweet.metrics.likes,
       retweets: tweet.metrics.retweets,
       replies: tweet.metrics.replies,
       quotes: tweet.metrics.quotes,
       bookmarks: tweet.metrics.bookmarks,
+      content: tweet.content || undefined,
+      postedAt: tweet.postedAt || undefined,
     };
 
     console.log(`[RefreshMetrics] Scraper metrics:`, JSON.stringify(metrics));
@@ -260,13 +268,17 @@ async function fetchTweetMetricsSyndication(tweetId: string): Promise<MetricsRes
 
         if (!data) continue;
 
-        const metrics = {
+        const metrics: MetricsResult = {
           impressions: data.views?.count || data.view_count || 0,
           likes: data.favorite_count || data.like_count || 0,
           retweets: data.retweet_count || 0,
           replies: data.reply_count || 0,
           quotes: data.quote_count || 0,
           bookmarks: data.bookmark_count || 0,
+          // Extract content from syndication data
+          content: data.text || data.full_text || undefined,
+          // Extract posted date from syndication data
+          postedAt: data.created_at ? new Date(data.created_at) : undefined,
         };
 
         const hasAnyData = metrics.impressions > 0 || metrics.likes > 0 ||

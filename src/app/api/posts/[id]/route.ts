@@ -30,12 +30,15 @@ export async function GET(
     const { id } = await params;
     const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
+    // SECURITY: Admins can access posts from any agency
     const post = await db.post.findFirst({
       where: {
         id,
-        campaign: isAgency
-          ? { agencyId: authContext.organizationId }
-          : { clientId: authContext.organizationId },
+        campaign: authContext.isAdmin
+          ? {} // Admins can access all posts
+          : isAgency
+            ? { agencyId: authContext.organizationId }
+            : { clientId: authContext.organizationId },
       },
       include: {
         kol: {
@@ -87,16 +90,19 @@ export async function PUT(
     const isAgency = authContext.organizationType === "AGENCY" || authContext.isAdmin;
 
     // Verify post access and get campaign keywords
+    // SECURITY: Admins can access posts from any agency
     const existingPost = await db.post.findFirst({
       where: {
         id,
-        campaign: isAgency
-          ? { agencyId: authContext.organizationId }
-          : { clientId: authContext.organizationId },
+        campaign: authContext.isAdmin
+          ? {} // Admins can access all posts
+          : isAgency
+            ? { agencyId: authContext.organizationId }
+            : { clientId: authContext.organizationId },
       },
       include: {
         campaign: {
-          select: { keywords: true },
+          select: { keywords: true, agencyId: true },
         },
       },
     });
@@ -225,12 +231,13 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // SECURITY: Admins can delete posts from any agency
     const existingPost = await db.post.findFirst({
       where: {
         id,
-        campaign: {
-          agencyId: authContext.organizationId,
-        },
+        campaign: authContext.isAdmin
+          ? {} // Admins can delete any post
+          : { agencyId: authContext.organizationId },
       },
     });
 

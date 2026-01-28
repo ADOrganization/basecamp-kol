@@ -10,6 +10,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   formatNumber,
   getStatusColor,
 } from "@/lib/utils";
@@ -24,6 +34,8 @@ import {
   Calendar,
   RefreshCw,
   Loader2,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
 interface Post {
@@ -55,6 +67,8 @@ interface PostDetailModalProps {
   open: boolean;
   onClose: () => void;
   onRefresh?: () => Promise<void>;
+  onEdit?: (post: Post) => void;
+  onDelete?: (postId: string) => Promise<void>;
 }
 
 function formatDate(dateString: string | null): string {
@@ -83,8 +97,10 @@ function calculateEngagementRate(post: Post): string {
   return ((engagement / impressions) * 100).toFixed(2);
 }
 
-export function PostDetailModal({ post, open, onClose, onRefresh }: PostDetailModalProps) {
+export function PostDetailModal({ post, open, onClose, onRefresh, onEdit, onDelete }: PostDetailModalProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleRefresh = async () => {
     if (!post || !onRefresh) return;
@@ -104,6 +120,20 @@ export function PostDetailModal({ post, open, onClose, onRefresh }: PostDetailMo
       console.error("Failed to refresh:", error);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!post || !onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(post.id);
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -230,8 +260,64 @@ export function PostDetailModal({ post, open, onClose, onRefresh }: PostDetailMo
               View on X
             </Button>
           )}
+
+          {/* Edit and Delete Actions */}
+          {(onEdit || onDelete) && (
+            <div className="flex gap-2 pt-2 border-t">
+              {onEdit && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => onEdit(post)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Post
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="outline"
+                  className="flex-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post from {post.kol?.name || "Unknown KOL"}?
+              This action cannot be undone and all metrics data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Post"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

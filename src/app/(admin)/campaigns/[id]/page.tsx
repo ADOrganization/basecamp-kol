@@ -198,6 +198,11 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [selectedPost, setSelectedPost] = useState<CampaignDetails["posts"][0] | null>(null);
   const [showPostDetail, setShowPostDetail] = useState(false);
 
+  // Post delete state
+  const [postToDelete, setPostToDelete] = useState<CampaignDetails["posts"][0] | null>(null);
+  const [showDeletePostDialog, setShowDeletePostDialog] = useState(false);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
+
   // Refresh metrics state
   const [isRefreshingMetrics, setIsRefreshingMetrics] = useState(false);
 
@@ -341,6 +346,29 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     } catch (error) {
       console.error("Failed to delete campaign:", error);
       alert("Failed to delete campaign");
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!postToDelete) return;
+    setIsDeletingPost(true);
+    try {
+      const response = await fetch(`/api/posts/${postToDelete.id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        await fetchCampaign();
+        setShowDeletePostDialog(false);
+        setPostToDelete(null);
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to delete post");
+      }
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+      alert("Failed to delete post");
+    } finally {
+      setIsDeletingPost(false);
     }
   };
 
@@ -1016,7 +1044,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <th className="text-right p-4 font-medium text-muted-foreground">Reposts</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Comments</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Bookmarks</th>
-                    <th className="w-[50px]"></th>
+                    <th className="w-[60px] text-center p-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1085,17 +1113,48 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <td className="p-4 text-right text-sm">{formatNumber(post.replies || 0)}</td>
                       <td className="p-4 text-right text-sm">{formatNumber(post.bookmarks || 0)}</td>
                       <td className="p-4">
-                        {post.tweetUrl && (
-                          <a
-                            href={post.tweetUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPost(post);
+                                setShowPostDetail(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              View / Edit
+                            </DropdownMenuItem>
+                            {post.tweetUrl && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(post.tweetUrl!, "_blank");
+                                }}
+                              >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View on X
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-rose-600 focus:text-rose-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPostToDelete(post);
+                                setShowDeletePostDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -1386,6 +1445,22 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         onRefresh={async () => {
           await fetchCampaign();
         }}
+        onEdit={(post) => {
+          // Close detail modal and open edit form
+          setShowPostDetail(false);
+          // TODO: Open edit form - for now we can redirect or show a form
+          // The PostForm component can be used for editing too
+        }}
+        onDelete={async (postId) => {
+          const response = await fetch(`/api/posts/${postId}`, {
+            method: "DELETE",
+          });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || "Failed to delete post");
+          }
+          await fetchCampaign();
+        }}
       />
 
       {/* Report Generator */}
@@ -1414,6 +1489,35 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               className="bg-rose-600 hover:bg-rose-700 text-white"
             >
               Delete Campaign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Post Dialog */}
+      <AlertDialog open={showDeletePostDialog} onOpenChange={setShowDeletePostDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post from {postToDelete?.kol?.name || "Unknown KOL"}? This action cannot be undone and all metrics data will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingPost}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePost}
+              disabled={isDeletingPost}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {isDeletingPost ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Post"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
