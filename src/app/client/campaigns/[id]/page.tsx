@@ -560,14 +560,22 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
               </Card>
             ) : (
               campaign.campaignKols.map((ck) => {
-                const kolPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id);
+                const kolPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id && ["POSTED", "VERIFIED"].includes(p.status));
+                const kolAllPosts = campaign.posts.filter(p => p.kol?.id === ck.kol.id);
+                const kolImpressions = kolPosts.reduce((sum, p) => sum + p.impressions, 0);
                 const kolLikes = kolPosts.reduce((sum, p) => sum + p.likes, 0);
+                const kolRetweets = kolPosts.reduce((sum, p) => sum + p.retweets, 0);
+                const kolReplies = kolPosts.reduce((sum, p) => sum + p.replies, 0);
                 const kolEngagement = kolPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies + p.quotes + p.bookmarks, 0);
                 const kolKeywordMatches = kolPosts.filter(p => p.hasKeywordMatch).length;
                 const deliverables = getKolDeliverables(ck.kol.id, ck);
+                const avgImpressions = kolPosts.length > 0 ? Math.round(kolImpressions / kolPosts.length) : 0;
+                const avgEngagement = kolPosts.length > 0 ? Math.round(kolEngagement / kolPosts.length) : 0;
+                const kolEngRate = kolImpressions > 0 ? ((kolEngagement / kolImpressions) * 100).toFixed(2) : "0";
+                const pendingCount = kolAllPosts.filter(p => p.status === "PENDING_APPROVAL").length;
 
                 return (
-                  <Card key={ck.id}>
+                  <Card key={ck.id || ck.kol.twitterHandle}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-4">
@@ -578,7 +586,15 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-semibold text-lg">{ck.kol.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-lg">{ck.kol.name}</p>
+                              {pendingCount > 0 && (
+                                <Badge className="bg-amber-100 text-amber-700 text-xs">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  {pendingCount} pending
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-muted-foreground">@{ck.kol.twitterHandle}</p>
                           </div>
                         </div>
@@ -589,8 +605,8 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                             <p className="text-sm text-muted-foreground mb-1">Deliverables</p>
                             <div className="flex items-center gap-2">
                               <Progress value={deliverables.progress} className="w-24 h-2" />
-                              <span className={`text-sm font-medium ${deliverables.progress === 100 ? 'text-green-600' : ''}`}>
-                                {deliverables.progress}%
+                              <span className={cn("text-sm font-medium", deliverables.progress >= 100 ? "text-emerald-600" : "")}>
+                                {deliverables.totalCompleted}/{deliverables.totalRequired}
                               </span>
                             </div>
                             <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
@@ -611,27 +627,51 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
                         )}
                       </div>
 
-                      <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t">
-                        <div className="text-center">
-                          <p className="text-2xl font-bold">{formatNumber(ck.kol.followersCount)}</p>
-                          <p className="text-sm text-muted-foreground">Followers</p>
-                        </div>
+                      <div className="grid grid-cols-3 lg:grid-cols-6 gap-4 mt-6 pt-4 border-t">
                         <div className="text-center">
                           <p className="text-2xl font-bold">{kolPosts.length}</p>
-                          <p className="text-sm text-muted-foreground">Posts</p>
+                          <p className="text-xs text-muted-foreground">Published</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">{formatNumber(kolImpressions)}</p>
+                          <p className="text-xs text-muted-foreground">Impressions</p>
                         </div>
                         <div className="text-center">
                           <p className="text-2xl font-bold">{formatNumber(kolLikes)}</p>
-                          <p className="text-sm text-muted-foreground">Likes</p>
+                          <p className="text-xs text-muted-foreground">Likes</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold">{formatNumber(kolEngagement)}</p>
-                          <p className="text-sm text-muted-foreground">Engagement</p>
+                          <p className="text-2xl font-bold">{formatNumber(kolRetweets)}</p>
+                          <p className="text-xs text-muted-foreground">Retweets</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">{formatNumber(kolReplies)}</p>
+                          <p className="text-xs text-muted-foreground">Replies</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">{kolEngRate}%</p>
+                          <p className="text-xs text-muted-foreground">Eng. Rate</p>
                         </div>
                       </div>
 
+                      {/* Per-post averages */}
+                      {kolPosts.length > 0 && (
+                        <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-dashed">
+                          <div className="flex items-center gap-2">
+                            <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Avg/Post:</span>
+                            <span className="text-sm font-medium">{formatNumber(avgImpressions)} impressions</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Heart className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Avg/Post:</span>
+                            <span className="text-sm font-medium">{formatNumber(avgEngagement)} engagement</span>
+                          </div>
+                        </div>
+                      )}
+
                       {campaign.keywords.length > 0 && kolKeywordMatches > 0 && (
-                        <div className="mt-4 pt-4 border-t">
+                        <div className="mt-3 pt-3 border-t border-dashed">
                           <p className="text-sm text-muted-foreground">
                             <Hash className="h-4 w-4 inline-block mr-1" />
                             {kolKeywordMatches} posts with campaign keywords

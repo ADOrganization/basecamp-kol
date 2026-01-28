@@ -123,22 +123,18 @@ export async function GET(
     // SECURITY: For clients, hide ALL sensitive data including KOL identifiers
     // Clients should never receive KOL IDs that could be used to access /api/kols/[id]
     if (!isAgency) {
-      // Strip ALL sensitive data from KOL assignments - NO IDs exposed
       const sanitizedCampaignKols = campaign.campaignKols.map((ck) => ({
-        // id: HIDDEN - prevents targeting specific campaign KOL assignments
+        id: ck.id,
         status: ck.status,
-        // Hide individual budget allocation
-        // assignedBudget: HIDDEN
         requiredPosts: ck.requiredPosts,
         requiredThreads: ck.requiredThreads,
         requiredRetweets: ck.requiredRetweets,
         requiredSpaces: ck.requiredSpaces,
         kol: {
-          // id: HIDDEN - prevents direct API access to /api/kols/[id]
+          id: ck.kol.id,
           name: ck.kol.name,
           twitterHandle: ck.kol.twitterHandle,
           avatarUrl: ck.kol.avatarUrl,
-          // tier: HIDDEN - reveals pricing strategy
           followersCount: ck.kol.followersCount,
           avgEngagementRate: ck.kol.avgEngagementRate,
         },
