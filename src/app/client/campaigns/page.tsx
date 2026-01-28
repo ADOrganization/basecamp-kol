@@ -13,8 +13,10 @@ import {
   Search,
   LayoutGrid,
   List,
+  Eye,
+  Heart,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 interface Campaign {
   id: string;
@@ -76,8 +78,20 @@ export default function ClientCampaignsPage() {
   const draftCampaigns = campaigns.filter((c) => c.status === "DRAFT").length;
   const completedCampaigns = campaigns.filter((c) => c.status === "COMPLETED").length;
   const totalPosts = campaigns.reduce((sum, c) => sum + c.posts.length, 0);
+  const publishedPosts = campaigns.reduce(
+    (sum, c) => sum + c.posts.filter((p) => p.status === "POSTED" || p.status === "VERIFIED").length,
+    0
+  );
   const pendingApprovals = campaigns.reduce(
     (sum, c) => sum + c.posts.filter((p) => p.status === "PENDING_APPROVAL").length,
+    0
+  );
+  const totalImpressions = campaigns.reduce(
+    (sum, c) => sum + c.posts.reduce((s, p) => s + p.impressions, 0),
+    0
+  );
+  const totalEngagement = campaigns.reduce(
+    (sum, c) => sum + c.posts.reduce((s, p) => s + p.likes + p.retweets + p.replies, 0),
     0
   );
 
@@ -92,8 +106,8 @@ export default function ClientCampaignsPage() {
     return (
       <div className="space-y-6">
         {/* Stats Skeleton */}
-        <div className="grid gap-4 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
@@ -134,47 +148,68 @@ export default function ClientCampaignsPage() {
   return (
     <div className="space-y-6">
       {/* Stats Row */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-primary/10 rounded-full -mr-8 -mt-8" />
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Megaphone className="h-6 w-6 text-primary" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Megaphone className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeCampaigns}</p>
-                <p className="text-sm text-muted-foreground">Active Campaigns</p>
+                <p className="text-xs text-muted-foreground">Active Campaigns</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-full -mr-8 -mt-8" />
+        <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-sky-500/10 flex items-center justify-center">
+                <Eye className="h-5 w-5 text-sky-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalPosts}</p>
-                <p className="text-sm text-muted-foreground">Total Posts</p>
+                <p className="text-2xl font-bold">{formatNumber(totalImpressions)}</p>
+                <p className="text-xs text-muted-foreground">Total Impressions</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-full -mr-8 -mt-8" />
+        <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-amber-100 dark:bg-amber-950 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-emerald-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{pendingApprovals}</p>
-                <p className="text-sm text-muted-foreground">Pending Approvals</p>
+                <p className="text-2xl font-bold">{publishedPosts}<span className="text-sm font-normal text-muted-foreground">/{totalPosts}</span></p>
+                <p className="text-xs text-muted-foreground">Published Posts</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "h-10 w-10 rounded-lg flex items-center justify-center",
+                pendingApprovals > 0 ? "bg-amber-500/10" : "bg-rose-500/10"
+              )}>
+                {pendingApprovals > 0
+                  ? <Clock className="h-5 w-5 text-amber-500" />
+                  : <Heart className="h-5 w-5 text-rose-500" />
+                }
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {pendingApprovals > 0 ? pendingApprovals : formatNumber(totalEngagement)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {pendingApprovals > 0 ? "Pending Approvals" : "Total Engagement"}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -283,23 +318,21 @@ export default function ClientCampaignsPage() {
           )}
         >
           {filteredCampaigns.map((campaign) => {
-            const totalImpressions = campaign.posts.reduce(
-              (sum, p) => sum + p.impressions,
-              0
+            const published = campaign.posts.filter(
+              (p) => p.status === "POSTED" || p.status === "VERIFIED"
             );
-            const totalEngagement = campaign.posts.reduce(
-              (sum, p) => sum + p.likes + p.retweets + p.replies,
-              0
+            const campImpressions = published.reduce(
+              (sum, p) => sum + p.impressions, 0
+            );
+            const campEngagement = published.reduce(
+              (sum, p) => sum + p.likes + p.retweets + p.replies, 0
             );
             const pendingApproval = campaign.posts.filter(
               (p) => p.status === "PENDING_APPROVAL"
             ).length;
-            const publishedPosts = campaign.posts.filter(
-              (p) => p.status === "POSTED" || p.status === "VERIFIED"
-            ).length;
             const engagementRate =
-              totalImpressions > 0
-                ? ((totalEngagement / totalImpressions) * 100).toFixed(2)
+              campImpressions > 0
+                ? ((campEngagement / campImpressions) * 100).toFixed(2)
                 : "0.00";
 
             return (
@@ -312,11 +345,11 @@ export default function ClientCampaignsPage() {
                 projectAvatarUrl={campaign.projectAvatarUrl}
                 projectBannerUrl={campaign.projectBannerUrl}
                 projectTwitterHandle={campaign.projectTwitterHandle}
-                totalImpressions={totalImpressions}
-                totalEngagement={totalEngagement}
+                totalImpressions={campImpressions}
+                totalEngagement={campEngagement}
                 kolCount={campaign.campaignKols.length}
                 totalPosts={campaign.posts.length}
-                publishedPosts={publishedPosts}
+                publishedPosts={published.length}
                 pendingApproval={pendingApproval}
                 engagementRate={engagementRate}
                 totalBudget={campaign.totalBudget}

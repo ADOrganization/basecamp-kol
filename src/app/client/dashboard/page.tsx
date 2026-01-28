@@ -15,7 +15,7 @@ import {
   ClientContentPerformance,
   ClientKOLLeaderboard,
   ClientActivityFeed,
-  ClientEngagementTrends,
+  ClientRecentPosts,
 } from "@/components/client/dashboard";
 
 interface KOLStats {
@@ -197,58 +197,35 @@ async function getClientStats(organizationId: string) {
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     const recentActivities = activities.slice(0, 8);
 
-    // Generate REAL trend data from actual post metrics by date
-    // Group posts by day and calculate cumulative metrics
-    const allPosts = campaigns.flatMap((c) => c.posts);
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Create a map of date -> metrics
-    const dailyMetrics = new Map<string, { impressions: number; engagement: number }>();
-
-    // Initialize all 7 days with zeros
-    for (let i = 0; i < 7; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
-      const dateKey = date.toISOString().split("T")[0];
-      dailyMetrics.set(dateKey, { impressions: 0, engagement: 0 });
-    }
-
-    // Aggregate metrics by post creation date
-    allPosts.forEach((post) => {
-      if (post.postedAt || post.createdAt) {
-        const postDate = new Date(post.postedAt || post.createdAt);
-        if (postDate >= sevenDaysAgo) {
-          const dateKey = postDate.toISOString().split("T")[0];
-          const existing = dailyMetrics.get(dateKey) || { impressions: 0, engagement: 0 };
-          existing.impressions += post.impressions;
-          existing.engagement += post.likes + post.retweets + post.replies;
-          dailyMetrics.set(dateKey, existing);
-        }
-      }
-    });
-
-    // Convert to cumulative trend data (shows real growth over time)
-    const sortedDates = Array.from(dailyMetrics.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    let cumulativeImpressions = 0;
-    let cumulativeEngagement = 0;
-
-    const trendData = sortedDates.map(([dateStr, metrics]) => {
-      const date = new Date(dateStr);
-
-      // Always use real data - no fabricated curves
-      // If no recent activity, show honest zeros
-      cumulativeImpressions += metrics.impressions;
-      cumulativeEngagement += metrics.engagement;
-
-      return {
-        date: date.toLocaleDateString("en-US", { weekday: "short" }),
-        impressions: cumulativeImpressions,
-        engagement: cumulativeEngagement,
-      };
-    });
+    // Build recent posts list with KOL info
+    const allPosts = campaigns.flatMap((c) =>
+      c.posts.map((p) => {
+        const kol = c.campaignKols.find((ck) => ck.kolId === p.kolId)?.kol;
+        return { ...p, kolName: kol?.name || "Unknown", kolHandle: kol?.twitterHandle || "unknown", kolAvatar: kol?.avatarUrl || null };
+      })
+    );
+    const recentPosts = allPosts
+      .sort((a, b) => new Date(b.postedAt || b.createdAt).getTime() - new Date(a.postedAt || a.createdAt).getTime())
+      .slice(0, 6)
+      .map((p) => ({
+        id: p.id,
+        content: p.content,
+        tweetUrl: p.tweetUrl,
+        status: p.status,
+        impressions: p.impressions,
+        likes: p.likes,
+        retweets: p.retweets,
+        replies: p.replies,
+        postedAt: p.postedAt?.toISOString() || null,
+        createdAt: p.createdAt.toISOString(),
+        kolName: p.kolName,
+        kolHandle: p.kolHandle,
+        kolAvatar: p.kolAvatar,
+      }));
 
     // Calculate period-over-period changes (last 7 days vs previous 7 days)
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     const currentPeriodPosts = allPosts.filter((p) => {
       const d = new Date(p.postedAt || p.createdAt);
@@ -294,7 +271,7 @@ async function getClientStats(organizationId: string) {
       kolStats,
       deliverables,
       recentActivities,
-      trendData,
+      recentPosts,
       periodChanges,
     };
   } catch (error) {
@@ -315,7 +292,7 @@ async function getClientStats(organizationId: string) {
       kolStats: [],
       deliverables: [],
       recentActivities: [],
-      trendData: [],
+      recentPosts: [],
       periodChanges: { impressions: 0, engagement: 0, rate: 0, posts: 0 },
     };
   }
@@ -504,11 +481,11 @@ export default async function ClientDashboard() {
         </div>
       </section>
 
-      {/* Engagement Trends & Activity Feed Row */}
+      {/* Recent Posts & Activity Feed Row */}
       <section>
-        <h2 className="text-lg font-semibold mb-4">Trends & Activity</h2>
+        <h2 className="text-lg font-semibold mb-4">Recent Posts & Activity</h2>
         <div className="grid gap-6 lg:grid-cols-2">
-          <ClientEngagementTrends data={stats.trendData} />
+          <ClientRecentPosts posts={stats.recentPosts} />
           <ClientActivityFeed activities={stats.recentActivities} />
         </div>
       </section>

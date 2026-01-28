@@ -64,10 +64,6 @@ export async function GET(request: NextRequest) {
           },
         },
         posts: {
-          where: {
-            // Only count scraped/posted tweets, not content reviews
-            status: { in: ["POSTED", "VERIFIED"] },
-          },
           select: {
             id: true,
             status: true,
@@ -112,10 +108,9 @@ export async function GET(request: NextRequest) {
         ...campaign,
         // Use allocated budget as spent budget (allocated = committed/used)
         spentBudget: allocatedBudget,
-        // Add posts count to _count (posts array is already filtered by status)
         _count: {
           ...campaign._count,
-          posts: campaign.posts.length,
+          posts: campaign.posts.filter(p => p.status === "POSTED" || p.status === "VERIFIED").length,
         },
       };
     });
@@ -143,10 +138,14 @@ export async function GET(request: NextRequest) {
         })),
       }));
 
-      return NextResponse.json(sanitizedCampaigns);
+      const response = NextResponse.json(sanitizedCampaigns);
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return response;
     }
 
-    return NextResponse.json(campaignsWithAllocated);
+    const response = NextResponse.json(campaignsWithAllocated);
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return response;
   } catch (error) {
     console.error("Error fetching campaigns:", error);
     return NextResponse.json(
