@@ -153,12 +153,66 @@ export default function ClientAnalyticsPage() {
     ? (totalEngagement / totals.impressions * 100).toFixed(2)
     : "0";
 
-  // Calculate week-over-week changes (mock data for now - in real app would compare periods)
+  // Calculate REAL period-over-period changes by comparing current period to previous period
+  // This gives accurate growth metrics instead of random values
+  const calculatePeriodChanges = () => {
+    if (!dateFilter) {
+      // "All time" - compare last 30 days vs previous 30 days
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+      const currentPeriodPosts = campaigns.flatMap(c => c.posts).filter(p => {
+        const d = new Date(p.postedAt || p.createdAt);
+        return d >= thirtyDaysAgo;
+      });
+
+      const previousPeriodPosts = campaigns.flatMap(c => c.posts).filter(p => {
+        const d = new Date(p.postedAt || p.createdAt);
+        return d >= sixtyDaysAgo && d < thirtyDaysAgo;
+      });
+
+      return { currentPeriodPosts, previousPeriodPosts };
+    }
+
+    // Calculate previous period of same duration
+    const periodDuration = Date.now() - dateFilter.getTime();
+    const previousPeriodStart = new Date(dateFilter.getTime() - periodDuration);
+
+    const currentPeriodPosts = campaigns.flatMap(c => c.posts).filter(p => {
+      const d = new Date(p.postedAt || p.createdAt);
+      return d >= dateFilter;
+    });
+
+    const previousPeriodPosts = campaigns.flatMap(c => c.posts).filter(p => {
+      const d = new Date(p.postedAt || p.createdAt);
+      return d >= previousPeriodStart && d < dateFilter;
+    });
+
+    return { currentPeriodPosts, previousPeriodPosts };
+  };
+
+  const { currentPeriodPosts, previousPeriodPosts } = calculatePeriodChanges();
+
+  const currentImpressions = currentPeriodPosts.reduce((sum, p) => sum + p.impressions, 0);
+  const prevImpressions = previousPeriodPosts.reduce((sum, p) => sum + p.impressions, 0);
+  const currentEngagement = currentPeriodPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0);
+  const prevEngagement = previousPeriodPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0);
+  const currentEngRate = currentImpressions > 0 ? (currentEngagement / currentImpressions) * 100 : 0;
+  const prevEngRate = prevImpressions > 0 ? (prevEngagement / prevImpressions) * 100 : 0;
+
+  // Calculate percentage changes (show positive momentum where possible)
+  const calcChange = (current: number, previous: number): number => {
+    if (previous === 0) {
+      return current > 0 ? 100 : 0; // If starting from 0, any data is 100% growth
+    }
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
   const wowChanges = {
-    impressions: Math.floor(Math.random() * 30) - 10,
-    engagement: Math.floor(Math.random() * 25) - 8,
-    rate: Math.floor(Math.random() * 15) - 5,
-    posts: Math.floor(Math.random() * 20) - 5,
+    impressions: calcChange(currentImpressions, prevImpressions),
+    engagement: calcChange(currentEngagement, prevEngagement),
+    rate: Math.round((currentEngRate - prevEngRate) * 10) / 10, // Keep as percentage points
+    posts: calcChange(currentPeriodPosts.length, previousPeriodPosts.length),
   };
 
   const getTrendIcon = (change: number) => {
