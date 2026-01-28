@@ -31,7 +31,8 @@ interface ClientSidebarProps {
     avatarUrl?: string | null;
     organizationName: string;
   };
-  organizationLogo?: string | null;
+  brandingName: string;
+  brandingLogo: string | null;
 }
 
 const navigation = [
@@ -61,35 +62,30 @@ const navigation = [
   },
 ];
 
-export function ClientSidebar({ user, organizationLogo }: ClientSidebarProps) {
+export function ClientSidebar({ user, brandingName, brandingLogo }: ClientSidebarProps) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar-bg text-sidebar-foreground border-r border-border">
-      {/* Logo */}
+      {/* Campaign Branding */}
       <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-muted">
-        {organizationLogo ? (
+        {brandingLogo ? (
           <img
-            src={organizationLogo}
-            alt={user.organizationName}
-            className="h-8 w-8 rounded-lg object-cover ring-2 ring-primary/20"
+            src={brandingLogo}
+            alt={brandingName}
+            className="h-8 w-8 rounded-full object-cover ring-2 ring-primary/20 flex-shrink-0"
           />
         ) : (
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center ring-2 ring-primary/20">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center ring-2 ring-primary/20 flex-shrink-0">
             <span className="text-lg font-bold text-primary-foreground">
-              {user.organizationName.charAt(0)}
+              {brandingName.charAt(0)}
             </span>
           </div>
         )}
         <span className="text-lg font-semibold truncate flex-1">
-          {user.organizationName}
+          {brandingName}
         </span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded font-medium">
-            Client
-          </span>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
       </div>
 
       {/* Navigation */}

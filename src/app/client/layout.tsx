@@ -27,6 +27,7 @@ export default async function ClientLayout({
       avatarUrl: true,
       memberships: {
         select: {
+          organizationId: true,
           organization: {
             select: { name: true, logoUrl: true },
           },
@@ -40,7 +41,28 @@ export default async function ClientLayout({
   const userEmail = freshUser?.email ?? session.user.email;
   const userAvatarUrl = freshUser?.avatarUrl ?? null;
   const orgName = freshUser?.memberships[0]?.organization.name ?? session.user.organizationName;
-  const orgLogoUrl = freshUser?.memberships[0]?.organization.logoUrl ?? null;
+  const orgId = freshUser?.memberships[0]?.organizationId ?? session.user.organizationId;
+
+  // Fetch the client's primary campaign to use its X profile picture and name as branding
+  const clientCampaign = await db.campaign.findFirst({
+    where: {
+      OR: [
+        { clientId: orgId },
+        { campaignClients: { some: { clientId: orgId } } },
+      ],
+    },
+    select: {
+      name: true,
+      projectAvatarUrl: true,
+    },
+    orderBy: [
+      { status: "asc" }, // ACTIVE campaigns first
+      { createdAt: "desc" },
+    ],
+  });
+
+  const brandingName = clientCampaign?.name ?? orgName;
+  const brandingLogo = clientCampaign?.projectAvatarUrl ?? null;
 
   return (
     <div className="flex h-screen bg-background">
@@ -51,7 +73,8 @@ export default async function ClientLayout({
           avatarUrl: userAvatarUrl,
           organizationName: orgName,
         }}
-        organizationLogo={orgLogoUrl}
+        brandingName={brandingName}
+        brandingLogo={brandingLogo}
       />
       <main className="flex-1 overflow-y-auto">
         <div className="p-8">{children}</div>
