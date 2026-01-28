@@ -1044,7 +1044,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                     <th className="text-right p-4 font-medium text-muted-foreground">Reposts</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Comments</th>
                     <th className="text-right p-4 font-medium text-muted-foreground">Bookmarks</th>
-                    <th className="w-[60px] text-center p-4 font-medium text-muted-foreground">Actions</th>
+                    <th className="w-[100px] text-right p-4 font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1112,49 +1112,34 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
                       <td className="p-4 text-right text-sm">{formatNumber(post.retweets || 0)}</td>
                       <td className="p-4 text-right text-sm">{formatNumber(post.replies || 0)}</td>
                       <td className="p-4 text-right text-sm">{formatNumber(post.bookmarks || 0)}</td>
-                      <td className="p-4">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPost(post);
-                                setShowPostDetail(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              View / Edit
-                            </DropdownMenuItem>
-                            {post.tweetUrl && (
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(post.tweetUrl!, "_blank");
-                                }}
-                              >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                View on X
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-rose-600 focus:text-rose-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPostToDelete(post);
-                                setShowDeletePostDialog(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <td className="p-4 flex items-center gap-1">
+                        {post.tweetUrl && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(post.tweetUrl!, "_blank");
+                            }}
+                            title="View on X"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPostToDelete(post);
+                            setShowDeletePostDialog(true);
+                          }}
+                          title="Delete post"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   ))}
