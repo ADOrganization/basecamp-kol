@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Hash, ArrowUpRight, ArrowDownRight, ExternalLink, TrendingUp } from "lucide-react";
+import { FileText, Hash, ArrowUpRight, ArrowDownRight, ExternalLink, TrendingUp, Eye, Heart, Repeat, MessageCircle, Quote, Bookmark } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,17 @@ interface ContentTypeData {
   color: string;
 }
 
+interface PerformanceMetrics {
+  totalImpressions: number;
+  totalLikes: number;
+  totalRetweets: number;
+  totalReplies: number;
+  totalQuotes: number;
+  totalBookmarks: number;
+  totalEngagements: number;
+  avgEngagementRate: number;
+}
+
 interface ContentPerformanceProps {
   postsThisMonth: number;
   postsLastMonth: number;
@@ -43,6 +54,7 @@ interface ContentPerformanceProps {
   contentTypeData: ContentTypeData[];
   keywordMatchRate: number;
   totalPosts: number;
+  metrics?: PerformanceMetrics;
 }
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#14b8a6', '#f59e0b'];
@@ -70,6 +82,7 @@ export function ContentPerformance({
   contentTypeData,
   keywordMatchRate,
   totalPosts,
+  metrics,
 }: ContentPerformanceProps) {
   const postsDelta = postsLastMonth > 0
     ? ((postsThisMonth - postsLastMonth) / postsLastMonth) * 100
@@ -130,6 +143,86 @@ export function ContentPerformance({
             <p className="text-xs text-muted-foreground">all time</p>
           </div>
         </div>
+
+        {/* Diversified Performance Metrics */}
+        {metrics && (
+          <div>
+            <h3 className="text-sm font-medium mb-3">Performance Metrics</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Impressions */}
+              <div className="rounded-lg bg-blue-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Eye className="h-3.5 w-3.5 text-blue-500" />
+                  <span className="text-xs text-muted-foreground">Impressions</span>
+                </div>
+                <p className="text-lg font-bold text-blue-600">{formatNumber(metrics.totalImpressions)}</p>
+              </div>
+
+              {/* Engagements */}
+              <div className="rounded-lg bg-emerald-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs text-muted-foreground">Engagements</span>
+                </div>
+                <p className="text-lg font-bold text-emerald-600">{formatNumber(metrics.totalEngagements)}</p>
+              </div>
+
+              {/* Likes */}
+              <div className="rounded-lg bg-rose-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Heart className="h-3.5 w-3.5 text-rose-500" />
+                  <span className="text-xs text-muted-foreground">Likes</span>
+                </div>
+                <p className="text-lg font-bold text-rose-600">{formatNumber(metrics.totalLikes)}</p>
+              </div>
+
+              {/* Retweets */}
+              <div className="rounded-lg bg-teal-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Repeat className="h-3.5 w-3.5 text-teal-500" />
+                  <span className="text-xs text-muted-foreground">Retweets</span>
+                </div>
+                <p className="text-lg font-bold text-teal-600">{formatNumber(metrics.totalRetweets)}</p>
+              </div>
+
+              {/* Replies */}
+              <div className="rounded-lg bg-violet-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <MessageCircle className="h-3.5 w-3.5 text-violet-500" />
+                  <span className="text-xs text-muted-foreground">Replies</span>
+                </div>
+                <p className="text-lg font-bold text-violet-600">{formatNumber(metrics.totalReplies)}</p>
+              </div>
+
+              {/* Quotes */}
+              <div className="rounded-lg bg-amber-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Quote className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-xs text-muted-foreground">Quotes</span>
+                </div>
+                <p className="text-lg font-bold text-amber-600">{formatNumber(metrics.totalQuotes)}</p>
+              </div>
+
+              {/* Bookmarks */}
+              <div className="rounded-lg bg-indigo-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Bookmark className="h-3.5 w-3.5 text-indigo-500" />
+                  <span className="text-xs text-muted-foreground">Bookmarks</span>
+                </div>
+                <p className="text-lg font-bold text-indigo-600">{formatNumber(metrics.totalBookmarks)}</p>
+              </div>
+
+              {/* Avg Engagement Rate */}
+              <div className="rounded-lg bg-purple-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="h-3.5 w-3.5 text-purple-500" />
+                  <span className="text-xs text-muted-foreground">Avg ER</span>
+                </div>
+                <p className="text-lg font-bold text-purple-600">{metrics.avgEngagementRate.toFixed(2)}%</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Content Type Breakdown */}

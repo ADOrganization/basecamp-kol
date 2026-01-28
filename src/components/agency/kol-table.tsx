@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatNumber, cn } from "@/lib/utils";
+import { formatNumber, formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -612,7 +612,7 @@ export function KOLTable({ kols: initialKols, onAddNew, onRefresh }: KOLTablePro
                         )}
                       </td>
                       <td className="p-4 text-right">
-                        <span className="font-semibold text-emerald-600">${formatNumber(kol.totalEarnings)}</span>
+                        <span className="font-semibold text-emerald-600">{formatCurrency(kol.totalEarnings)}</span>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-center gap-1 flex-wrap">

@@ -4,6 +4,26 @@ import { TelegramClient, mapTelegramChatType } from "@/lib/telegram/client";
 import type { TelegramUpdate, TelegramChatMemberUpdated, TelegramMessage } from "@/lib/telegram/types";
 import { scrapeSingleTweet } from "@/lib/scraper/x-scraper";
 
+/**
+ * Helper function to send error messages to users when commands fail
+ * This ensures users always get feedback, even if the main handler throws
+ */
+async function sendErrorToUser(botToken: string | null, chatId: number, message: string): Promise<void> {
+  if (!botToken) {
+    console.error("[Telegram Webhook] Cannot send error to user - no bot token available");
+    return;
+  }
+  try {
+    const client = new TelegramClient(botToken);
+    const result = await client.sendMessage(chatId, message);
+    if (!result.ok) {
+      console.error(`[Telegram Webhook] Failed to send error message to user: ${result.description}`);
+    }
+  } catch (err) {
+    console.error("[Telegram Webhook] Exception while sending error message to user:", err);
+  }
+}
+
 // GET handler for webhook diagnostics (no auth - just shows if webhook is reachable)
 export async function GET() {
   const orgCount = await db.organization.count({
@@ -199,13 +219,23 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Check for /help command
   if (textContent.startsWith("/help")) {
-    await handleHelpCommand(botToken, chat.id, organizationId, telegramChatId, senderUsername);
+    try {
+      await handleHelpCommand(botToken, chat.id, organizationId, telegramChatId, senderUsername);
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleHelpCommand:`, err);
+      await sendErrorToUser(botToken, chat.id, "An error occurred processing /help. Please try again later.");
+    }
     return;
   }
 
   // Check for /schedule command
   if (textContent.startsWith("/schedule")) {
-    await handleScheduleCommand(botToken, chat.id);
+    try {
+      await handleScheduleCommand(botToken, chat.id);
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleScheduleCommand:`, err);
+      await sendErrorToUser(botToken, chat.id, "An error occurred processing /schedule. Please try again later.");
+    }
     return;
   }
 
@@ -233,43 +263,58 @@ async function handleMessage(organizationId: string, botToken: string | null, me
 
   // Check for /review command
   if (textContent.startsWith("/review")) {
-    await handleReviewCommand(
-      organizationId,
-      botToken,
-      telegramChat.id,
-      chat.id,
-      textContent,
-      senderUsername,
-      senderName,
-      senderTelegramId
-    );
+    try {
+      await handleReviewCommand(
+        organizationId,
+        botToken,
+        telegramChat.id,
+        chat.id,
+        textContent,
+        senderUsername,
+        senderName,
+        senderTelegramId
+      );
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleReviewCommand:`, err);
+      await sendErrorToUser(botToken, chat.id, "An error occurred processing /review. Please try again later.");
+    }
     return;
   }
 
   // Check for /submit command in group chat
   if (textContent.startsWith("/submit")) {
-    await handleSubmitCommandFromGroup(
-      organizationId,
-      botToken,
-      chat.id,
-      textContent,
-      senderUsername,
-      senderTelegramId
-    );
+    try {
+      await handleSubmitCommandFromGroup(
+        organizationId,
+        botToken,
+        chat.id,
+        textContent,
+        senderUsername,
+        senderTelegramId
+      );
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleSubmitCommandFromGroup:`, err);
+      await sendErrorToUser(botToken, chat.id, "An error occurred processing /submit. Please try again later.");
+    }
     return;
   }
 
   // Check for /payment command (payment receipt submission)
   if (textContent.startsWith("/payment")) {
-    await handlePaymentCommand(
-      organizationId,
-      botToken,
-      chat.id,
-      textContent,
-      senderUsername,
-      senderTelegramId,
-      chat.title || null
-    );
+    try {
+      await handlePaymentCommand(
+        organizationId,
+        botToken,
+        chat.id,
+        textContent,
+        senderUsername,
+        senderTelegramId,
+        chat.title || null
+      );
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handlePaymentCommand:`, err);
+      await sendErrorToUser(botToken, chat.id, "An error occurred processing /payment. Please try again later.");
+    }
     return;
   }
 
@@ -304,14 +349,23 @@ async function handleReviewCommand(
   senderName: string | null,
   senderTelegramId: string | undefined
 ) {
+  console.log(`[Review] handleReviewCommand called - chatId: ${telegramChatId}, botToken present: ${!!botToken}`);
+
   // Extract draft content (everything after /review)
   const draftContent = text.replace(/^\/review\s*/i, "").trim();
 
-  // Helper to send response
+  // Helper to send response with error handling
   const sendResponse = async (message: string) => {
-    if (!botToken) return;
+    if (!botToken) {
+      console.error("[Review] CRITICAL: No bot token - cannot send response!");
+      return;
+    }
     const client = new TelegramClient(botToken);
-    await client.sendMessage(telegramChatId, message);
+    const result = await client.sendMessage(telegramChatId, message);
+    if (!result.ok) {
+      console.error(`[Review] Failed to send message: ${result.description}`);
+    }
+    return result;
   };
 
   if (!draftContent) {
@@ -453,41 +507,66 @@ async function handlePrivateMessage(
 
   // Check for /help command
   if (textContent?.startsWith("/help")) {
-    // In private messages, pass organizationId and username but no chat ID (not a group)
-    await handleHelpCommand(botToken, message.chat.id, organizationId, undefined, senderUsername);
+    try {
+      // In private messages, pass organizationId and username but no chat ID (not a group)
+      await handleHelpCommand(botToken, message.chat.id, organizationId, undefined, senderUsername);
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleHelpCommand (private):`, err);
+      await sendErrorToUser(botToken, message.chat.id, "An error occurred processing /help. Please try again later.");
+    }
     return;
   }
 
   // Check for /schedule command
   if (textContent?.startsWith("/schedule")) {
-    await handleScheduleCommand(botToken, message.chat.id);
+    try {
+      await handleScheduleCommand(botToken, message.chat.id);
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleScheduleCommand (private):`, err);
+      await sendErrorToUser(botToken, message.chat.id, "An error occurred processing /schedule. Please try again later.");
+    }
     return;
   }
 
   // Check for /budget command
   if (textContent?.startsWith("/budget")) {
-    // In private messages, no chat context - only admins can use this
-    await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername, null, undefined);
+    try {
+      // In private messages, no chat context - only admins can use this
+      await handleBudgetCommand(organizationId, botToken, message.chat.id, senderUsername, null, undefined);
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleBudgetCommand (private):`, err);
+      await sendErrorToUser(botToken, message.chat.id, "An error occurred processing /budget. Please try again later.");
+    }
     return;
   }
 
   // Check for /submit command
   if (textContent?.startsWith("/submit")) {
-    await handleSubmitCommand(organizationId, botToken, message, senderUsername, senderTelegramId);
+    try {
+      await handleSubmitCommand(organizationId, botToken, message, senderUsername, senderTelegramId);
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handleSubmitCommand (private):`, err);
+      await sendErrorToUser(botToken, message.chat.id, "An error occurred processing /submit. Please try again later.");
+    }
     return;
   }
 
   // Check for /payment command
   if (textContent?.startsWith("/payment")) {
-    await handlePaymentCommand(
-      organizationId,
-      botToken,
-      message.chat.id,
-      textContent,
-      senderUsername,
-      senderTelegramId,
-      null
-    );
+    try {
+      await handlePaymentCommand(
+        organizationId,
+        botToken,
+        message.chat.id,
+        textContent,
+        senderUsername,
+        senderTelegramId,
+        null
+      );
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error in handlePaymentCommand (private):`, err);
+      await sendErrorToUser(botToken, message.chat.id, "An error occurred processing /payment. Please try again later.");
+    }
     return;
   }
 
@@ -1009,11 +1088,20 @@ async function handleSubmitCommand(
   const textContent = message.text || message.caption || "";
   const chatId = message.chat.id;
 
-  // Helper to send response
+  console.log(`[Submit] handleSubmitCommand called - chatId: ${chatId}, botToken present: ${!!botToken}`);
+
+  // Helper to send response with error handling
   const sendResponse = async (text: string) => {
-    if (!botToken) return;
+    if (!botToken) {
+      console.error("[Submit] CRITICAL: No bot token - cannot send response!");
+      return;
+    }
     const client = new TelegramClient(botToken);
-    await client.sendMessage(chatId, text);
+    const result = await client.sendMessage(chatId, text);
+    if (!result.ok) {
+      console.error(`[Submit] Failed to send message: ${result.description}`);
+    }
+    return result;
   };
 
   // Parse command: /submit [campaign_name] <tweet_url>
@@ -1243,11 +1331,20 @@ async function handleSubmitCommandFromGroup(
   senderUsername: string | undefined,
   senderTelegramId: string | undefined
 ) {
-  // Helper to send response
+  console.log(`[Submit Group] handleSubmitCommandFromGroup called - chatId: ${telegramChatId}, botToken present: ${!!botToken}`);
+
+  // Helper to send response with error handling
   const sendResponse = async (message: string) => {
-    if (!botToken) return;
+    if (!botToken) {
+      console.error("[Submit Group] CRITICAL: No bot token - cannot send response!");
+      return;
+    }
     const client = new TelegramClient(botToken);
-    await client.sendMessage(telegramChatId, message);
+    const result = await client.sendMessage(telegramChatId, message);
+    if (!result.ok) {
+      console.error(`[Submit Group] Failed to send message: ${result.description}`);
+    }
+    return result;
   };
 
   // Parse command: /submit [campaign_name] <tweet_url>
@@ -1532,11 +1629,20 @@ async function handlePaymentCommand(
   senderTelegramId: string | undefined,
   groupTitle: string | null
 ) {
-  // Helper to send response
+  console.log(`[Payment] handlePaymentCommand called - chatId: ${telegramChatId}, botToken present: ${!!botToken}`);
+
+  // Helper to send response with error handling
   const sendResponse = async (message: string) => {
-    if (!botToken) return;
+    if (!botToken) {
+      console.error("[Payment] CRITICAL: No bot token - cannot send response!");
+      return;
+    }
     const client = new TelegramClient(botToken);
-    await client.sendMessage(telegramChatId, message, { parse_mode: "Markdown" });
+    const result = await client.sendMessage(telegramChatId, message, { parse_mode: "Markdown" });
+    if (!result.ok) {
+      console.error(`[Payment] Failed to send message: ${result.description}`);
+    }
+    return result;
   };
 
   // Parse command: /payment [campaign_name] <amount> <proof_url>

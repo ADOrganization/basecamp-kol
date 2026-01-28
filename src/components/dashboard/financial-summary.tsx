@@ -33,14 +33,14 @@ interface FinancialSummaryProps {
   recentMonthlySpend: { month: string; amount: number }[];
 }
 
-// Custom tooltip for the chart
+// Custom tooltip for the chart (receives value already in dollars)
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-popover border border-border rounded-lg shadow-lg px-3 py-2">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className="text-sm font-bold text-emerald-600">
-          {formatCurrency(payload[0].value)}
+          ${payload[0].value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
     );

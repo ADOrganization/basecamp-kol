@@ -313,6 +313,18 @@ async function getDashboardStats(organizationId: string) {
   const keywordMatchCount = allPosts.filter(p => p.hasKeywordMatch).length;
   const keywordMatchRate = allPosts.length > 0 ? (keywordMatchCount / allPosts.length) * 100 : 0;
 
+  // Aggregate performance metrics (diversified beyond just engagement rate)
+  const totalImpressions = allPosts.reduce((sum, p) => sum + p.impressions, 0);
+  const totalLikes = allPosts.reduce((sum, p) => sum + p.likes, 0);
+  const totalRetweets = allPosts.reduce((sum, p) => sum + p.retweets, 0);
+  const totalReplies = allPosts.reduce((sum, p) => sum + p.replies, 0);
+  const totalQuotes = allPosts.reduce((sum, p) => sum + (p.quotes || 0), 0);
+  const totalBookmarks = allPosts.reduce((sum, p) => sum + (p.bookmarks || 0), 0);
+  const totalEngagements = totalLikes + totalRetweets + totalReplies + totalQuotes + totalBookmarks;
+  const avgEngagementRate = allPosts.length > 0
+    ? allPosts.reduce((sum, p) => sum + p.engagementRate, 0) / allPosts.length
+    : 0;
+
   // === KOL LEADERBOARD ===
   // Top performers by engagement rate
   const topPerformers = allKols
@@ -409,12 +421,7 @@ async function getDashboardStats(organizationId: string) {
 
   const pendingPayments = paymentsByStatus.find(p => p.status === 'PENDING') || { count: 0, amount: 0 };
 
-  // Total impressions and engagements for CPM/CPE
-  const totalImpressions = allPosts.reduce((sum, p) => sum + p.impressions, 0);
-  const totalEngagements = allPosts.reduce((sum, p) =>
-    sum + p.likes + p.retweets + p.replies + (p.quotes || 0) + (p.bookmarks || 0), 0
-  );
-
+  // CPM and CPE use totalImpressions and totalEngagements calculated in content performance section
   const cpm = totalImpressions > 0 ? (paidOut / 100) / (totalImpressions / 1000) : 0;
   const cpe = totalEngagements > 0 ? (paidOut / 100) / totalEngagements : 0;
 
@@ -482,6 +489,17 @@ async function getDashboardStats(organizationId: string) {
       contentTypeData,
       keywordMatchRate,
       totalPosts: allPosts.length,
+      // Diversified metrics
+      metrics: {
+        totalImpressions,
+        totalLikes,
+        totalRetweets,
+        totalReplies,
+        totalQuotes,
+        totalBookmarks,
+        totalEngagements,
+        avgEngagementRate,
+      },
     },
     kolLeaderboard: {
       topPerformers,

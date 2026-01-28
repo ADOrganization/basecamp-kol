@@ -60,6 +60,8 @@ export default async function SettingsPage() {
         name: dbUser.name,
         email: dbUser.email,
         avatarUrl: dbUser.avatarUrl,
+        twitterUsername: dbUser.twitterUsername,
+        telegramUsername: dbUser.telegramUsername,
       };
     }
   }

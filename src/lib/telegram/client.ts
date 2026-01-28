@@ -27,6 +27,8 @@ export class TelegramClient {
     const url = `${this.baseUrl}/${method}`;
 
     try {
+      console.log(`[TelegramClient] Calling ${method}`, params ? JSON.stringify(params).slice(0, 200) : "");
+
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -36,12 +38,25 @@ export class TelegramClient {
       });
 
       const data = (await response.json()) as TelegramApiResponse<T>;
+
+      if (!data.ok) {
+        console.error(`[TelegramClient] API error for ${method}: ${data.description || "Unknown error"}`, {
+          error_code: data.error_code,
+          params: params ? JSON.stringify(params).slice(0, 200) : undefined,
+        });
+      } else {
+        console.log(`[TelegramClient] ${method} succeeded`);
+      }
+
       return data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      console.error(`[TelegramClient] Exception in ${method}:`, errorMessage, {
+        params: params ? JSON.stringify(params).slice(0, 200) : undefined,
+      });
       return {
         ok: false,
-        description:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        description: errorMessage,
       };
     }
   }

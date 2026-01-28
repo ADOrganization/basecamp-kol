@@ -328,16 +328,20 @@ export async function PUT(
             },
           });
 
-          if (!existingMember) {
-            // Add user to organization
-            await db.organizationMember.create({
-              data: {
-                organizationId: clientId,
-                userId: user.id,
-                role: "MEMBER",
-              },
-            });
+          if (existingMember) {
+            // Skip existing members - don't re-invite them
+            console.log("[Campaign Update] User already a member, skipping:", clientUser.email);
+            continue;
           }
+
+          // Add user to organization
+          await db.organizationMember.create({
+            data: {
+              organizationId: clientId,
+              userId: user.id,
+              role: "MEMBER",
+            },
+          });
 
           // Generate verification token for magic link
           const token = crypto.randomBytes(32).toString("hex");

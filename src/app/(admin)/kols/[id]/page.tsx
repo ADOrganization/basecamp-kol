@@ -116,6 +116,8 @@ interface KOLDetails {
   }[];
   // Precomputed total earnings from API (in cents)
   totalEarnings?: number;
+  // Precomputed count of COMPLETED payments (not just last 10)
+  paymentsCount?: number;
 }
 
 export default function KOLDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -438,7 +440,7 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns ({kol.campaignKols.length})</TabsTrigger>
           <TabsTrigger value="posts">Posts ({kol.posts.length})</TabsTrigger>
-          <TabsTrigger value="payments">Payments ({kol.payments.length})</TabsTrigger>
+          <TabsTrigger value="payments">Payments ({kol.paymentsCount ?? kol.payments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">

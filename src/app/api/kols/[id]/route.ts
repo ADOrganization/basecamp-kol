@@ -48,8 +48,20 @@ export async function GET(
           take: 10,
         },
         payments: {
+          where: {
+            status: "COMPLETED",
+          },
           orderBy: { createdAt: "desc" },
           take: 10,
+        },
+        _count: {
+          select: {
+            payments: {
+              where: {
+                status: "COMPLETED",
+              },
+            },
+          },
         },
       },
     });
@@ -97,7 +109,9 @@ export async function GET(
     });
 
     // Return KOL with computed totalEarnings (in cents for formatCurrency)
-    const response = NextResponse.json({ ...kol, paymentReceipts, totalEarnings });
+    // Include paymentsCount for the UI badge (total COMPLETED payments, not just last 10)
+    const paymentsCount = kol._count?.payments ?? 0;
+    const response = NextResponse.json({ ...kol, paymentReceipts, totalEarnings, paymentsCount });
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("[KOL API] Error:", error);

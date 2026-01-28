@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +67,26 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
   );
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientName, setNewClientName] = useState("");
+
+  // Reset form state when campaign prop changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        name: campaign?.name || "",
+        description: campaign?.description || "",
+        projectTwitterHandle: campaign?.projectTwitterHandle || "",
+        clientTelegramChatId: campaign?.clientTelegramChatId || "",
+        keywords: Array.isArray(campaign?.keywords) ? campaign.keywords : [],
+        totalBudget: campaign?.totalBudget ? campaign.totalBudget / 100 : "",
+        startDate: campaign?.startDate ? campaign.startDate.split("T")[0] : "",
+        endDate: campaign?.endDate ? campaign.endDate.split("T")[0] : "",
+      });
+      setClientUsers(campaign?.clientUsers || []);
+      setNewClientEmail("");
+      setNewClientName("");
+      setError("");
+    }
+  }, [campaign, open]);
 
   const addClientUser = () => {
     console.log("[CampaignForm] addClientUser called, email:", newClientEmail);
