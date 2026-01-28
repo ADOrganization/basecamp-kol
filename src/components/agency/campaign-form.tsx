@@ -69,10 +69,16 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
   const [newClientName, setNewClientName] = useState("");
 
   const addClientUser = () => {
-    if (!newClientEmail.trim()) return;
+    console.log("[CampaignForm] addClientUser called, email:", newClientEmail);
+
+    if (!newClientEmail.trim()) {
+      console.log("[CampaignForm] Email is empty, returning");
+      return;
+    }
 
     // Check for duplicate
     if (clientUsers.some(u => u.email.toLowerCase() === newClientEmail.toLowerCase().trim())) {
+      console.log("[CampaignForm] Duplicate email detected");
       setError("This email has already been added");
       return;
     }
@@ -80,17 +86,24 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(newClientEmail.trim())) {
+      console.log("[CampaignForm] Invalid email format");
       setError("Please enter a valid email address");
       return;
     }
 
-    setClientUsers([...clientUsers, {
+    const newUser = {
       email: newClientEmail.trim().toLowerCase(),
       name: newClientName.trim() || undefined
-    }]);
+    };
+    console.log("[CampaignForm] Adding user:", newUser);
+    console.log("[CampaignForm] Current clientUsers:", clientUsers);
+
+    setClientUsers([...clientUsers, newUser]);
     setNewClientEmail("");
     setNewClientName("");
     setError("");
+
+    console.log("[CampaignForm] User added successfully");
   };
 
   const removeClientUser = (email: string) => {
