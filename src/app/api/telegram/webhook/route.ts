@@ -4,6 +4,24 @@ import { TelegramClient, mapTelegramChatType } from "@/lib/telegram/client";
 import type { TelegramUpdate, TelegramChatMemberUpdated, TelegramMessage } from "@/lib/telegram/types";
 import { scrapeSingleTweet } from "@/lib/scraper/x-scraper";
 
+// GET handler for webhook diagnostics (no auth - just shows if webhook is reachable)
+export async function GET() {
+  const orgCount = await db.organization.count({
+    where: {
+      telegramBotToken: { not: null },
+      telegramWebhookSecret: { not: null },
+    },
+  });
+
+  return NextResponse.json({
+    status: "ok",
+    message: "Telegram webhook endpoint is reachable",
+    timestamp: new Date().toISOString(),
+    orgsWithWebhook: orgCount,
+    expectedHeader: "x-telegram-bot-api-secret-token",
+  });
+}
+
 // Webhook handler - no auth required (verified by secret header)
 export async function POST(request: NextRequest) {
   try {
@@ -691,7 +709,15 @@ async function handleHelpCommand(
 
 Need assistance? Contact @altcoinclimber or @viperrcrypto`;
 
-  await client.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
+  try {
+    const result = await client.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
+    console.log(`[Help] sendMessage result:`, result.ok ? "success" : result.description);
+    if (!result.ok) {
+      console.error(`[Help] Failed to send help message: ${result.description}`);
+    }
+  } catch (err) {
+    console.error(`[Help] Exception sending help message:`, err);
+  }
 }
 
 async function handleScheduleCommand(
@@ -705,11 +731,19 @@ async function handleScheduleCommand(
   }
 
   const client = new TelegramClient(botToken);
-  await client.sendMessage(
-    chatId,
-    `📅 *Book a Call*\n\nSchedule a meeting with our team:\nhttps://kalsync.xyz/basecamp`,
-    { parse_mode: "Markdown" }
-  );
+  try {
+    const result = await client.sendMessage(
+      chatId,
+      `📅 *Book a Call*\n\nSchedule a meeting with our team:\nhttps://kalsync.xyz/basecamp`,
+      { parse_mode: "Markdown" }
+    );
+    console.log(`[Schedule] sendMessage result:`, result.ok ? "success" : result.description);
+    if (!result.ok) {
+      console.error(`[Schedule] Failed to send schedule message: ${result.description}`);
+    }
+  } catch (err) {
+    console.error(`[Schedule] Exception sending schedule message:`, err);
+  }
 }
 
 async function handleBudgetCommand(
