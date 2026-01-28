@@ -2,40 +2,49 @@
 
 ## Current Session Context (Jan 28, 2026)
 
-### Critical Issues Being Fixed
+### Recent Fixes (This Session)
 
-1. **KOL Roster Total Paid** - Should tally ALL payments from ALL KOLs' payment tabs (with proof/receipts), not just COMPLETED status payments
+1. **Financial Summary** - Now includes PaymentReceipts (KOL-submitted proof) in paidOut and monthlySpend calculations
 
-2. **Payments Tab Count Stuck at 0** - The count next to "Payments" tab in KOL profiles shows (0) even when payments exist. Need to ensure `paymentsCount` is returned correctly from API.
+2. **Multiple Clients Per Campaign** - Added CampaignClient junction table for many-to-many relationship. Campaigns can now have multiple client organizations.
 
-3. **Total Earnings Consolidation** - Remove redundant "total" line at bottom of KOL profile. The total earnings should only appear in the top right section.
+3. **Client Analytics - Real Data** - Replaced mock Math.random() trend data with actual post metrics:
+   - Dashboard trend uses real post timestamps and cumulative growth
+   - Analytics WoW changes calculated from actual period comparisons
+   - Portfolio health shows real 7-day vs previous 7-day changes
 
-4. **Telegram Bot** - FIXED and working. Webhook registered at `https://admin.basecampnetwork.xyz/api/telegram/webhook`
+4. **Period-Over-Period Metrics** - Client portal now shows accurate growth percentages
+
+### Key Schema Change
+
+New `CampaignClient` junction table for multi-client campaigns:
+```prisma
+model CampaignClient {
+  id           String   @id @default(cuid())
+  campaignId   String
+  clientId     String
+  campaign     Campaign     @relation(...)
+  client       Organization @relation("CampaignClients", ...)
+  @@unique([campaignId, clientId])
+}
+```
 
 ### Key Files
 
-- `/src/app/api/kols/route.ts` - KOL roster API, calculates totalEarnings from payments
-- `/src/app/api/kols/[id]/route.ts` - Individual KOL API, returns totalEarnings and paymentsCount
-- `/src/app/(admin)/kols/[id]/page.tsx` - KOL profile page, displays payments and earnings
-- `/src/components/agency/kol-table.tsx` - KOL roster table component
-- `/src/app/(admin)/dashboard/page.tsx` - Dashboard with financial summary
+- `/src/app/api/kols/route.ts` - KOL roster API with paymentReceipts
+- `/src/app/api/campaigns/[id]/route.ts` - Campaign API with campaignClients
+- `/src/app/client/dashboard/page.tsx` - Client dashboard with real trend data
+- `/src/app/client/analytics/page.tsx` - Analytics with real WoW changes
+- `/src/app/(admin)/dashboard/page.tsx` - Agency dashboard with financial summary
 
 ### Payment/Earnings Logic
 
-- Payments are stored in `Payment` model with status: PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED
-- Payment receipts are in `PaymentReceipt` model (KOL-submitted proof via Telegram)
-- `totalEarnings` should include both Payment records AND PaymentReceipt records
-- The roster's "Total Paid" should sum all payments/receipts across all KOLs
+- Payments: `Payment` model (PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED)
+- Receipts: `PaymentReceipt` model (KOL-submitted proof via Telegram)
+- totalEarnings = receipts if available (actual proof), else completed payments
 
 ### Deployment
 
 - GitHub: ADOrganization/basecamp-kol
 - Production: admin.basecampnetwork.xyz (Vercel)
 - Deploy: `vercel --prod --yes && vercel alias set <deployment> admin.basecampnetwork.xyz`
-
-### Recent Fixes Applied
-
-- Redirect loop fixed (redirect to /admin/login instead of /login)
-- Telegram webhook self-healing added
-- Dashboard metrics diversified (8 metrics now shown)
-- Production URL hardcoded for webhook registration
