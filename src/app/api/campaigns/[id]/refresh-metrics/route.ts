@@ -168,7 +168,7 @@ export async function POST(
           ? (totalEngagements / tweet.metrics.views) * 100
           : 0;
 
-        // Update the post with new metrics
+        // Update the post with new metrics and content
         await db.post.update({
           where: { id: post.id },
           data: {
@@ -180,6 +180,9 @@ export async function POST(
             bookmarks: tweet.metrics.bookmarks,
             engagementRate: Math.round(engagementRate * 100) / 100,
             lastMetricsUpdate: new Date(),
+            // Update content and postedAt if available from scraper
+            ...(tweet.content && { content: tweet.content }),
+            ...(tweet.postedAt && { postedAt: tweet.postedAt }),
           },
         });
 
