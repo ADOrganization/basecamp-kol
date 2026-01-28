@@ -76,7 +76,12 @@ export async function GET(request: NextRequest) {
             likes: true,
             retweets: true,
             replies: true,
+            quotes: true,
+            bookmarks: true,
+            content: true,
+            tweetUrl: true,
             postedAt: true,
+            createdAt: true,
           },
         },
         _count: {
@@ -122,16 +127,18 @@ export async function GET(request: NextRequest) {
         ...campaign,
         // Show total budget to clients (they need to see their campaign budget)
         // spentBudget shows allocated budget (amount committed to KOLs)
-        // Strip ALL sensitive per-KOL data including IDs
+        // Strip sensitive per-KOL pricing data but include deliverables and KOL id for post matching
         campaignKols: campaign.campaignKols.map((ck) => ({
-          // NO IDs exposed - prevents clients from accessing /api/kols/[id] directly
+          requiredPosts: ck.requiredPosts,
+          requiredThreads: ck.requiredThreads,
+          requiredRetweets: ck.requiredRetweets,
+          requiredSpaces: ck.requiredSpaces,
           kol: {
-            // id: HIDDEN - prevents direct API access to KOL data
+            id: ck.kol.id,
             name: ck.kol.name,
             twitterHandle: ck.kol.twitterHandle,
             avatarUrl: ck.kol.avatarUrl,
-            // tier: HIDDEN - reveals pricing strategy
-            // No individual KOL rates exposed
+            // No individual KOL rates exposed - pricing strategy stays hidden
           },
         })),
       }));

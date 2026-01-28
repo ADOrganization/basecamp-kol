@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import {
   Eye,
   Heart,
@@ -16,29 +15,17 @@ import {
   Users,
   FileText,
   Filter,
-  Trophy,
   Quote,
   Bookmark,
   Download,
   Calendar,
   Minus,
+  ExternalLink,
+  CheckCircle2,
+  BarChart3,
+  Zap,
 } from "lucide-react";
 import { formatNumber, cn } from "@/lib/utils";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
 
 interface Campaign {
   id: string;
@@ -46,6 +33,10 @@ interface Campaign {
   status: string;
   totalBudget: number;
   campaignKols: {
+    requiredPosts: number;
+    requiredThreads: number;
+    requiredRetweets: number;
+    requiredSpaces: number;
     kol: { id: string; name: string; twitterHandle: string; avatarUrl: string | null };
   }[];
   posts: {
@@ -58,6 +49,8 @@ interface Campaign {
     replies: number;
     quotes: number;
     bookmarks: number;
+    content: string | null;
+    tweetUrl: string | null;
     postedAt: string | null;
     createdAt: string;
   }[];
@@ -70,7 +63,6 @@ export default function ClientAnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange>("30d");
-  const [kolLeaderboardTab, setKolLeaderboardTab] = useState("impressions");
 
   useEffect(() => {
     fetchCampaigns();
@@ -153,11 +145,9 @@ export default function ClientAnalyticsPage() {
     ? (totalEngagement / totals.impressions * 100).toFixed(2)
     : "0";
 
-  // Calculate REAL period-over-period changes by comparing current period to previous period
-  // This gives accurate growth metrics instead of random values
+  // Calculate REAL period-over-period changes
   const calculatePeriodChanges = () => {
     if (!dateFilter) {
-      // "All time" - compare last 30 days vs previous 30 days
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
 
@@ -174,7 +164,6 @@ export default function ClientAnalyticsPage() {
       return { currentPeriodPosts, previousPeriodPosts };
     }
 
-    // Calculate previous period of same duration
     const periodDuration = Date.now() - dateFilter.getTime();
     const previousPeriodStart = new Date(dateFilter.getTime() - periodDuration);
 
@@ -200,10 +189,9 @@ export default function ClientAnalyticsPage() {
   const currentEngRate = currentImpressions > 0 ? (currentEngagement / currentImpressions) * 100 : 0;
   const prevEngRate = prevImpressions > 0 ? (prevEngagement / prevImpressions) * 100 : 0;
 
-  // Calculate percentage changes (show positive momentum where possible)
   const calcChange = (current: number, previous: number): number => {
     if (previous === 0) {
-      return current > 0 ? 100 : 0; // If starting from 0, any data is 100% growth
+      return current > 0 ? 100 : 0;
     }
     return Math.round(((current - previous) / previous) * 100);
   };
@@ -211,7 +199,7 @@ export default function ClientAnalyticsPage() {
   const wowChanges = {
     impressions: calcChange(currentImpressions, prevImpressions),
     engagement: calcChange(currentEngagement, prevEngagement),
-    rate: Math.round((currentEngRate - prevEngRate) * 10) / 10, // Keep as percentage points
+    rate: Math.round((currentEngRate - prevEngRate) * 10) / 10,
     posts: calcChange(currentPeriodPosts.length, previousPeriodPosts.length),
   };
 
@@ -221,54 +209,57 @@ export default function ClientAnalyticsPage() {
     return <Minus className="h-3 w-3" />;
   };
 
-  const getTrendColor = (change: number) => {
-    if (change > 0) return "text-emerald-500";
-    if (change < 0) return "text-rose-500";
-    return "text-muted-foreground";
-  };
+  // --- New section data ---
 
-  // Generate engagement trend data
-  const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : dateRange === "90d" ? 90 : 30;
-  const trendData = Array.from({ length: Math.min(days, 14) }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (Math.min(days, 14) - 1 - i));
-    const dayPosts = filteredCampaigns.flatMap(c =>
-      c.posts.filter(p => {
-        if (!p.postedAt) return false;
-        const postDate = new Date(p.postedAt);
-        return postDate.toDateString() === date.toDateString();
-      })
-    );
-    return {
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      impressions: dayPosts.reduce((sum, p) => sum + p.impressions, 0),
-      engagement: dayPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0),
-    };
-  });
+  // A. Top Performing Posts (sorted by total engagement)
+  const allPosts = filteredCampaigns.flatMap(c =>
+    c.posts.map(p => {
+      const kol = c.campaignKols.find(ck => ck.kol.id === p.kolId)?.kol;
+      return { ...p, kol, campaignName: c.name };
+    })
+  );
 
-  // Campaign performance data
-  const campaignPerformance = campaigns.map(campaign => ({
-    name: campaign.name.length > 15 ? campaign.name.substring(0, 15) + "..." : campaign.name,
-    impressions: campaign.posts.reduce((sum, p) => sum + p.impressions, 0),
-    engagement: campaign.posts.reduce((sum, p) => sum + p.likes + p.retweets + p.replies, 0),
-  }));
+  const topPosts = [...allPosts]
+    .sort((a, b) => {
+      const engA = a.likes + a.retweets + a.replies + (a.quotes || 0);
+      const engB = b.likes + b.retweets + b.replies + (b.quotes || 0);
+      return engB - engA;
+    })
+    .slice(0, 5);
 
-  // Post status distribution
-  const statusData = [
-    { name: "Posted", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "POSTED" || p.status === "VERIFIED").length, color: "#10b981" },
-    { name: "Approved", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "APPROVED").length, color: "#6366f1" },
-    { name: "Pending", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "PENDING_APPROVAL").length, color: "#f59e0b" },
-    { name: "Rejected", value: filteredCampaigns.flatMap(c => c.posts).filter(p => p.status === "REJECTED").length, color: "#ef4444" },
-  ].filter(item => item.value > 0);
+  // B. Deliverables Progress
+  const deliverables = filteredCampaigns.flatMap(c =>
+    c.campaignKols.map(ck => {
+      const deliveredPosts = c.posts.filter(p => p.kolId === ck.kol.id).length;
+      return {
+        kol: ck.kol,
+        requiredPosts: ck.requiredPosts || 0,
+        deliveredPosts,
+        campaignName: c.name,
+      };
+    })
+  );
 
-  // KOL performance aggregated
+  const totalRequired = deliverables.reduce((sum, d) => sum + d.requiredPosts, 0);
+  const totalDelivered = deliverables.reduce((sum, d) => sum + d.deliveredPosts, 0);
+  const deliveryPercent = totalRequired > 0 ? Math.min(100, Math.round((totalDelivered / totalRequired) * 100)) : 0;
+
+  // C. Per-Post Averages
+  const postCount = totals.posts || 0;
+  const avgImpressions = postCount > 0 ? Math.round(totals.impressions / postCount) : 0;
+  const avgEngagement = postCount > 0 ? Math.round(totalEngagement / postCount) : 0;
+  const avgLikes = postCount > 0 ? Math.round(totals.likes / postCount) : 0;
+  const bestPostImpressions = allPosts.length > 0
+    ? Math.max(...allPosts.map(p => p.impressions))
+    : 0;
+
+  // D. KOL Performance Table (aggregated per-KOL with per-post averages)
   const kolMap = new Map<string, {
     id: string;
     name: string;
     twitterHandle: string;
     avatarUrl: string | null;
     impressions: number;
-    likes: number;
     engagement: number;
     posts: number;
   }>();
@@ -278,22 +269,19 @@ export default function ClientAnalyticsPage() {
       const kolPosts = (c.posts || []).filter(post => post.kolId === ck.kol.id);
       const existing = kolMap.get(ck.kol.id);
       const newImpressions = kolPosts.reduce((sum, post) => sum + (post.impressions || 0), 0);
-      const newLikes = kolPosts.reduce((sum, post) => sum + (post.likes || 0), 0);
       const newEngagement = kolPosts.reduce(
-        (sum, post) => sum + (post.likes || 0) + (post.retweets || 0) + (post.replies || 0),
+        (sum, post) => sum + (post.likes || 0) + (post.retweets || 0) + (post.replies || 0) + (post.quotes || 0),
         0
       );
 
       if (existing) {
         existing.impressions += newImpressions;
-        existing.likes += newLikes;
         existing.engagement += newEngagement;
         existing.posts += kolPosts.length;
       } else {
         kolMap.set(ck.kol.id, {
           ...ck.kol,
           impressions: newImpressions,
-          likes: newLikes,
           engagement: newEngagement,
           posts: kolPosts.length,
         });
@@ -301,37 +289,54 @@ export default function ClientAnalyticsPage() {
     });
   });
 
-  const kolPerformance = Array.from(kolMap.values());
-  const sortedKols = [...kolPerformance].sort((a, b) => {
-    switch (kolLeaderboardTab) {
-      case "impressions":
-        return b.impressions - a.impressions;
-      case "engagement":
-        return b.engagement - a.engagement;
-      case "posts":
-        return b.posts - a.posts;
-      default:
-        return b.impressions - a.impressions;
-    }
-  }).slice(0, 10);
+  const kolPerformance = Array.from(kolMap.values())
+    .sort((a, b) => {
+      const avgA = a.posts > 0 ? a.engagement / a.posts : 0;
+      const avgB = b.posts > 0 ? b.engagement / b.posts : 0;
+      return avgB - avgA;
+    });
 
+  // CSV Export with new metrics
   const handleExport = () => {
-    const csvContent = [
+    const rows: string[][] = [
       ["Metric", "Value"],
-      ["Total Impressions", totals.impressions],
-      ["Total Engagement", totalEngagement],
-      ["Likes", totals.likes],
-      ["Retweets", totals.retweets],
-      ["Replies", totals.replies],
-      ["Quotes", totals.quotes],
-      ["Bookmarks", totals.bookmarks],
+      ["Total Impressions", String(totals.impressions)],
+      ["Total Engagement", String(totalEngagement)],
       ["Engagement Rate", `${engagementRate}%`],
-      ["Total Posts", totals.posts],
-      ["Total KOLs", totals.kols],
-    ]
-      .map(row => row.join(","))
-      .join("\n");
+      ["Total Posts", String(totals.posts)],
+      ["Total KOLs", String(totals.kols)],
+      ["Likes", String(totals.likes)],
+      ["Retweets", String(totals.retweets)],
+      ["Replies", String(totals.replies)],
+      ["Quotes", String(totals.quotes)],
+      ["Bookmarks", String(totals.bookmarks)],
+      ["Avg Impressions/Post", String(avgImpressions)],
+      ["Avg Engagement/Post", String(avgEngagement)],
+      ["Avg Likes/Post", String(avgLikes)],
+      ["Best Post Impressions", String(bestPostImpressions)],
+      ["Deliverables Required", String(totalRequired)],
+      ["Deliverables Delivered", String(totalDelivered)],
+      ["Delivery Rate", `${deliveryPercent}%`],
+      [],
+      ["KOL", "Posts", "Avg Impressions/Post", "Avg Engagement/Post", "Engagement Rate"],
+      ...kolPerformance.map(k => [
+        `@${k.twitterHandle}`,
+        String(k.posts),
+        String(k.posts > 0 ? Math.round(k.impressions / k.posts) : 0),
+        String(k.posts > 0 ? Math.round(k.engagement / k.posts) : 0),
+        k.impressions > 0 ? `${((k.engagement / k.impressions) * 100).toFixed(2)}%` : "0%",
+      ]),
+      [],
+      ["Top Posts - KOL", "Impressions", "Engagement", "Content Preview"],
+      ...topPosts.map(p => [
+        `@${p.kol?.twitterHandle || "unknown"}`,
+        String(p.impressions),
+        String(p.likes + p.retweets + p.replies + (p.quotes || 0)),
+        `"${(p.content || "").slice(0, 80).replace(/"/g, '""')}"`,
+      ]),
+    ];
 
+    const csvContent = rows.map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -344,13 +349,10 @@ export default function ClientAnalyticsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        {/* Filters Skeleton */}
         <div className="flex gap-4">
           <div className="h-10 w-48 bg-muted rounded animate-pulse" />
           <div className="h-10 w-64 bg-muted rounded animate-pulse" />
         </div>
-
-        {/* Cards Skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="relative overflow-hidden">
@@ -366,8 +368,6 @@ export default function ClientAnalyticsPage() {
             </Card>
           ))}
         </div>
-
-        {/* Engagement Cards Skeleton */}
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i}>
@@ -379,8 +379,6 @@ export default function ClientAnalyticsPage() {
             </Card>
           ))}
         </div>
-
-        {/* Charts Skeleton */}
         <div className="grid gap-6 lg:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -403,7 +401,6 @@ export default function ClientAnalyticsPage() {
       {/* Filters Row */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Date Range Picker */}
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <div className="flex border rounded-lg overflow-hidden">
@@ -424,7 +421,6 @@ export default function ClientAnalyticsPage() {
             </div>
           </div>
 
-          {/* Campaign Filter */}
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <select
@@ -440,7 +436,6 @@ export default function ClientAnalyticsPage() {
           </div>
         </div>
 
-        {/* Export Button */}
         <Button variant="outline" onClick={handleExport}>
           <Download className="h-4 w-4 mr-2" />
           Export CSV
@@ -613,207 +608,261 @@ export default function ClientAnalyticsPage() {
         </Card>
       </div>
 
-      {/* Charts Section */}
+      {/* New Sections */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Engagement Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Engagement Trend</CardTitle>
-            <CardDescription>
-              Impressions and engagement over the{" "}
-              {dateRange === "all" ? "last 14 days" : `last ${dateRange.replace("d", " days")}`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData}>
-                  <defs>
-                    <linearGradient id="colorImp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorEng" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Area type="monotone" dataKey="impressions" stroke="#0ea5e9" strokeWidth={2} fill="url(#colorImp)" name="Impressions" />
-                  <Area type="monotone" dataKey="engagement" stroke="#f43f5e" strokeWidth={2} fill="url(#colorEng)" name="Engagement" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Post Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Post Status Distribution</CardTitle>
-            <CardDescription>Breakdown of post statuses across campaigns</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {statusData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No post data available
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Campaign Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Campaign Performance</CardTitle>
-            <CardDescription>Compare engagement across campaigns</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {campaignPerformance.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={campaignPerformance} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Bar dataKey="engagement" fill="#6366f1" name="Engagement" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No campaign data available
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Enhanced KOL Leaderboard */}
+        {/* A. Top Performing Posts */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-amber-500" />
-              KOL Leaderboard
+              <Zap className="h-5 w-5 text-amber-500" />
+              Top Performing Posts
             </CardTitle>
-            <CardDescription>Top 10 performing KOLs</CardDescription>
+            <CardDescription>Highest engagement posts across your campaigns</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={kolLeaderboardTab} onValueChange={setKolLeaderboardTab}>
-              <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="impressions" className="text-xs">
-                  <Eye className="h-3 w-3 mr-1" />
-                  Reach
-                </TabsTrigger>
-                <TabsTrigger value="engagement" className="text-xs">
-                  <Heart className="h-3 w-3 mr-1" />
-                  Engagement
-                </TabsTrigger>
-                <TabsTrigger value="posts" className="text-xs">
-                  <FileText className="h-3 w-3 mr-1" />
-                  Posts
-                </TabsTrigger>
-              </TabsList>
-
-              <div className="space-y-2 max-h-[280px] overflow-y-auto">
-                {sortedKols.length > 0 ? (
-                  sortedKols.map((kol, index) => (
+            {topPosts.length > 0 ? (
+              <div className="space-y-3">
+                {topPosts.map((post, index) => {
+                  const eng = post.likes + post.retweets + post.replies + (post.quotes || 0);
+                  const rate = post.impressions > 0 ? ((eng / post.impressions) * 100).toFixed(1) : "0";
+                  return (
                     <div
-                      key={kol.id}
+                      key={post.id}
                       className={cn(
-                        "flex items-center gap-3 p-2.5 rounded-lg transition-colors",
-                        index === 0 ? "bg-amber-50 dark:bg-amber-950/20" :
-                        index === 1 ? "bg-gray-50 dark:bg-gray-800/20" :
-                        index === 2 ? "bg-orange-50 dark:bg-orange-950/20" :
-                        "hover:bg-muted/50"
+                        "flex items-start gap-3 p-3 rounded-lg border",
+                        index === 0 && "border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20"
                       )}
                     >
-                      <Badge
-                        className={cn(
-                          "h-6 w-6 flex items-center justify-center p-0 text-xs",
-                          index === 0 ? "bg-amber-500" :
-                          index === 1 ? "bg-gray-400" :
-                          index === 2 ? "bg-orange-600" : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {index + 1}
-                      </Badge>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={kol.avatarUrl || undefined} />
-                        <AvatarFallback className="text-xs">
-                          {kol.name?.charAt(0) || "K"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{kol.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          @{kol.twitterHandle}
-                        </p>
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        <span className="text-sm font-bold text-muted-foreground w-5">#{index + 1}</span>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={post.kol?.avatarUrl || undefined} />
+                          <AvatarFallback className="text-xs">
+                            {post.kol?.name?.charAt(0) || "K"}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-sm">
-                          {kolLeaderboardTab === "impressions" && formatNumber(kol.impressions)}
-                          {kolLeaderboardTab === "engagement" && formatNumber(kol.engagement)}
-                          {kolLeaderboardTab === "posts" && kol.posts}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {kolLeaderboardTab === "impressions" && "reach"}
-                          {kolLeaderboardTab === "engagement" && "engagement"}
-                          {kolLeaderboardTab === "posts" && "posts"}
-                        </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="font-medium text-sm truncate">{post.kol?.name || "Unknown"}</span>
+                          <span className="text-xs text-muted-foreground">@{post.kol?.twitterHandle || "unknown"}</span>
+                        </div>
+                        {post.content && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {post.content.slice(0, 120)}{post.content.length > 120 ? "..." : ""}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3 text-muted-foreground" />
+                            {formatNumber(post.impressions)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3 w-3 text-muted-foreground" />
+                            {formatNumber(eng)}
+                          </span>
+                          <span className="text-muted-foreground">{rate}% rate</span>
+                          <span className="text-muted-foreground">
+                            {new Date(post.postedAt || post.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                          {post.tweetUrl && (
+                            <a
+                              href={post.tweetUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline flex items-center gap-0.5"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              View
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="py-8 text-center text-muted-foreground">
-                    No KOL data available
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            </Tabs>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                No post data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* B. Deliverables Progress */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              Deliverables Progress
+            </CardTitle>
+            <CardDescription>Post delivery status across all KOLs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {totalRequired > 0 ? (
+              <div className="space-y-4">
+                {/* Overall progress */}
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Overall Delivery</span>
+                    <span className="text-sm font-bold">{totalDelivered} / {totalRequired} posts</span>
+                  </div>
+                  <Progress value={deliveryPercent} className="h-3" />
+                  <p className="text-xs text-muted-foreground mt-1.5">{deliveryPercent}% complete</p>
+                </div>
+
+                {/* Per-KOL progress */}
+                <div className="space-y-3 max-h-[240px] overflow-y-auto">
+                  {deliverables
+                    .filter(d => d.requiredPosts > 0)
+                    .sort((a, b) => {
+                      const pctA = a.requiredPosts > 0 ? a.deliveredPosts / a.requiredPosts : 0;
+                      const pctB = b.requiredPosts > 0 ? b.deliveredPosts / b.requiredPosts : 0;
+                      return pctB - pctA;
+                    })
+                    .map((d, i) => {
+                      const pct = d.requiredPosts > 0 ? Math.min(100, Math.round((d.deliveredPosts / d.requiredPosts) * 100)) : 0;
+                      return (
+                        <div key={`${d.kol.id}-${d.campaignName}-${i}`} className="flex items-center gap-3">
+                          <Avatar className="h-7 w-7 flex-shrink-0">
+                            <AvatarImage src={d.kol.avatarUrl || undefined} />
+                            <AvatarFallback className="text-xs">{d.kol.name?.charAt(0) || "K"}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium truncate">@{d.kol.twitterHandle}</span>
+                              <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                                {d.deliveredPosts}/{d.requiredPosts}
+                              </span>
+                            </div>
+                            <Progress value={pct} className="h-1.5" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                No deliverable requirements set
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* C. Per-Post Averages */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-indigo-500" />
+              Per-Post Averages
+            </CardTitle>
+            <CardDescription>Average performance metrics per post</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {postCount > 0 ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Eye className="h-4 w-4 text-indigo-500" />
+                    <span className="text-xs text-muted-foreground">Avg Impressions</span>
+                  </div>
+                  <p className="text-2xl font-bold">{formatNumber(avgImpressions)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">per post</p>
+                </div>
+
+                <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Heart className="h-4 w-4 text-violet-500" />
+                    <span className="text-xs text-muted-foreground">Avg Engagement</span>
+                  </div>
+                  <p className="text-2xl font-bold">{formatNumber(avgEngagement)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">per post</p>
+                </div>
+
+                <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Heart className="h-4 w-4 text-rose-500" />
+                    <span className="text-xs text-muted-foreground">Avg Likes</span>
+                  </div>
+                  <p className="text-2xl font-bold">{formatNumber(avgLikes)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">per post</p>
+                </div>
+
+                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs text-muted-foreground">Best Post</span>
+                  </div>
+                  <p className="text-2xl font-bold">{formatNumber(bestPostImpressions)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">impressions</p>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                No post data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* D. KOL Performance Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-violet-500" />
+              KOL Performance
+            </CardTitle>
+            <CardDescription>Sorted by avg engagement per post (best ROI first)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {kolPerformance.length > 0 ? (
+              <div className="space-y-0">
+                {/* Table header */}
+                <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
+                  <div className="col-span-4">KOL</div>
+                  <div className="col-span-2 text-right">Posts</div>
+                  <div className="col-span-2 text-right">Avg Imp</div>
+                  <div className="col-span-2 text-right">Avg Eng</div>
+                  <div className="col-span-2 text-right">Rate</div>
+                </div>
+
+                <div className="max-h-[280px] overflow-y-auto">
+                  {kolPerformance.map((kol) => {
+                    const avgImp = kol.posts > 0 ? Math.round(kol.impressions / kol.posts) : 0;
+                    const avgEng = kol.posts > 0 ? Math.round(kol.engagement / kol.posts) : 0;
+                    const kolRate = kol.impressions > 0 ? ((kol.engagement / kol.impressions) * 100).toFixed(1) : "0";
+
+                    return (
+                      <div
+                        key={kol.id}
+                        className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
+                      >
+                        <div className="col-span-4 flex items-center gap-2 min-w-0">
+                          <Avatar className="h-7 w-7 flex-shrink-0">
+                            <AvatarImage src={kol.avatarUrl || undefined} />
+                            <AvatarFallback className="text-xs">{kol.name?.charAt(0) || "K"}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{kol.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">@{kol.twitterHandle}</p>
+                          </div>
+                        </div>
+                        <div className="col-span-2 text-right text-sm font-medium">{kol.posts}</div>
+                        <div className="col-span-2 text-right text-sm">{formatNumber(avgImp)}</div>
+                        <div className="col-span-2 text-right text-sm font-medium">{formatNumber(avgEng)}</div>
+                        <div className="col-span-2 text-right text-sm text-muted-foreground">{kolRate}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                No KOL data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
