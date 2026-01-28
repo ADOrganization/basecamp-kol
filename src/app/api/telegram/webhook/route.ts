@@ -674,7 +674,12 @@ async function handleBudgetCommand(
   groupTitle: string | null,
   telegramChatId?: string
 ) {
-  if (!botToken) return;
+  console.log(`[Budget] Command received - orgId: ${organizationId}, chatId: ${chatId}, telegramChatId: ${telegramChatId}, sender: @${senderUsername}, groupTitle: "${groupTitle}"`);
+
+  if (!botToken) {
+    console.log("[Budget] No bot token - aborting");
+    return;
+  }
 
   const client = new TelegramClient(botToken);
 
@@ -693,6 +698,7 @@ async function handleBudgetCommand(
     .filter(Boolean);
 
   const isAdmin = normalizedUsername && allowedAdmins.includes(normalizedUsername);
+  console.log(`[Budget] isAdmin: ${isAdmin}, normalizedUsername: ${normalizedUsername}, allowedAdmins: [${allowedAdmins.join(", ")}]`);
 
   // SECURITY: Check if this is a client group chat (clients can only see their assigned campaign budget)
   let clientCampaign: { id: string; name: string; totalBudget: number; createdAt: Date } | null = null;
@@ -712,9 +718,26 @@ async function handleBudgetCommand(
       },
     });
 
+    console.log(`[Budget] Campaign lookup for telegramChatId "${telegramChatId}": ${campaignForChat ? `found "${campaignForChat.name}"` : "NOT FOUND"}`);
+
+    // Debug: If not found, list all campaigns with their clientTelegramChatId to identify mismatch
+    if (!campaignForChat) {
+      const allCampaigns = await db.campaign.findMany({
+        where: { agencyId: organizationId },
+        select: { id: true, name: true, clientTelegramChatId: true, status: true },
+      });
+      console.log(`[Budget] DEBUG - All campaigns for org ${organizationId}:`, allCampaigns.map(c => ({
+        name: c.name,
+        clientTelegramChatId: c.clientTelegramChatId,
+        status: c.status
+      })));
+    }
+
     if (campaignForChat) {
       clientCampaign = campaignForChat;
     }
+  } else {
+    console.log("[Budget] No telegramChatId provided - skipping client group check");
   }
 
   // SECURITY: Check if user is a KOL - KOLs should NEVER see budgets
