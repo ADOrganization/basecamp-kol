@@ -198,28 +198,18 @@ async function getClientStats(organizationId: string) {
       }
     });
 
-    // Convert to cumulative trend data (shows growth over time)
+    // Convert to cumulative trend data (shows real growth over time)
     const sortedDates = Array.from(dailyMetrics.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     let cumulativeImpressions = 0;
     let cumulativeEngagement = 0;
 
-    // If no recent data, distribute totals across days to show positive trend
-    const hasRecentData = sortedDates.some(([_, m]) => m.impressions > 0 || m.engagement > 0);
-
-    const trendData = sortedDates.map(([dateStr, metrics], index) => {
+    const trendData = sortedDates.map(([dateStr, metrics]) => {
       const date = new Date(dateStr);
 
-      if (hasRecentData) {
-        // Use real cumulative data
-        cumulativeImpressions += metrics.impressions;
-        cumulativeEngagement += metrics.engagement;
-      } else {
-        // Distribute total metrics with an upward curve to show positive momentum
-        const progress = (index + 1) / 7;
-        const curve = Math.pow(progress, 0.7); // Upward curve - shows acceleration
-        cumulativeImpressions = Math.floor(totalImpressions * curve);
-        cumulativeEngagement = Math.floor(totalEngagement * curve);
-      }
+      // Always use real data - no fabricated curves
+      // If no recent activity, show honest zeros
+      cumulativeImpressions += metrics.impressions;
+      cumulativeEngagement += metrics.engagement;
 
       return {
         date: date.toLocaleDateString("en-US", { weekday: "short" }),
@@ -306,14 +296,22 @@ export default async function ClientDashboard() {
   const stats = await getClientStats(session.user.organizationId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight">Campaign Dashboard</h1>
+        <p className="text-muted-foreground">
+          Track your campaign performance and KOL activity
+        </p>
+      </div>
+
       {/* Pending Approvals Alert */}
       {stats.pendingPosts > 0 && (
-        <Card className="border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card className="border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center shrink-0">
                   <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
@@ -325,7 +323,7 @@ export default async function ClientDashboard() {
                   </p>
                 </div>
               </div>
-              <Button asChild className="bg-amber-600 hover:bg-amber-700">
+              <Button asChild className="bg-amber-600 hover:bg-amber-700 shadow-sm">
                 <Link href="/client/review">
                   Review Now
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -337,7 +335,9 @@ export default async function ClientDashboard() {
       )}
 
       {/* Portfolio Health KPIs */}
-      <ClientPortfolioHealth
+      <section>
+        <h2 className="text-lg font-semibold mb-4">Performance Overview</h2>
+        <ClientPortfolioHealth
         totalImpressions={stats.totalImpressions}
         totalEngagement={stats.totalEngagement}
         engagementRate={stats.engagementRate}
@@ -348,10 +348,11 @@ export default async function ClientDashboard() {
         rateChange={stats.periodChanges.rate}
         postsChange={stats.periodChanges.posts}
       />
+      </section>
 
       {/* Campaign Summary Cards */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
+      <section>
+        <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold">Your Campaigns</h2>
           <Button variant="outline" size="sm" asChild>
             <Link href="/client/campaigns">
@@ -373,7 +374,7 @@ export default async function ClientDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {stats.campaigns.slice(0, 6).map((campaign) => {
               const campaignImpressions = campaign.posts.reduce(
                 (s, p) => s + p.impressions,
@@ -386,6 +387,9 @@ export default async function ClientDashboard() {
               const pendingCount = campaign.posts.filter(
                 (p) => p.status === "PENDING_APPROVAL"
               ).length;
+              const postedCount = campaign.posts.filter(
+                (p) => p.status === "POSTED" || p.status === "VERIFIED"
+              ).length;
 
               return (
                 <Link
@@ -393,19 +397,15 @@ export default async function ClientDashboard() {
                   href={`/client/campaigns/${campaign.id}`}
                   className="block group"
                 >
-                  <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-base group-hover:text-primary transition-colors line-clamp-1">
+                  <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all duration-200 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors line-clamp-1">
                           {campaign.name}
                         </CardTitle>
                         <Badge
-                          variant={
-                            campaign.status === "ACTIVE" ? "default" : "secondary"
-                          }
-                          className={
-                            campaign.status === "ACTIVE" ? "bg-primary" : ""
-                          }
+                          variant={campaign.status === "ACTIVE" ? "default" : "secondary"}
+                          className={campaign.status === "ACTIVE" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
                         >
                           {campaign.status}
                         </Badge>
@@ -413,31 +413,36 @@ export default async function ClientDashboard() {
                       {pendingCount > 0 && (
                         <Badge
                           variant="outline"
-                          className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 w-fit"
+                          className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 w-fit mt-2"
                         >
                           {pendingCount} pending review
                         </Badge>
                       )}
                     </CardHeader>
-                    <CardContent>
-                      <div className="text-sm text-muted-foreground mb-3">
-                        {campaign.campaignKols.length} KOLs &bull;{" "}
-                        {campaign.posts.length} posts
+                    <CardContent className="pt-0">
+                      <div className="text-sm text-muted-foreground mb-4">
+                        <span className="inline-flex items-center gap-1">
+                          {campaign.campaignKols.length} KOLs
+                        </span>
+                        <span className="mx-2">•</span>
+                        <span className="inline-flex items-center gap-1">
+                          {postedCount} published
+                        </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                         <div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">
                             Impressions
                           </p>
-                          <p className="font-semibold">
+                          <p className="text-lg font-bold mt-1">
                             {formatNumber(campaignImpressions)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">
                             Engagement
                           </p>
-                          <p className="font-semibold">
+                          <p className="text-lg font-bold mt-1">
                             {formatNumber(campaignEngagement)}
                           </p>
                         </div>
@@ -449,25 +454,31 @@ export default async function ClientDashboard() {
             })}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Content Performance & KOL Leaderboard Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ClientContentPerformance
-          published={stats.postedPosts}
-          approved={stats.approvedPosts}
-          pending={stats.pendingPosts}
-          rejected={stats.rejectedPosts}
-          draft={stats.draftPosts}
-        />
-        <ClientKOLLeaderboard kols={stats.kolStats} />
-      </div>
+      <section>
+        <h2 className="text-lg font-semibold mb-4">Content & KOL Insights</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ClientContentPerformance
+            published={stats.postedPosts}
+            approved={stats.approvedPosts}
+            pending={stats.pendingPosts}
+            rejected={stats.rejectedPosts}
+            draft={stats.draftPosts}
+          />
+          <ClientKOLLeaderboard kols={stats.kolStats} />
+        </div>
+      </section>
 
       {/* Engagement Trends & Activity Feed Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ClientEngagementTrends data={stats.trendData} />
-        <ClientActivityFeed activities={stats.recentActivities} />
-      </div>
+      <section>
+        <h2 className="text-lg font-semibold mb-4">Trends & Activity</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ClientEngagementTrends data={stats.trendData} />
+          <ClientActivityFeed activities={stats.recentActivities} />
+        </div>
+      </section>
     </div>
   );
 }
