@@ -11,7 +11,7 @@ export default async function TelegramPage() {
   const context = await getAgencyContext();
 
   if (!context) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   // Get KOLs with telegram usernames

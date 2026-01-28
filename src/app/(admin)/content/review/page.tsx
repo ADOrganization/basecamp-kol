@@ -9,7 +9,7 @@ export default async function ContentReviewPage() {
   const context = await getAgencyContext();
 
   if (!context) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   const posts = await db.post.findMany({

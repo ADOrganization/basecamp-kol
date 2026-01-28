@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   const context = await getAgencyContext();
 
   if (!context) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   const organization = await db.organization.findUnique({
@@ -29,7 +29,7 @@ export default async function SettingsPage() {
   });
 
   if (!organization) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   // For admin users, create a synthetic user object since they don't have a User record
@@ -67,7 +67,7 @@ export default async function SettingsPage() {
   }
 
   if (!user) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   return (

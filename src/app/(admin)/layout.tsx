@@ -50,7 +50,7 @@ export default async function AgencyLayout({
     const session = await auth();
 
     if (!session?.user) {
-      redirect("/login");
+      redirect("/admin/login");
     }
 
     if (session.user.organizationType !== "AGENCY") {
@@ -112,6 +112,6 @@ export default async function AgencyLayout({
     );
   } catch (error) {
     console.error("Agency layout error:", error);
-    redirect("/login");
+    redirect("/admin/login");
   }
 }

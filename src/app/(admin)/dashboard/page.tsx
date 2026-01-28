@@ -523,7 +523,7 @@ async function getDashboardStats(organizationId: string) {
 export default async function AgencyDashboard() {
   const context = await getAgencyContext();
   if (!context) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   const stats = await getDashboardStats(context.organizationId);
