@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, DollarSign, Megaphone, Clock, ExternalLink } from "lucide-react";
+import { FileText, DollarSign, Clock, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
@@ -55,12 +55,14 @@ function getStatusColor(status: string): string {
 export function ActivityFeed({ activities }: ActivityFeedProps) {
   if (activities.length === 0) {
     return (
-      <div className="rounded-xl border bg-card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">Recent Activity</h2>
+      <div className="rounded-xl border bg-card">
+        <div className="px-5 py-4 border-b">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            Recent Activity
+          </h2>
         </div>
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-8 text-muted-foreground text-sm">
           No recent activity
         </div>
       </div>
@@ -69,38 +71,37 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
 
   return (
     <div className="rounded-xl border bg-card">
-      <div className="p-6 border-b">
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">Recent Activity</h2>
-        </div>
-        <p className="text-sm text-muted-foreground mt-1">Last 24 hours</p>
+      <div className="px-5 py-4 border-b">
+        <h2 className="text-base font-semibold flex items-center gap-2">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          Recent Activity
+        </h2>
       </div>
 
       <div className="divide-y">
-        {activities.slice(0, 8).map((activity) => (
-          <div key={`${activity.type}-${activity.id}`} className="p-4 hover:bg-muted/50 transition-colors">
+        {activities.slice(0, 6).map((activity) => (
+          <div key={`${activity.type}-${activity.id}`} className="px-5 py-3 hover:bg-muted/50 transition-colors">
             {activity.type === 'post' ? (
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10 mt-0.5">
-                  <FileText className="h-4 w-4 text-blue-500" />
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 rounded-md bg-blue-500/10 mt-0.5">
+                  <FileText className="h-3.5 w-3.5 text-blue-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Avatar className="h-5 w-5 border">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Avatar className="h-4 w-4 border">
                       {activity.kol.avatarUrl && <AvatarImage src={activity.kol.avatarUrl} />}
-                      <AvatarFallback className="text-[10px]">{activity.kol.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-[8px]">{activity.kol.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <span className="font-medium text-sm">{activity.kol.name}</span>
-                    <span className="text-muted-foreground text-sm">submitted a post</span>
-                    <span className={`text-xs px-2 py-0.5 rounded ${getStatusColor(activity.status)}`}>
+                    <span className="font-medium text-xs">{activity.kol.name}</span>
+                    <span className="text-muted-foreground text-xs">posted</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${getStatusColor(activity.status)}`}>
                       {activity.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1 truncate">
-                    {activity.content?.slice(0, 80) || 'No content'}...
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {activity.content?.slice(0, 60) || 'No content'}
                   </p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
                     <Link
                       href={`/campaigns/${activity.campaign.id}`}
                       className="hover:underline"
@@ -115,29 +116,29 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
                         rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-0.5"
                       >
-                        <ExternalLink className="h-3 w-3" />
-                        View post
+                        <ExternalLink className="h-2.5 w-2.5" />
+                        View
                       </a>
                     )}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 mt-0.5">
-                  <DollarSign className="h-4 w-4 text-emerald-500" />
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 rounded-md bg-emerald-500/10 mt-0.5">
+                  <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5 border">
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="h-4 w-4 border">
                       {activity.kol.avatarUrl && <AvatarImage src={activity.kol.avatarUrl} />}
-                      <AvatarFallback className="text-[10px]">{activity.kol.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-[8px]">{activity.kol.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <span className="font-medium text-sm">{activity.kol.name}</span>
-                    <span className="text-muted-foreground text-sm">was paid</span>
-                    <span className="font-semibold text-emerald-600">{formatCurrency(activity.amount)}</span>
+                    <span className="font-medium text-xs">{activity.kol.name}</span>
+                    <span className="text-muted-foreground text-xs">paid</span>
+                    <span className="font-semibold text-xs text-emerald-600">{formatCurrency(activity.amount)}</span>
                   </div>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
                     <span>Payment completed</span>
                     {activity.paidAt && (
                       <span>{formatDistanceToNow(new Date(activity.paidAt), { addSuffix: true })}</span>
@@ -149,14 +150,6 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
           </div>
         ))}
       </div>
-
-      {activities.length > 8 && (
-        <div className="p-4 border-t text-center">
-          <Link href="/content/review" className="text-sm text-primary hover:underline">
-            View all activity
-          </Link>
-        </div>
-      )}
     </div>
   );
 }
