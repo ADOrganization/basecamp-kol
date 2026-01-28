@@ -31,6 +31,10 @@ export async function POST(request: NextRequest) {
     console.log("[Telegram Webhook] Found org:", org.id);
     console.log("[Telegram Webhook] Bot token present:", !!org.telegramBotToken);
 
+    if (!org.telegramBotToken) {
+      console.error("[Telegram Webhook] CRITICAL: Organization has no bot token configured! Commands will fail silently.");
+    }
+
     const update: TelegramUpdate = await request.json();
     console.log("[Telegram Webhook] Update type:", update.message ? "message" : update.my_chat_member ? "my_chat_member" : "other");
 
@@ -616,7 +620,11 @@ async function handleHelpCommand(
   telegramChatId?: string,
   senderUsername?: string
 ) {
-  if (!botToken) return;
+  console.log(`[Help] handleHelpCommand called - chatId: ${chatId}, botToken present: ${!!botToken}`);
+  if (!botToken) {
+    console.error("[Help] CRITICAL: No bot token - cannot respond to /help command!");
+    return;
+  }
 
   const client = new TelegramClient(botToken);
 
@@ -690,7 +698,11 @@ async function handleScheduleCommand(
   botToken: string | null,
   chatId: number
 ) {
-  if (!botToken) return;
+  console.log(`[Schedule] handleScheduleCommand called - chatId: ${chatId}, botToken present: ${!!botToken}`);
+  if (!botToken) {
+    console.error("[Schedule] CRITICAL: No bot token - cannot respond to /schedule command!");
+    return;
+  }
 
   const client = new TelegramClient(botToken);
   await client.sendMessage(
