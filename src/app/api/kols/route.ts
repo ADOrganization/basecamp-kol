@@ -102,14 +102,21 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate total earnings from COMPLETED payments for each KOL
+    // Calculate total earnings from COMPLETED payments + payment receipts for each KOL
     const kolsWithEarnings = kols.map((kol) => {
-      // Total earnings = sum of completed payments (in cents)
-      // Payments are what the agency actually paid to the KOL
-      const totalEarningsCents = kol.payments.reduce(
+      // Total earnings = sum of completed payments + payment receipts (in cents)
+      // Payments are what the agency recorded as paid
+      // PaymentReceipts are what the KOL submitted as proof of payment received
+      const paymentsTotal = kol.payments.reduce(
         (sum, payment) => sum + (payment.amount || 0),
         0
       );
+      const receiptsTotal = kol.paymentReceipts.reduce(
+        (sum, receipt) => sum + (receipt.amount || 0),
+        0
+      );
+      // Use the higher of the two (or receipts if there are any, as they represent actual proof)
+      const totalEarningsCents = receiptsTotal > 0 ? receiptsTotal : paymentsTotal;
 
       const activeCampaigns = kol.campaignKols.filter(
         ck => ck.status === "PENDING" || ck.status === "CONFIRMED"

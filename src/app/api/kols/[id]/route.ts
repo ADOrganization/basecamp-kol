@@ -80,10 +80,11 @@ export async function GET(
         amount: true,
       },
     });
-    const totalEarnings = completedPaymentsAggregate._sum.amount || 0;
+    const paymentsTotal = completedPaymentsAggregate._sum.amount || 0;
 
-    // Try to get payment receipts separately
+    // Get payment receipts (KOL-submitted proof of payment)
     let paymentReceipts: { id: string; amount: number; campaignId: string | null; createdAt: Date; campaign: { id: string; name: string } | null }[] = [];
+    let receiptsTotal = 0;
     try {
       paymentReceipts = await db.paymentReceipt.findMany({
         where: { kolId: kol.id },
@@ -92,9 +93,13 @@ export async function GET(
           campaign: { select: { id: true, name: true } },
         },
       });
+      receiptsTotal = paymentReceipts.reduce((sum, r) => sum + r.amount, 0);
     } catch {
       // Silent fail for payment receipts
     }
+
+    // Total earnings = receipts if available (actual proof), otherwise completed payments
+    const totalEarnings = receiptsTotal > 0 ? receiptsTotal : paymentsTotal;
 
     // SECURITY: Audit log for individual KOL detail access
     await logSecurityEvent({
@@ -109,8 +114,10 @@ export async function GET(
     });
 
     // Return KOL with computed totalEarnings (in cents for formatCurrency)
-    // Include paymentsCount for the UI badge (total COMPLETED payments, not just last 10)
-    const paymentsCount = kol._count?.payments ?? 0;
+    // paymentsCount = payment receipts (actual proof) if any, otherwise completed payments
+    const completedPaymentsCount = kol._count?.payments ?? 0;
+    const receiptsCount = paymentReceipts.length;
+    const paymentsCount = receiptsCount > 0 ? receiptsCount : completedPaymentsCount;
     const response = NextResponse.json({ ...kol, paymentReceipts, totalEarnings, paymentsCount });
     return addSecurityHeaders(response);
   } catch (error) {

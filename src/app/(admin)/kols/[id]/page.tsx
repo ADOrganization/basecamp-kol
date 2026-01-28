@@ -296,10 +296,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
       receipt.telegramUsername ? `@${receipt.telegramUsername}` : "-",
     ]);
 
-    // Add total row
-    const totalAmount = kol.paymentReceipts.reduce((sum, r) => sum + r.amount, 0);
-    rows.push(["", "TOTAL", (totalAmount / 100).toFixed(2), "", ""]);
-
     const csvContent = [
       headers.join(","),
       ...rows.map((row) =>
@@ -672,17 +668,6 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
                       </td>
                     </tr>
                   ))}
-                  {/* Total row */}
-                  <tr className="border-t bg-muted/30 font-semibold">
-                    <td className="p-4">Total</td>
-                    <td className="p-4"></td>
-                    <td className="p-4"></td>
-                    <td className="p-4"></td>
-                    <td className="p-4 text-right">
-                      {formatCurrency(kol.paymentReceipts.reduce((sum, r) => sum + r.amount, 0))}
-                    </td>
-                    <td className="p-4"></td>
-                  </tr>
                 </tbody>
               </table>
             )}
