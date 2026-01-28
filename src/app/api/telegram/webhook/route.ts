@@ -683,6 +683,13 @@ async function handleBudgetCommand(
 
   const client = new TelegramClient(botToken);
 
+  // DEBUG: Send immediate acknowledgment to confirm webhook is working
+  try {
+    await client.sendMessage(chatId, `🔍 DEBUG: /budget received from @${senderUsername || 'unknown'} in chat ${telegramChatId}`);
+  } catch (err) {
+    console.error("[Budget] Failed to send debug message:", err);
+  }
+
   // Helper to send response
   const sendResponse = async (message: string) => {
     await client.sendMessage(chatId, message, { parse_mode: "Markdown" });
