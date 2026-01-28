@@ -24,20 +24,89 @@ async function sendErrorToUser(botToken: string | null, chatId: number, message:
   }
 }
 
-// GET handler for webhook diagnostics (no auth - just shows if webhook is reachable)
-export async function GET() {
-  const orgCount = await db.organization.count({
+// GET handler for webhook diagnostics and self-healing registration
+export async function GET(request: NextRequest) {
+  const PRODUCTION_URL = "https://admin.basecampnetwork.xyz";
+  const expectedWebhookUrl = `${PRODUCTION_URL}/api/telegram/webhook`;
+
+  // Find all orgs with bot tokens
+  const orgsWithToken = await db.organization.findMany({
     where: {
       telegramBotToken: { not: null },
-      telegramWebhookSecret: { not: null },
+    },
+    select: {
+      id: true,
+      telegramBotToken: true,
+      telegramWebhookSecret: true,
     },
   });
+
+  const results: { orgId: string; webhookStatus: string; registered: boolean }[] = [];
+
+  // Check and fix webhook registration for each org
+  for (const org of orgsWithToken) {
+    if (!org.telegramBotToken) continue;
+
+    const client = new TelegramClient(org.telegramBotToken);
+
+    try {
+      // Check current webhook status
+      const webhookInfo = await client.getWebhookInfo();
+
+      if (!webhookInfo.ok) {
+        results.push({ orgId: org.id, webhookStatus: "error_getting_info", registered: false });
+        continue;
+      }
+
+      const currentUrl = webhookInfo.result?.url || "";
+      const isCorrectUrl = currentUrl === expectedWebhookUrl;
+
+      // If webhook is not set or pointing to wrong URL, re-register it
+      if (!currentUrl || !isCorrectUrl) {
+        console.log(`[Telegram Webhook] Fixing webhook for org ${org.id}. Current: "${currentUrl}", Expected: "${expectedWebhookUrl}"`);
+
+        // Generate new secret if needed
+        let webhookSecret = org.telegramWebhookSecret;
+        if (!webhookSecret) {
+          webhookSecret = Array.from({ length: 32 }, () =>
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".charAt(Math.floor(Math.random() * 62))
+          ).join("");
+
+          await db.organization.update({
+            where: { id: org.id },
+            data: { telegramWebhookSecret: webhookSecret },
+          });
+        }
+
+        // Register webhook with correct URL
+        const setResult = await client.setWebhook(expectedWebhookUrl, {
+          secret_token: webhookSecret,
+          allowed_updates: ["message", "my_chat_member", "chat_member"],
+        });
+
+        if (setResult.ok) {
+          console.log(`[Telegram Webhook] Successfully registered webhook for org ${org.id}`);
+          results.push({ orgId: org.id, webhookStatus: "fixed", registered: true });
+        } else {
+          console.error(`[Telegram Webhook] Failed to register webhook for org ${org.id}: ${setResult.description}`);
+          results.push({ orgId: org.id, webhookStatus: `error: ${setResult.description}`, registered: false });
+        }
+      } else {
+        results.push({ orgId: org.id, webhookStatus: "ok", registered: true });
+      }
+    } catch (err) {
+      console.error(`[Telegram Webhook] Error checking/fixing webhook for org ${org.id}:`, err);
+      results.push({ orgId: org.id, webhookStatus: "exception", registered: false });
+    }
+  }
 
   return NextResponse.json({
     status: "ok",
     message: "Telegram webhook endpoint is reachable",
     timestamp: new Date().toISOString(),
-    orgsWithWebhook: orgCount,
+    expectedWebhookUrl,
+    orgsChecked: orgsWithToken.length,
+    results,
     expectedHeader: "x-telegram-bot-api-secret-token",
   });
 }
