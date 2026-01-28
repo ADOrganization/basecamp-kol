@@ -25,7 +25,7 @@ import { Plus, X, Mail, Users } from "lucide-react";
 
 interface ClientAccessUser {
   email: string;
-  name?: string;
+  name?: string | null;
 }
 
 interface CampaignFormProps {

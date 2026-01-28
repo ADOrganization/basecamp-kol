@@ -90,6 +90,7 @@ interface CampaignDetails {
   createdAt: string;
   client: { id: string; name: string; slug: string } | null;
   agency: { id: string; name: string };
+  clientUsers?: { email: string; name: string | null }[];
   campaignKols: {
     id: string;
     status: string;

@@ -80,6 +80,14 @@ export async function GET(request: NextRequest) {
             amount: true,
           },
         },
+        payments: {
+          where: {
+            status: "COMPLETED",
+          },
+          select: {
+            amount: true,
+          },
+        },
         _count: {
           select: {
             campaignKols: true,
@@ -94,20 +102,27 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate total earnings from payment receipts and active campaigns for each KOL
+    // Calculate total earnings from payments and payment receipts for each KOL
     const kolsWithEarnings = kols.map((kol) => {
-      // Total earnings = sum of all payment receipts (in cents)
-      const totalEarningsCents = kol.paymentReceipts.reduce(
+      // Total earnings = sum of completed payments + payment receipts (in cents)
+      const paymentsTotal = kol.payments.reduce(
+        (sum, payment) => sum + (payment.amount || 0),
+        0
+      );
+      const receiptsTotal = kol.paymentReceipts.reduce(
         (sum, receipt) => sum + (receipt.amount || 0),
         0
       );
+      // Use the higher of the two to avoid double counting if both are tracked
+      const totalEarningsCents = Math.max(paymentsTotal, receiptsTotal);
+
       const activeCampaigns = kol.campaignKols.filter(
         ck => ck.status === "PENDING" || ck.status === "CONFIRMED"
       ).length;
       const lastPostDate = kol.posts[0]?.postedAt || null;
 
       // Remove internal data from response
-      const { campaignKols: _, posts: __, paymentReceipts: ___, ...kolData } = kol;
+      const { campaignKols: _, posts: __, paymentReceipts: ___, payments: ____, ...kolData } = kol;
       return {
         ...kolData,
         totalEarnings: totalEarningsCents / 100,

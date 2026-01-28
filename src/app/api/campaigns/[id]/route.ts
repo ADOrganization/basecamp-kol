@@ -76,6 +76,23 @@ export async function GET(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
+    // Fetch client users (members of the client organization) for agency view
+    let clientUsers: { email: string; name: string | null }[] = [];
+    if (isAgency && campaign.clientId) {
+      const clientMembers = await db.organizationMember.findMany({
+        where: { organizationId: campaign.clientId },
+        include: {
+          user: {
+            select: { email: true, name: true },
+          },
+        },
+      });
+      clientUsers = clientMembers.map((m) => ({
+        email: m.user.email,
+        name: m.user.name,
+      }));
+    }
+
     // Calculate total allocated budget (sum of all KOL budgets)
     // If assignedBudget is set, use it; otherwise calculate from rates × deliverables
     const allocatedBudget = campaign.campaignKols.reduce((sum, ck) => {
@@ -133,6 +150,8 @@ export async function GET(
       ...campaign,
       // Use allocated budget as spent budget (allocated = committed/used)
       spentBudget: allocatedBudget,
+      // Include client users for the campaign form
+      clientUsers,
     });
 
     // Prevent caching to ensure fresh data after metrics refresh
