@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   BarChart3,
   Zap,
+  Target,
 } from "lucide-react";
 import { formatNumber, cn } from "@/lib/utils";
 
@@ -611,7 +612,7 @@ export default function ClientAnalyticsPage() {
       {/* New Sections */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* A. Top Performing Posts */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-amber-500" />
@@ -619,7 +620,7 @@ export default function ClientAnalyticsPage() {
             </CardTitle>
             <CardDescription>Highest engagement posts across your campaigns</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {topPosts.length > 0 ? (
               <div className="space-y-3">
                 {topPosts.map((post, index) => {
@@ -691,7 +692,7 @@ export default function ClientAnalyticsPage() {
         </Card>
 
         {/* B. Deliverables Progress */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-500" />
@@ -699,7 +700,7 @@ export default function ClientAnalyticsPage() {
             </CardTitle>
             <CardDescription>Post delivery status across all KOLs</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {totalRequired > 0 ? (
               <div className="space-y-4">
                 {/* Overall progress */}
@@ -713,7 +714,7 @@ export default function ClientAnalyticsPage() {
                 </div>
 
                 {/* Per-KOL progress */}
-                <div className="space-y-3 max-h-[240px] overflow-y-auto">
+                <div className="space-y-3">
                   {deliverables
                     .filter(d => d.requiredPosts > 0)
                     .sort((a, b) => {
@@ -752,7 +753,7 @@ export default function ClientAnalyticsPage() {
         </Card>
 
         {/* C. Per-Post Averages */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-indigo-500" />
@@ -760,9 +761,9 @@ export default function ClientAnalyticsPage() {
             </CardTitle>
             <CardDescription>Average performance metrics per post</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 flex flex-col">
             {postCount > 0 ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 flex-1">
                 <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900">
                   <div className="flex items-center gap-2 mb-1">
                     <Eye className="h-4 w-4 text-indigo-500" />
@@ -807,60 +808,82 @@ export default function ClientAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* D. KOL Performance Table */}
-        <Card>
+        {/* D. Campaign Scorecard */}
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-violet-500" />
-              KOL Performance
+              <Target className="h-5 w-5 text-teal-500" />
+              Campaign Scorecard
             </CardTitle>
-            <CardDescription>Sorted by avg engagement per post (best ROI first)</CardDescription>
+            <CardDescription>Performance breakdown per campaign</CardDescription>
           </CardHeader>
-          <CardContent>
-            {kolPerformance.length > 0 ? (
-              <div className="space-y-0">
-                {/* Table header */}
-                <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b">
-                  <div className="col-span-4">KOL</div>
-                  <div className="col-span-2 text-right">Posts</div>
-                  <div className="col-span-2 text-right">Avg Imp</div>
-                  <div className="col-span-2 text-right">Avg Eng</div>
-                  <div className="col-span-2 text-right">Rate</div>
-                </div>
+          <CardContent className="flex-1">
+            {filteredCampaigns.length > 0 ? (
+              <div className="space-y-3">
+                {filteredCampaigns.map(campaign => {
+                  const cImpressions = campaign.posts.reduce((s, p) => s + p.impressions, 0);
+                  const cEngagement = campaign.posts.reduce((s, p) => s + p.likes + p.retweets + p.replies + (p.quotes || 0), 0);
+                  const cRate = cImpressions > 0 ? ((cEngagement / cImpressions) * 100).toFixed(1) : "0";
+                  const cRequired = campaign.campaignKols.reduce((s, ck) => s + (ck.requiredPosts || 0), 0);
+                  const cDelivered = campaign.posts.length;
+                  const cKols = campaign.campaignKols.length;
 
-                <div className="max-h-[280px] overflow-y-auto">
-                  {kolPerformance.map((kol) => {
-                    const avgImp = kol.posts > 0 ? Math.round(kol.impressions / kol.posts) : 0;
-                    const avgEng = kol.posts > 0 ? Math.round(kol.engagement / kol.posts) : 0;
-                    const kolRate = kol.impressions > 0 ? ((kol.engagement / kol.impressions) * 100).toFixed(1) : "0";
-
-                    return (
-                      <div
-                        key={kol.id}
-                        className="grid grid-cols-12 gap-2 px-3 py-2.5 items-center hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
-                      >
-                        <div className="col-span-4 flex items-center gap-2 min-w-0">
-                          <Avatar className="h-7 w-7 flex-shrink-0">
-                            <AvatarImage src={kol.avatarUrl || undefined} />
-                            <AvatarFallback className="text-xs">{kol.name?.charAt(0) || "K"}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{kol.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">@{kol.twitterHandle}</p>
-                          </div>
-                        </div>
-                        <div className="col-span-2 text-right text-sm font-medium">{kol.posts}</div>
-                        <div className="col-span-2 text-right text-sm">{formatNumber(avgImp)}</div>
-                        <div className="col-span-2 text-right text-sm font-medium">{formatNumber(avgEng)}</div>
-                        <div className="col-span-2 text-right text-sm text-muted-foreground">{kolRate}%</div>
+                  return (
+                    <div key={campaign.id} className="p-4 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-sm truncate">{campaign.name}</h4>
+                        <span className={cn(
+                          "text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2",
+                          campaign.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" :
+                          campaign.status === "COMPLETED" ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {campaign.status}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="text-center">
+                          <p className="text-lg font-bold leading-tight">{formatNumber(cImpressions)}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Impressions</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold leading-tight">{formatNumber(cEngagement)}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Engagement</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold leading-tight">{cRate}%</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Eng. Rate</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold leading-tight">
+                            {cRequired > 0 ? `${cDelivered}/${cRequired}` : cDelivered}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {cRequired > 0 ? "Delivered" : "Posts"}
+                          </p>
+                        </div>
+                      </div>
+                      {cKols > 0 && (
+                        <div className="flex items-center gap-1 mt-3 pt-3 border-t">
+                          <Users className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">{cKols} KOL{cKols !== 1 ? "s" : ""}</span>
+                          {cRequired > 0 && (
+                            <>
+                              <span className="text-xs text-muted-foreground mx-1">&middot;</span>
+                              <span className="text-xs text-muted-foreground">
+                                {Math.min(100, Math.round((cDelivered / cRequired) * 100))}% delivered
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="py-12 text-center text-muted-foreground">
-                No KOL data available
+                No campaign data available
               </div>
             )}
           </CardContent>
