@@ -927,7 +927,7 @@ async function handleBudgetCommand(
 }
 
 async function showCampaignBudget(
-  sendResponse: (message: string) => Promise<void>,
+  sendResponse: (message: string) => Promise<unknown>,
   campaign: { id: string; name: string; totalBudget: number; createdAt: Date }
 ) {
   // Get all KOL allocations for this campaign
