@@ -120,7 +120,8 @@ export async function GET(request: NextRequest) {
       const { campaignKols: _, posts: __, paymentReceipts: ___, payments: ____, ...kolData } = kol;
       return {
         ...kolData,
-        totalEarnings: totalEarningsCents / 100,
+        // Return in cents - UI uses formatCurrency which divides by 100
+        totalEarnings: totalEarningsCents,
         activeCampaigns,
         lastPostDate,
       };
