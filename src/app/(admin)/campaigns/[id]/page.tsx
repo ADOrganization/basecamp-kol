@@ -91,6 +91,9 @@ interface CampaignDetails {
   client: { id: string; name: string; slug: string } | null;
   agency: { id: string; name: string };
   clientUsers?: { email: string; name: string | null }[];
+  campaignClients?: {
+    client: { id: string; name: string; slug: string; logoUrl: string | null };
+  }[];
   campaignKols: {
     id: string;
     status: string;
@@ -676,7 +679,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               </Badge>
             </div>
             <div className="flex items-center gap-4 mt-1 text-muted-foreground">
-              {campaign.client && <span>Client: {campaign.client.name}</span>}
+              {campaign.campaignClients && campaign.campaignClients.length > 0 ? (
+                <span>
+                  Client{campaign.campaignClients.length > 1 ? "s" : ""}: {campaign.campaignClients.map(cc => cc.client.name).join(", ")}
+                </span>
+              ) : campaign.client ? (
+                <span>Client: {campaign.client.name}</span>
+              ) : null}
               {campaign.projectTwitterHandle && (
                 <span className="flex items-center gap-1">
                   <span>Project: {campaign.projectTwitterHandle}</span>
@@ -1161,6 +1170,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           ...campaign,
           clientTelegramChatId: campaign.clientTelegramChatId || null,
           keywords: Array.isArray(campaign.keywords) ? campaign.keywords : [],
+          campaignClients: campaign.campaignClients || [],
         }}
         telegramChats={telegramChats}
         open={showForm}

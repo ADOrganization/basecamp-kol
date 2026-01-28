@@ -747,7 +747,7 @@ export default function ClientAccountsPage() {
                             {campaign.name}
                             {campaign.client && (
                               <span className="text-xs text-muted-foreground">
-                                (currently: {campaign.client.name})
+                                ({campaign.client.name})
                               </span>
                             )}
                           </span>
@@ -756,8 +756,8 @@ export default function ClientAccountsPage() {
                     </SelectContent>
                   </Select>
                   {formData.campaignId && allCampaigns.find(c => c.id === formData.campaignId)?.client && (
-                    <p className="text-xs text-amber-600">
-                      This campaign is currently assigned to another client. Creating this client will reassign the campaign.
+                    <p className="text-xs text-muted-foreground">
+                      This client will be added alongside the existing client(s) for this campaign.
                     </p>
                   )}
                 </>

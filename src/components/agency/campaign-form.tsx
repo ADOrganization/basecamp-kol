@@ -21,11 +21,18 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { KeywordsInput } from "./keywords-input";
-import { Plus, X, Mail, Users } from "lucide-react";
+import { Plus, X, Mail, Users, Building2, Loader2 } from "lucide-react";
 
 interface ClientAccessUser {
   email: string;
   name?: string | null;
+}
+
+interface LinkedClient {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string | null;
 }
 
 interface CampaignFormProps {
@@ -40,6 +47,7 @@ interface CampaignFormProps {
     startDate: string | null;
     endDate: string | null;
     clientUsers?: ClientAccessUser[];
+    campaignClients?: { client: LinkedClient }[];
   };
   telegramChats?: { id: string; telegramChatId: string; title: string | null }[];
   open: boolean;
@@ -61,7 +69,13 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
     endDate: campaign?.endDate ? campaign.endDate.split("T")[0] : "",
   });
 
-  // Client access state
+  // Linked client organizations state
+  const [linkedClients, setLinkedClients] = useState<LinkedClient[]>(
+    campaign?.campaignClients?.map(cc => cc.client) || []
+  );
+  const [isRemovingClient, setIsRemovingClient] = useState<string | null>(null);
+
+  // Client access state (for adding new users)
   const [clientUsers, setClientUsers] = useState<ClientAccessUser[]>(
     campaign?.clientUsers || []
   );
@@ -81,6 +95,7 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
         startDate: campaign?.startDate ? campaign.startDate.split("T")[0] : "",
         endDate: campaign?.endDate ? campaign.endDate.split("T")[0] : "",
       });
+      setLinkedClients(campaign?.campaignClients?.map(cc => cc.client) || []);
       setClientUsers(campaign?.clientUsers || []);
       setNewClientEmail("");
       setNewClientName("");
@@ -128,6 +143,28 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
 
   const removeClientUser = (email: string) => {
     setClientUsers(clientUsers.filter(u => u.email !== email));
+  };
+
+  const removeLinkedClient = async (clientId: string) => {
+    if (!campaign?.id) return;
+
+    setIsRemovingClient(clientId);
+    try {
+      const response = await fetch(`/api/campaigns/${campaign.id}/clients/${clientId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setLinkedClients(linkedClients.filter(c => c.id !== clientId));
+      } else {
+        const data = await response.json();
+        setError(data.error || "Failed to remove client");
+      }
+    } catch {
+      setError("Failed to remove client");
+    } finally {
+      setIsRemovingClient(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -337,14 +374,56 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
                 <div>
                   <Label className="text-base font-medium">Client Portal Access</Label>
                   <p className="text-sm text-muted-foreground">
-                    Generate login credentials for clients to view campaign progress
+                    Manage client organizations with access to view campaign progress
                   </p>
                 </div>
               </div>
 
-              {/* Added client users */}
+              {/* Existing linked client organizations */}
+              {linkedClients.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Linked Organizations</Label>
+                  {linkedClients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-indigo-50/50 border border-indigo-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center overflow-hidden">
+                          {client.logoUrl ? (
+                            <img src={client.logoUrl} alt={client.name} className="h-8 w-8 rounded-full object-cover" />
+                          ) : (
+                            <Building2 className="h-4 w-4 text-indigo-600" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{client.name}</p>
+                          <p className="text-xs text-muted-foreground">/{client.slug}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeLinkedClient(client.id)}
+                        disabled={isRemovingClient === client.id}
+                      >
+                        {isRemovingClient === client.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pending client users to invite */}
               {clientUsers.length > 0 && (
                 <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Pending Invitations</Label>
                   {clientUsers.map((user) => (
                     <div
                       key={user.email}
@@ -426,9 +505,13 @@ export function CampaignForm({ campaign, telegramChats = [], open, onClose }: Ca
               </div>
 
               <p className="text-xs text-muted-foreground">
-                {clientUsers.length === 0
-                  ? "No client users added. Add emails to generate login credentials."
-                  : `${clientUsers.length} client user${clientUsers.length !== 1 ? "s" : ""} will receive magic link login credentials via email.`}
+                {linkedClients.length === 0 && clientUsers.length === 0
+                  ? "No clients linked. Add an email below to invite a new client."
+                  : linkedClients.length > 0 && clientUsers.length === 0
+                  ? `${linkedClients.length} client organization${linkedClients.length !== 1 ? "s" : ""} can access this campaign.`
+                  : clientUsers.length > 0 && linkedClients.length === 0
+                  ? `${clientUsers.length} invitation${clientUsers.length !== 1 ? "s" : ""} will be sent when you save.`
+                  : `${linkedClients.length} organization${linkedClients.length !== 1 ? "s" : ""} linked. ${clientUsers.length} new invitation${clientUsers.length !== 1 ? "s" : ""} pending.`}
               </p>
             </div>
           </div>

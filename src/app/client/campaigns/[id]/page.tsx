@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useMemo } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   formatNumber,
   formatDate,
   getStatusColor,
+  cn,
 } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -31,19 +32,9 @@ import {
   TrendingUp,
   Hash,
   Target,
+  Package,
+  Trophy,
 } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 
 interface CampaignDetails {
   id: string;
@@ -130,50 +121,6 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
     fetchCampaign();
   }, [id, router]);
 
-  // Calculate time-series data from actual posts
-  const engagementTrend = useMemo(() => {
-    if (!campaign || campaign.posts.length === 0) return [];
-
-    // Get posts with dates, sorted by date
-    const postsWithDates = campaign.posts
-      .filter(p => p.postedAt || p.createdAt)
-      .map(p => ({
-        ...p,
-        date: new Date(p.postedAt || p.createdAt),
-      }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    if (postsWithDates.length === 0) return [];
-
-    // Group by date and accumulate metrics
-    const dateMap = new Map<string, { impressions: number; engagement: number; posts: number }>();
-
-    postsWithDates.forEach(post => {
-      const dateKey = post.date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const existing = dateMap.get(dateKey) || { impressions: 0, engagement: 0, posts: 0 };
-      dateMap.set(dateKey, {
-        impressions: existing.impressions + post.impressions,
-        engagement: existing.engagement + post.likes + post.retweets + post.replies + post.quotes + post.bookmarks,
-        posts: existing.posts + 1,
-      });
-    });
-
-    // Convert to cumulative data
-    let cumulativeImpressions = 0;
-    let cumulativeEngagement = 0;
-
-    return Array.from(dateMap.entries()).map(([date, data]) => {
-      cumulativeImpressions += data.impressions;
-      cumulativeEngagement += data.engagement;
-      return {
-        date,
-        impressions: cumulativeImpressions,
-        engagement: cumulativeEngagement,
-        newPosts: data.posts,
-      };
-    });
-  }, [campaign]);
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -202,13 +149,11 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
     engagement: campaign.kpis.engagement ? Math.min((parseFloat(engagementRate) / campaign.kpis.engagement) * 100, 100) : 0,
   } : null;
 
-  // Post status data for pie chart
-  const postStatusData = [
-    { name: "Published", value: campaign.posts.filter(p => p.status === "POSTED").length, color: "#0d9488" },
-    { name: "Approved", value: campaign.posts.filter(p => p.status === "APPROVED").length, color: "#6366f1" },
-    { name: "Pending", value: pendingPosts, color: "#f59e0b" },
-    { name: "Rejected", value: campaign.posts.filter(p => p.status === "REJECTED").length, color: "#ef4444" },
-  ].filter(d => d.value > 0);
+  // Top performing posts (sorted by total engagement)
+  const publishedPosts = campaign.posts.filter(p => ["POSTED", "VERIFIED"].includes(p.status));
+  const topPosts = [...publishedPosts]
+    .sort((a, b) => (b.likes + b.retweets + b.replies) - (a.likes + a.retweets + a.replies))
+    .slice(0, 5);
 
   // Calculate deliverable progress for each KOL
   const getKolDeliverables = (kolId: string, ck: CampaignDetails["campaignKols"][0]) => {
@@ -403,83 +348,135 @@ export default function ClientCampaignDetailPage({ params }: { params: Promise<{
 
         <TabsContent value="overview" className="mt-6 space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Engagement Trend Chart */}
-            <Card>
+            {/* Top Performing Posts */}
+            <Card className="flex flex-col">
               <CardHeader>
-                <CardTitle>Engagement Over Time</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-amber-500" />
+                  Top Performing Posts
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="h-[250px]">
-                  {engagementTrend.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={engagementTrend}>
-                        <defs>
-                          <linearGradient id="colorImp" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#0d9488" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="colorEng" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
-                        <YAxis stroke="#94a3b8" fontSize={12} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#1e293b",
-                            border: "none",
-                            borderRadius: "8px",
-                            color: "#fff"
-                          }}
-                        />
-                        <Area type="monotone" dataKey="impressions" stroke="#0d9488" fill="url(#colorImp)" name="Impressions" />
-                        <Area type="monotone" dataKey="engagement" stroke="#6366f1" fill="url(#colorEng)" name="Engagement" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      No post data yet
-                    </div>
-                  )}
-                </div>
+              <CardContent className="flex-1">
+                {topPosts.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                    <p className="text-sm">No published posts yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {topPosts.map((post, i) => {
+                      const eng = post.likes + post.retweets + post.replies;
+                      return (
+                        <div key={post.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+                          <span className={cn(
+                            "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                            i === 0 ? "bg-amber-500/20 text-amber-600" :
+                            i === 1 ? "bg-gray-300/30 text-gray-500" :
+                            i === 2 ? "bg-orange-500/20 text-orange-600" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {i + 1}
+                          </span>
+                          <Avatar className="h-7 w-7 flex-shrink-0">
+                            <AvatarImage src={post.kol?.avatarUrl || undefined} />
+                            <AvatarFallback className="text-xs">{post.kol?.name?.charAt(0) || "K"}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs font-medium">@{post.kol?.twitterHandle}</span>
+                              {post.tweetUrl && (
+                                <a href={post.tweetUrl} target="_blank" rel="noopener noreferrer" className="text-primary">
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            {post.content && (
+                              <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">{post.content.slice(0, 80)}</p>
+                            )}
+                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                              <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{formatNumber(post.impressions)}</span>
+                              <span className="flex items-center gap-1"><Heart className="h-3 w-3" />{formatNumber(post.likes)}</span>
+                              <span className="flex items-center gap-1"><Repeat2 className="h-3 w-3" />{formatNumber(post.retweets)}</span>
+                              <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" />{formatNumber(post.replies)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Post Status Chart */}
-            <Card>
+            {/* Deliverables Progress */}
+            <Card className="flex flex-col">
               <CardHeader>
-                <CardTitle>Post Status</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-emerald-500" />
+                  Deliverables Progress
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="h-[250px]">
-                  {postStatusData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={postStatusData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
-                          paddingAngle={4}
-                          dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
-                        >
-                          {postStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      No posts yet
+              <CardContent className="flex-1">
+                {campaign.campaignKols.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <Package className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+                    <p className="text-sm">No KOLs assigned</p>
+                  </div>
+                ) : (() => {
+                  const totalRequired = campaign.campaignKols.reduce((s, ck) =>
+                    s + ck.requiredPosts + ck.requiredThreads + ck.requiredRetweets + ck.requiredSpaces, 0);
+                  const totalDelivered = campaign.campaignKols.reduce((s, ck) => {
+                    const d = getKolDeliverables(ck.kol.id, ck);
+                    return s + d.totalCompleted;
+                  }, 0);
+                  const overallPct = totalRequired > 0 ? Math.min(100, Math.round((totalDelivered / totalRequired) * 100)) : 0;
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Overall */}
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={cn("h-4 w-4", overallPct >= 100 ? "text-emerald-500" : "text-muted-foreground")} />
+                            <span className="text-sm font-medium">Overall Delivery</span>
+                          </div>
+                          <span className="text-sm font-bold">{totalDelivered} / {totalRequired}</span>
+                        </div>
+                        <Progress value={overallPct} className="h-3" />
+                        <p className="text-xs text-muted-foreground mt-1.5">{overallPct}% complete</p>
+                      </div>
+
+                      {/* Per-KOL */}
+                      <div className="space-y-3">
+                        {campaign.campaignKols
+                          .filter(ck => ck.requiredPosts + ck.requiredThreads + ck.requiredRetweets + ck.requiredSpaces > 0)
+                          .map(ck => {
+                            const d = getKolDeliverables(ck.kol.id, ck);
+                            return (
+                              <div key={ck.id} className="flex items-center gap-3">
+                                <Avatar className="h-7 w-7 flex-shrink-0">
+                                  <AvatarImage src={ck.kol.avatarUrl || undefined} />
+                                  <AvatarFallback className="text-xs">{ck.kol.name?.charAt(0) || "K"}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-medium truncate">@{ck.kol.twitterHandle}</span>
+                                    <span className={cn(
+                                      "text-xs flex-shrink-0 ml-2",
+                                      d.progress >= 100 ? "text-emerald-600 font-medium" : "text-muted-foreground"
+                                    )}>
+                                      {d.totalCompleted}/{d.totalRequired}
+                                    </span>
+                                  </div>
+                                  <Progress value={d.progress} className="h-1.5" />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
