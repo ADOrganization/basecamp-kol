@@ -114,6 +114,8 @@ interface KOLDetails {
       name: string;
     } | null;
   }[];
+  // Precomputed total earnings from API (in cents)
+  totalEarnings?: number;
 }
 
 export default function KOLDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -336,7 +338,8 @@ export default function KOLDetailPage({ params }: { params: Promise<{ id: string
 
   if (!kol) return null;
 
-  const totalEarnings = kol.payments
+  // Use precomputed totalEarnings from API (includes ALL completed payments, not just last 10)
+  const totalEarnings = kol.totalEarnings ?? kol.payments
     .filter((p) => p.status === "COMPLETED")
     .reduce((sum, p) => sum + p.amount, 0);
 

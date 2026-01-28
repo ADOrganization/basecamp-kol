@@ -58,6 +58,18 @@ export async function GET(
       return NextResponse.json({ error: "KOL not found" }, { status: 404 });
     }
 
+    // Calculate total earnings from ALL completed payments (not just last 10)
+    const completedPaymentsAggregate = await db.payment.aggregate({
+      where: {
+        kolId: kol.id,
+        status: "COMPLETED",
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+    const totalEarnings = completedPaymentsAggregate._sum.amount || 0;
+
     // Try to get payment receipts separately
     let paymentReceipts: { id: string; amount: number; campaignId: string | null; createdAt: Date; campaign: { id: string; name: string } | null }[] = [];
     try {
@@ -84,7 +96,8 @@ export async function GET(
       },
     });
 
-    const response = NextResponse.json({ ...kol, paymentReceipts });
+    // Return KOL with computed totalEarnings (in cents for formatCurrency)
+    const response = NextResponse.json({ ...kol, paymentReceipts, totalEarnings });
     return addSecurityHeaders(response);
   } catch (error) {
     console.error("[KOL API] Error:", error);
