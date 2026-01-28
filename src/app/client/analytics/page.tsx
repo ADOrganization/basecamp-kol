@@ -24,7 +24,6 @@ import {
   CheckCircle2,
   BarChart3,
   Zap,
-  Target,
 } from "lucide-react";
 import { formatNumber, cn } from "@/lib/utils";
 
@@ -752,8 +751,8 @@ export default function ClientAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* C. Per-Post Averages */}
-        <Card className="flex flex-col">
+        {/* C. Per-Post Averages - full width row */}
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-indigo-500" />
@@ -761,129 +760,48 @@ export default function ClientAnalyticsPage() {
             </CardTitle>
             <CardDescription>Average performance metrics per post</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col">
+          <CardContent>
             {postCount > 0 ? (
-              <div className="grid grid-cols-2 gap-4 flex-1">
-                <div className="p-4 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900">
-                  <div className="flex items-center gap-2 mb-1">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900">
+                  <div className="flex items-center gap-2 mb-2">
                     <Eye className="h-4 w-4 text-indigo-500" />
-                    <span className="text-xs text-muted-foreground">Avg Impressions</span>
+                    <span className="text-sm text-muted-foreground">Avg Impressions</span>
                   </div>
-                  <p className="text-2xl font-bold">{formatNumber(avgImpressions)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(avgImpressions)}</p>
                   <p className="text-xs text-muted-foreground mt-1">per post</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="p-5 rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900">
+                  <div className="flex items-center gap-2 mb-2">
                     <Heart className="h-4 w-4 text-violet-500" />
-                    <span className="text-xs text-muted-foreground">Avg Engagement</span>
+                    <span className="text-sm text-muted-foreground">Avg Engagement</span>
                   </div>
-                  <p className="text-2xl font-bold">{formatNumber(avgEngagement)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(avgEngagement)}</p>
                   <p className="text-xs text-muted-foreground mt-1">per post</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="p-5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900">
+                  <div className="flex items-center gap-2 mb-2">
                     <Heart className="h-4 w-4 text-rose-500" />
-                    <span className="text-xs text-muted-foreground">Avg Likes</span>
+                    <span className="text-sm text-muted-foreground">Avg Likes</span>
                   </div>
-                  <p className="text-2xl font-bold">{formatNumber(avgLikes)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(avgLikes)}</p>
                   <p className="text-xs text-muted-foreground mt-1">per post</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="p-5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900">
+                  <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="h-4 w-4 text-amber-500" />
-                    <span className="text-xs text-muted-foreground">Best Post</span>
+                    <span className="text-sm text-muted-foreground">Best Post</span>
                   </div>
-                  <p className="text-2xl font-bold">{formatNumber(bestPostImpressions)}</p>
+                  <p className="text-3xl font-bold">{formatNumber(bestPostImpressions)}</p>
                   <p className="text-xs text-muted-foreground mt-1">impressions</p>
                 </div>
               </div>
             ) : (
               <div className="py-12 text-center text-muted-foreground">
                 No post data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* D. Campaign Scorecard */}
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-teal-500" />
-              Campaign Scorecard
-            </CardTitle>
-            <CardDescription>Performance breakdown per campaign</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1">
-            {filteredCampaigns.length > 0 ? (
-              <div className="space-y-3">
-                {filteredCampaigns.map(campaign => {
-                  const cImpressions = campaign.posts.reduce((s, p) => s + p.impressions, 0);
-                  const cEngagement = campaign.posts.reduce((s, p) => s + p.likes + p.retweets + p.replies + (p.quotes || 0), 0);
-                  const cRate = cImpressions > 0 ? ((cEngagement / cImpressions) * 100).toFixed(1) : "0";
-                  const cRequired = campaign.campaignKols.reduce((s, ck) => s + (ck.requiredPosts || 0), 0);
-                  const cDelivered = campaign.posts.length;
-                  const cKols = campaign.campaignKols.length;
-
-                  return (
-                    <div key={campaign.id} className="p-4 rounded-lg border">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-sm truncate">{campaign.name}</h4>
-                        <span className={cn(
-                          "text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ml-2",
-                          campaign.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" :
-                          campaign.status === "COMPLETED" ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" :
-                          "bg-muted text-muted-foreground"
-                        )}>
-                          {campaign.status}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-3">
-                        <div className="text-center">
-                          <p className="text-lg font-bold leading-tight">{formatNumber(cImpressions)}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">Impressions</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold leading-tight">{formatNumber(cEngagement)}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">Engagement</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold leading-tight">{cRate}%</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">Eng. Rate</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold leading-tight">
-                            {cRequired > 0 ? `${cDelivered}/${cRequired}` : cDelivered}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {cRequired > 0 ? "Delivered" : "Posts"}
-                          </p>
-                        </div>
-                      </div>
-                      {cKols > 0 && (
-                        <div className="flex items-center gap-1 mt-3 pt-3 border-t">
-                          <Users className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">{cKols} KOL{cKols !== 1 ? "s" : ""}</span>
-                          {cRequired > 0 && (
-                            <>
-                              <span className="text-xs text-muted-foreground mx-1">&middot;</span>
-                              <span className="text-xs text-muted-foreground">
-                                {Math.min(100, Math.round((cDelivered / cRequired) * 100))}% delivered
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-12 text-center text-muted-foreground">
-                No campaign data available
               </div>
             )}
           </CardContent>
