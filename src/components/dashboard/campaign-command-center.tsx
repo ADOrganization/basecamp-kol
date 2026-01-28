@@ -1,7 +1,7 @@
 "use client";
 
 import { Megaphone, Users, Calendar, AlertTriangle, CheckCircle, Clock, ArrowUpRight } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 
@@ -182,7 +182,10 @@ export function CampaignCommandCenter({
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={cn(
+          "grid gap-4",
+          campaigns.length === 1 ? "grid-cols-1" : "md:grid-cols-2"
+        )}>
           {campaigns.slice(0, 4).map((campaign) => {
             const progress = calculateOverallProgress(campaign.deliverables);
             const daysRemaining = getDaysRemaining(campaign.endDate);
