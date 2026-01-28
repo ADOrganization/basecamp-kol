@@ -27,12 +27,25 @@ export async function GET(request: NextRequest) {
       where: {
         ...(isAgency
           ? { agencyId: authContext.organizationId }
-          : { clientId: authContext.organizationId }),
+          : {
+              // Client can access via legacy clientId OR new campaignClients junction
+              OR: [
+                { clientId: authContext.organizationId },
+                { campaignClients: { some: { clientId: authContext.organizationId } } },
+              ],
+            }),
         ...(status && { status: status as "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED" }),
       },
       include: {
         client: {
           select: { id: true, name: true },
+        },
+        campaignClients: {
+          include: {
+            client: {
+              select: { id: true, name: true, logoUrl: true },
+            },
+          },
         },
         campaignKols: {
           include: {
@@ -297,10 +310,25 @@ export async function POST(request: NextRequest) {
         status: validatedData.status,
         startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
         endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
+        // Also add to CampaignClient junction table if client exists
+        ...(clientId && {
+          campaignClients: {
+            create: {
+              clientId,
+            },
+          },
+        }),
       },
       include: {
         client: {
           select: { id: true, name: true },
+        },
+        campaignClients: {
+          include: {
+            client: {
+              select: { id: true, name: true, logoUrl: true },
+            },
+          },
         },
       },
     });

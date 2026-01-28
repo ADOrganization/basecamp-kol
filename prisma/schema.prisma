@@ -50,6 +50,7 @@ model Organization {
   members            OrganizationMember[]
   agencyCampaigns    Campaign[]           @relation("AgencyCampaigns")
   clientCampaigns    Campaign[]           @relation("ClientCampaigns")
+  campaignClients    CampaignClient[]     @relation("CampaignClients")
   kols               KOL[]
   telegramChats      TelegramChat[]
   telegramBroadcasts TelegramBroadcast[]
@@ -302,6 +303,7 @@ model Campaign {
 
   agency          Organization   @relation("AgencyCampaigns", fields: [agencyId], references: [id], onDelete: Cascade)
   client          Organization?  @relation("ClientCampaigns", fields: [clientId], references: [id])
+  campaignClients CampaignClient[]  // Many-to-many: multiple clients per campaign
   campaignKols    CampaignKOL[]
   posts           Post[]
   payments        Payment[]
@@ -317,6 +319,20 @@ enum CampaignKOLStatus {
   CONFIRMED
   DECLINED
   COMPLETED
+}
+
+// Junction table for many-to-many Campaign <-> Client relationship
+model CampaignClient {
+  id           String   @id @default(cuid())
+  campaignId   String
+  clientId     String   // Organization ID (type = CLIENT)
+  createdAt    DateTime @default(now())
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  client       Organization @relation("CampaignClients", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, clientId])
+  @@map("campaign_clients")
 }
 
 model CampaignKOL {

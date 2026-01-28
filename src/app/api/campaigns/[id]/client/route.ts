@@ -42,13 +42,8 @@ export async function POST(
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
     }
 
-    // Check if client is already assigned
-    if (campaign.clientId) {
-      return NextResponse.json(
-        { error: "Campaign already has a client assigned" },
-        { status: 400 }
-      );
-    }
+    // Check if this specific client is already assigned (allow multiple different clients)
+    // Note: We now support multiple clients per campaign via CampaignClient junction table
 
     // Check if email is already taken
     const existingUser = await db.user.findUnique({
@@ -78,7 +73,7 @@ export async function POST(
 
     const { ipAddress, userAgent } = getRequestMetadata(request);
 
-    // Create organization and update campaign in a transaction
+    // Create organization and link to campaign via junction table
     const result = await db.$transaction(async (tx) => {
       // Create client organization
       const organization = await tx.organization.create({
@@ -89,10 +84,20 @@ export async function POST(
         },
       });
 
-      // Update campaign with client
-      await tx.campaign.update({
-        where: { id: campaignId },
-        data: { clientId: organization.id },
+      // Also set as primary client if none exists (backwards compatibility)
+      if (!campaign.clientId) {
+        await tx.campaign.update({
+          where: { id: campaignId },
+          data: { clientId: organization.id },
+        });
+      }
+
+      // Add to CampaignClient junction table for multi-client support
+      await tx.campaignClient.create({
+        data: {
+          campaignId,
+          clientId: organization.id,
+        },
       });
 
       return { organization };

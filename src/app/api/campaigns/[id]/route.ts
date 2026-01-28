@@ -33,11 +33,24 @@ export async function GET(
         id,
         ...(isAgency
           ? { agencyId: authContext.organizationId }
-          : { clientId: authContext.organizationId }),
+          : {
+              // Client can access via legacy clientId OR new campaignClients junction
+              OR: [
+                { clientId: authContext.organizationId },
+                { campaignClients: { some: { clientId: authContext.organizationId } } },
+              ],
+            }),
       },
       include: {
         client: {
           select: { id: true, name: true, slug: true },
+        },
+        campaignClients: {
+          include: {
+            client: {
+              select: { id: true, name: true, slug: true, logoUrl: true },
+            },
+          },
         },
         agency: {
           select: { id: true, name: true },
@@ -290,9 +303,36 @@ export async function PUT(
         });
         clientId = clientOrg.id;
         console.log("[Campaign Update] Created client org:", clientId);
+
+        // Also add to CampaignClient junction table for multi-client support
+        await db.campaignClient.create({
+          data: {
+            campaignId: id,
+            clientId: clientOrg.id,
+          },
+        });
+        console.log("[Campaign Update] Added client to CampaignClient junction table");
       } else {
         console.log("[Campaign Update] Using existing clientId:", clientId);
         // Logo update is already handled above when X handle changes
+        // Ensure client is in junction table
+        const existingLink = await db.campaignClient.findUnique({
+          where: {
+            campaignId_clientId: {
+              campaignId: id,
+              clientId,
+            },
+          },
+        });
+        if (!existingLink) {
+          await db.campaignClient.create({
+            data: {
+              campaignId: id,
+              clientId,
+            },
+          });
+          console.log("[Campaign Update] Added existing client to CampaignClient junction table");
+        }
       }
 
       // Create users and send invitations

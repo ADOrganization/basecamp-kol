@@ -64,6 +64,7 @@ async function getDashboardStats(organizationId: string) {
     postsLastMonth,
     pendingReviewPosts,
     payments,
+    paymentReceipts,
     recentPosts,
     recentPayments,
     followerSnapshots,
@@ -180,6 +181,15 @@ async function getDashboardStats(organizationId: string) {
         },
       },
     }),
+    // Payment receipts (KOL-submitted proof via Telegram)
+    db.paymentReceipt.findMany({
+      where: { kol: { organizationId } },
+      select: {
+        id: true,
+        amount: true,
+        createdAt: true,
+      },
+    }),
     // Recent posts (activity feed)
     db.post.findMany({
       where: {
@@ -275,7 +285,11 @@ async function getDashboardStats(organizationId: string) {
 
   const totalBudget = activeCampaigns.reduce((sum, c) => sum + c.totalBudget, 0);
   const allocatedBudget = campaignData.reduce((sum, c) => sum + c.allocatedBudget, 0);
-  const paidOut = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
+
+  // Calculate paidOut: prioritize paymentReceipts (actual proof) over completed payments
+  const completedPaymentsTotal = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
+  const receiptsTotal = paymentReceipts.reduce((sum, r) => sum + r.amount, 0);
+  const paidOut = receiptsTotal > 0 ? receiptsTotal : completedPaymentsTotal;
 
   // === CONTENT PERFORMANCE ===
   // Top posts by engagement rate (minimum 100 impressions for meaningful rate)
@@ -425,17 +439,26 @@ async function getDashboardStats(organizationId: string) {
   const cpm = totalImpressions > 0 ? (paidOut / 100) / (totalImpressions / 1000) : 0;
   const cpe = totalEngagements > 0 ? (paidOut / 100) / totalEngagements : 0;
 
-  // Monthly spend (last 6 months)
+  // Monthly spend (last 6 months) - includes both completed payments and payment receipts
   const monthlySpend = Array.from({ length: 6 }, (_, i) => {
     const date = new Date();
     date.setMonth(date.getMonth() - (5 - i));
     const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
     const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-    const amount = payments
+    // Sum completed payments for this month
+    const paymentsAmount = payments
       .filter(p => p.status === 'COMPLETED' && p.paidAt &&
         new Date(p.paidAt) >= monthStart && new Date(p.paidAt) <= monthEnd)
       .reduce((sum, p) => sum + p.amount, 0);
+
+    // Sum payment receipts for this month (using createdAt as receipt submission date)
+    const receiptsAmount = paymentReceipts
+      .filter(r => new Date(r.createdAt) >= monthStart && new Date(r.createdAt) <= monthEnd)
+      .reduce((sum, r) => sum + r.amount, 0);
+
+    // Use receipts if available (actual proof), otherwise completed payments
+    const amount = receiptsAmount > 0 ? receiptsAmount : paymentsAmount;
 
     return {
       month: date.toLocaleDateString('en-US', { month: 'short' }),
