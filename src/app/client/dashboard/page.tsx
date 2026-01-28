@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, cn } from "@/lib/utils";
 import {
   Megaphone,
   Clock,
@@ -133,6 +133,36 @@ async function getClientStats(organizationId: string) {
 
     const kolStats = Array.from(kolStatsMap.values());
 
+    // Compute deliverables per KOL
+    const deliverableMap = new Map<string, {
+      name: string;
+      twitterHandle: string;
+      avatarUrl: string | null;
+      requiredPosts: number;
+      deliveredPosts: number;
+    }>();
+    campaigns.forEach((campaign) => {
+      campaign.campaignKols.forEach((ck) => {
+        const kolPosts = campaign.posts.filter(
+          (p) => p.kolId === ck.kol.id && (p.status === "POSTED" || p.status === "VERIFIED")
+        );
+        const existing = deliverableMap.get(ck.kol.id);
+        if (existing) {
+          existing.requiredPosts += ck.requiredPosts || 0;
+          existing.deliveredPosts += kolPosts.length;
+        } else {
+          deliverableMap.set(ck.kol.id, {
+            name: ck.kol.name,
+            twitterHandle: ck.kol.twitterHandle,
+            avatarUrl: ck.kol.avatarUrl,
+            requiredPosts: ck.requiredPosts || 0,
+            deliveredPosts: kolPosts.length,
+          });
+        }
+      });
+    });
+    const deliverables = Array.from(deliverableMap.values());
+
     // Build activity feed from recent posts
     const activities: ActivityItem[] = [];
     campaigns.forEach((campaign) => {
@@ -262,6 +292,7 @@ async function getClientStats(organizationId: string) {
       campaigns,
       engagementRate,
       kolStats,
+      deliverables,
       recentActivities,
       trendData,
       periodChanges,
@@ -282,6 +313,7 @@ async function getClientStats(organizationId: string) {
       campaigns: [],
       engagementRate: "0.00",
       kolStats: [],
+      deliverables: [],
       recentActivities: [],
       trendData: [],
       periodChanges: { impressions: 0, engagement: 0, rate: 0, posts: 0 },
@@ -374,7 +406,12 @@ export default async function ClientDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className={cn(
+            "grid gap-5",
+            stats.campaigns.length === 1 ? "md:grid-cols-1 max-w-xl" :
+            stats.campaigns.length === 2 ? "md:grid-cols-2" :
+            "md:grid-cols-2 lg:grid-cols-3"
+          )}>
             {stats.campaigns.slice(0, 6).map((campaign) => {
               const campaignImpressions = campaign.posts.reduce(
                 (s, p) => s + p.impressions,
@@ -461,11 +498,7 @@ export default async function ClientDashboard() {
         <h2 className="text-lg font-semibold mb-4">Content & KOL Insights</h2>
         <div className="grid gap-6 lg:grid-cols-2">
           <ClientContentPerformance
-            published={stats.postedPosts}
-            approved={stats.approvedPosts}
-            pending={stats.pendingPosts}
-            rejected={stats.rejectedPosts}
-            draft={stats.draftPosts}
+            deliverables={stats.deliverables}
           />
           <ClientKOLLeaderboard kols={stats.kolStats} />
         </div>
