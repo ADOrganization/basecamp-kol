@@ -17,7 +17,6 @@ import {
   Filter,
   Quote,
   Bookmark,
-  Download,
   Calendar,
   Minus,
   ExternalLink,
@@ -296,55 +295,6 @@ export default function ClientAnalyticsPage() {
       return avgB - avgA;
     });
 
-  // CSV Export with new metrics
-  const handleExport = () => {
-    const rows: string[][] = [
-      ["Metric", "Value"],
-      ["Total Impressions", String(totals.impressions)],
-      ["Total Engagement", String(totalEngagement)],
-      ["Engagement Rate", `${engagementRate}%`],
-      ["Total Posts", String(totals.posts)],
-      ["Total KOLs", String(totals.kols)],
-      ["Likes", String(totals.likes)],
-      ["Retweets", String(totals.retweets)],
-      ["Replies", String(totals.replies)],
-      ["Quotes", String(totals.quotes)],
-      ["Bookmarks", String(totals.bookmarks)],
-      ["Avg Impressions/Post", String(avgImpressions)],
-      ["Avg Engagement/Post", String(avgEngagement)],
-      ["Avg Likes/Post", String(avgLikes)],
-      ["Best Post Impressions", String(bestPostImpressions)],
-      ["Deliverables Required", String(totalRequired)],
-      ["Deliverables Delivered", String(totalDelivered)],
-      ["Delivery Rate", `${deliveryPercent}%`],
-      [],
-      ["KOL", "Posts", "Avg Impressions/Post", "Avg Engagement/Post", "Engagement Rate"],
-      ...kolPerformance.map(k => [
-        `@${k.twitterHandle}`,
-        String(k.posts),
-        String(k.posts > 0 ? Math.round(k.impressions / k.posts) : 0),
-        String(k.posts > 0 ? Math.round(k.engagement / k.posts) : 0),
-        k.impressions > 0 ? `${((k.engagement / k.impressions) * 100).toFixed(2)}%` : "0%",
-      ]),
-      [],
-      ["Top Posts - KOL", "Impressions", "Engagement", "Content Preview"],
-      ...topPosts.map(p => [
-        `@${p.kol?.twitterHandle || "unknown"}`,
-        String(p.impressions),
-        String(p.likes + p.retweets + p.replies + (p.quotes || 0)),
-        `"${(p.content || "").slice(0, 80).replace(/"/g, '""')}"`,
-      ]),
-    ];
-
-    const csvContent = rows.map(row => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `analytics-report-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   if (isLoading) {
     return (
@@ -436,10 +386,6 @@ export default function ClientAnalyticsPage() {
           </div>
         </div>
 
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
       </div>
 
       {/* Key Metrics with WoW */}
