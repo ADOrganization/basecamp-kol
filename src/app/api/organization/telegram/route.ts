@@ -37,10 +37,13 @@ export async function GET() {
     if (org.telegramBotToken && !org.telegramWebhookSecret) {
       const webhookSecret = generateWebhookSecret();
       const client = new TelegramClient(org.telegramBotToken);
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+      // IMPORTANT: Always use the production URL for webhook registration
+      const PRODUCTION_URL = "https://admin.basecampnetwork.xyz";
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || PRODUCTION_URL;
 
       if (baseUrl) {
         const webhookUrl = `${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/telegram/webhook`;
+        console.log(`[Telegram] Registering webhook with URL: ${webhookUrl}`);
         await client.setWebhook(webhookUrl, {
           secret_token: webhookSecret,
           allowed_updates: ["message", "my_chat_member", "chat_member"],
@@ -110,10 +113,13 @@ export async function PUT(request: NextRequest) {
 
     // Register webhook with Telegram
     const client = new TelegramClient(validatedData.botToken);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+    // IMPORTANT: Always use the production URL for webhook registration
+    const PRODUCTION_URL = "https://admin.basecampnetwork.xyz";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || PRODUCTION_URL;
 
     if (baseUrl) {
       const webhookUrl = `${baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`}/api/telegram/webhook`;
+      console.log(`[Telegram] Registering webhook with URL: ${webhookUrl}`);
       const webhookResult = await client.setWebhook(webhookUrl, {
         secret_token: webhookSecret,
         allowed_updates: ["message", "my_chat_member", "chat_member"],

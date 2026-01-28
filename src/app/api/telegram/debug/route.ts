@@ -122,16 +122,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the app URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
-    if (!appUrl) {
-      return NextResponse.json(
-        { error: "App URL not configured (NEXT_PUBLIC_APP_URL)" },
-        { status: 500 }
-      );
-    }
+    // Get the app URL - always use production URL for webhook
+    const PRODUCTION_URL = "https://admin.basecampnetwork.xyz";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || PRODUCTION_URL;
 
     const webhookUrl = `${appUrl.startsWith('http') ? appUrl : `https://${appUrl}`}/api/telegram/webhook`;
+    console.log(`[Telegram Debug] Registering webhook with URL: ${webhookUrl}`);
     const webhookSecret = org.telegramWebhookSecret || generateWebhookSecret();
 
     // Register webhook with Telegram
